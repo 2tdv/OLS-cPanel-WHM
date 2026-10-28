@@ -241,7 +241,7 @@ else:
                          ("/var/tmp/ols-cpanel-install.", f"{t}/work/ols-cpanel-install."),
                          ("/usr/bin/dnf --assumeyes", f"sh {t}/bin/dnf --assumeyes"),
                          ("/usr/bin/rpm ", f"sh {t}/bin/rpm "),
-                         ("CLI=/usr/local/ols-cpanel/bin/ols-cpanel", f"CLI={t}/bin/cli"),
+                         ("CLI=/usr/local/ols-cpanel/bin/ols-cpanel", f"CLI={t}/bin/cli"), ("PROFILE=/var/lib/ols-cpanel/profile.json", f"PROFILE={t}/profile.json"),
                          ("STATE_DIR=/var/lib/ols-cpanel", f"STATE_DIR={t}/state"),
                          ('[ -x "$CLI" ]', "true"), ('"$CLI" install', 'sh "$CLI" install'),
                          ("    /usr/bin/curl --proto '=https' --proto-redir '=https' --tlsv1.2 --fail --silent "
@@ -301,6 +301,9 @@ else:
         record_path.unlink()
         (t / "installed").write_text("name-1-1.x86_64\n")
         recorded, _ = run("same build already installed (resume)", 0)
+        (t / "profile.json").write_text("{}")
+        run("same build installed and serving: nothing to do", 0, forbidden=("dnf", "cli"))
+        (t / "profile.json").unlink()
         assert any(c.startswith("dnf --assumeyes") for c in recorded), recorded
         (t / "installed").write_text("name-0.9-1.x86_64\n")
         run("an older build installed: upgraded, the product applies it by itself", 0, forbidden=("cli",))

@@ -766,9 +766,11 @@ $server->redis = false;
 $result = $manager->enable('olscpa', null);
 check(array_unique(array_values($sitesOf($result))) === ['error'] && str_contains($result['wordpress'][0]['error'], 'redis extension is not loaded'), 'a missing redis extension is a retried site error');
 $server->redis = true;
-$clock->t += ObjectCacheManager::RECHECK_ERROR;
+// Checked again at the next pass (a minute), not after the five-minute error back-off.
+$clock->t += ObjectCacheManager::EXTENSION_RECHECK;
 $manager->reconcile();
-check(ObjectCacheState::load("$dir/objcache.json")->wordpress['olscpa']['/home/olscpa/blog']['state'] === 'automatic', 'configured once the extension is there');
+check(ObjectCacheState::load("$dir/objcache.json")->wordpress['olscpa']['/home/olscpa/blog']['state'] === 'automatic',
+    'configured at the next pass once the extension is there (no five-minute back-off)');
 
 // Suspension turns the product's sites off, unsuspension sets them up again; disable by reconcile does too.
 [$server, $manager, $dir] = $wpSetup('wp-suspend');

@@ -26,6 +26,8 @@ LC_ALL=C
 export PATH LC_ALL
 umask 077
 CLI=/usr/local/ols-cpanel/bin/ols-cpanel
+# Written by the cutover: this server is served by OpenLiteSpeed.
+PROFILE=/var/lib/ols-cpanel/profile.json
 # The product's state directory (created by `install --prepare`); the verified-release record goes there.
 STATE_DIR=/var/lib/ols-cpanel
 MANIFEST_FORMAT="ols-cpanel-release-manifest 1"
@@ -248,13 +250,14 @@ log "all $(wc -l < "$WORK/artifacts") packages verified against the signed manif
 # installed build is upgraded to the verified one (the product then applies its own upgrade by itself after the
 # package transaction); a newer installed build is never downgraded.
 UPGRADE=0
+SAME=0
 EVR_FORMAT='%{EPOCHNUM}:%{VERSION}-%{RELEASE}'
 for package in "$WORK"/verified/*.rpm; do
     name=$(/usr/bin/rpm -qp --queryformat '%{NAME}' "$package" 2>/dev/null) || die 65 "cannot read $package"
     wanted=$(/usr/bin/rpm -qp --queryformat '%{NEVRA}' "$package" 2>/dev/null) || die 65 "cannot read $package"
     if /usr/bin/rpm -q --quiet "$name"; then
         present=$(/usr/bin/rpm -q --queryformat '%{NEVRA}\n' "$name")
-        [ "$present" = "$wanted" ] && continue
+        [ "$present" = "$wanted" ] && { SAME=$((SAME + 1)); continue; }
         present_evr=$(/usr/bin/rpm -q --queryformat "$EVR_FORMAT" "$name")
         wanted_evr=$(/usr/bin/rpm -qp --queryformat "$EVR_FORMAT" "$package" 2>/dev/null) || die 65 "cannot read $package"
         # Both come from rpm itself; checked before they reach rpm's version comparison.
@@ -266,6 +269,11 @@ for package in "$WORK"/verified/*.rpm; do
         UPGRADE=1
     fi
 done
+# Exactly this release is already installed and serving (the owner ran the command again): nothing to do.
+if [ "$SAME" = "$(wc -l < "$WORK/artifacts")" ] && [ -f "$PROFILE" ]; then
+    done_ok "OLS-cPanel $RELEASE_VERSION is already installed and serving your sites; nothing was changed."
+    exit 0
+fi
 step "Installing the packages: OpenLiteSpeed, the PHP redis extension, the Valkey object cache engine, OLS-cPanel"
 # The release key goes into the rpm database too: release.py signs the packages with it, so rpm and dnf can check their
 # signatures and the WHM Updates view shows them as signed. Importing a key that is already there changes nothing. When every

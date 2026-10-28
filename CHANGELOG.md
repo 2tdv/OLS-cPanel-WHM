@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.4
+
+- Installer: running the install command again for the release that is already installed and serving says so and
+  changes nothing.
+- Object cache: right after an installation, WordPress sites are connected within about a minute (they waited five).
+
 ## 0.2.3
 
 - Updates from WHM: the Updates page finds a new release on GitHub, and **Update now** installs it after verifying

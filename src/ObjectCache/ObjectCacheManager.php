@@ -64,6 +64,9 @@ final class ObjectCacheManager
     public const RECHECK_OK = 900;
     /** A site with an error is tried again after this many seconds, doubled for every failed attempt up to RECHECK_MAX. */
     public const RECHECK_ERROR = 300;
+    /** A site waiting for the redis extension is checked again after a minute, for the first passes; then the back-off applies. */
+    public const EXTENSION_RECHECK = 50;
+    public const EXTENSION_WAIT_PASSES = 10;
     /** Longest wait between wp-cli attempts on a site (error backoff, and a site whose LiteSpeed Cache plugin is inactive). */
     public const RECHECK_MAX = 86400;
     /** The drop-in LiteSpeed Cache installs for its object cache, and the runtime configuration it reads. */
@@ -1044,6 +1047,12 @@ final class ObjectCacheManager
     /** Seconds until a site record is due again: errors back off exponentially, an inactive plugin waits for RECHECK_MAX. */
     private static function recheckAfter(array $old): int
     {
+        // The PHP environment pass activates the redis extension within seconds of an installation: that wait is checked again
+        // at the next pass, not after the error back-off (fresh install 2026-10-28: the site waited five minutes for nothing).
+        if ($old['state'] === 'error' && str_starts_with((string) ($old['error'] ?? ''), 'the redis extension is not loaded in')
+            && str_contains((string) $old['error'], 'yet;') && ($old['attempts'] ?? 1) <= self::EXTENSION_WAIT_PASSES) {
+            return self::EXTENSION_RECHECK;
+        }
         return match ($old['state']) {
             'error' => min(self::RECHECK_MAX, self::RECHECK_ERROR * (2 ** min(10, max(0, ($old['attempts'] ?? 1) - 1)))),
             default => self::RECHECK_OK,
