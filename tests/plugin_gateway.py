@@ -293,7 +293,7 @@ with tempfile.TemporaryDirectory() as temp:
         refused(post("ols.cache_purge", {"scope": scope, "digest": DIGEST}), 400, "BAD_BODY")
     for action, scope in [("ols.php_restart", "server"), ("ols.php_restart", "account:olscpa"), ("ols.opcache_install", "server"),
                           ("ols.opcache_install", "version:ea-php83"), ("ols.opcache_install", "version:ea-php100"),
-                          ("ols.php_env_repair", "server")]:
+                          ("ols.php_env_repair", "server"), ("ols.update", "server")]:
         status, _, body, calls = post(action, {"scope": scope, "digest": DIGEST})
         assert status == 202 and body["result"] == {"job": JOB}, (action, scope, status, body)
         assert calls[0]["args"] == {"principal": "root", "action": action, "scope": scope, "digest": DIGEST}, calls
@@ -303,7 +303,8 @@ with tempfile.TemporaryDirectory() as temp:
                           ("ols.opcache_install", "version:alt-php81"), ("ols.opcache_install", "version:ea-php83 --all"),
                           ("ols.opcache_install", "version:ea-php83\n"), ("ols.opcache_install", "all"),
                           ("ols.php_env_repair", "version:ea-php83"), ("ols.php_env_repair", "account:olscpa"), ("ols.php_env_repair", "all"),
-                          ("ols.php_env_repair", PLAN)]:
+                          ("ols.php_env_repair", PLAN), ("ols.update", "all"), ("ols.update", "0.2.3"), ("ols.update", "version:0.2.3"),
+                          ("ols.update", PLAN)]:
         refused(post(action, {"scope": scope, "digest": DIGEST}), 400, "BAD_BODY")
     refused(post("ols.sync", {"scope": "account:olscpa", "digest": DIGEST}), 400, "BAD_BODY")
     # The cleanup limits of the page cache: read with GET (no argument), changed with a strict body (no job, no digest).

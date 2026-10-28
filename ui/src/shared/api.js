@@ -21,6 +21,7 @@ export const ACTIONS = Object.freeze({
   phpEnvRepair: 'ols.php_env_repair',
   supportBundle: 'ols.support_bundle',
   supportBundleRaw: 'ols.support_bundle_raw',
+  update: 'ols.update',
 })
 
 // Mutations of the cPanel gateway: synchronous, no job (plugins/cpanel/index.live.php).

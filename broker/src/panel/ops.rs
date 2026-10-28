@@ -339,7 +339,8 @@ struct UpdateArgs {
     refresh: Option<bool>,
 }
 
-/// `admin.update {refresh?}`: installed and available versions and the package signature state (read-only).
+/// `admin.update {refresh?}`: the installed version against the latest GitHub release, the package signature and verified-release
+/// state (read-only; the update itself is the job `ols.update`).
 pub fn update(config: &Config, args: Value) -> Reply {
     let a: UpdateArgs = super::cache::parse(args)?;
     let mut argv = vec!["update", "check", "--format=json"];

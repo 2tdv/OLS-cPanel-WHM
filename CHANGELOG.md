@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.3
+
+- Updates from WHM: the Updates page finds a new release on GitHub, and **Update now** installs it after verifying
+  it with the project's signing key; sites keep being served and the product applies the update by itself.
+- Release packages are signed (rpm signatures), and the installer adds the project key to the system.
+- Uninstalling also removes the project key and the installer's report.
+
 ## 0.2.2
 
 - Object cache works out of the box: every account with WordPress and LiteSpeed Cache automatically gets its own

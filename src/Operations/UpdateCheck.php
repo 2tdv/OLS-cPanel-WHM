@@ -7,22 +7,27 @@ use OlsCpanel\Deployment\Host;
 use OlsCpanel\Deployment\Upgrade;
 
 /**
- * The update channel view (FV-07): installed versus available versions of the product packages and the rpm signature state of the
- * installed ones. Read-only: `dnf -q check-update` and `rpm -q` queries; nothing is installed. The update itself stays with dnf
- * and cPanel's own update schedule; the product applies it by itself afterwards (Upgrade::pending). The result is kept in
- * `<state>/update-check.json` for CACHE_SECONDS so that opening the page does not run the package manager every time.
+ * The update channel view (FV-07): the installed product version against the latest GitHub release of the project
+ * (ReleaseChannel), and per installed package its rpm signature state and whether it is exactly a package of the release whose
+ * signed manifest install.sh verified. Read-only: one HTTPS request to the GitHub releases API and `rpm -q` queries; nothing is
+ * installed here (the WHM "Update now" button runs `update install` as a job, ReleaseUpdate). The product has no package
+ * repository, so `dnf check-update` could never see a release and is not asked. The result is kept in `<state>/update-check.json`
+ * for CACHE_SECONDS so that opening the page does not ask GitHub every time (unauthenticated API calls are rate limited per
+ * address); a result with an error only for ERROR_CACHE_SECONDS, so an outage neither hides a release for long nor makes every
+ * page view wait for the timeout. GitHub being unreachable never fails the view: it is reported as `error`.
  *
  * Signature state of an installed package, from its rpm header: `signed` (a key id is present and that key is imported into the rpm
- * database), `signed-key-missing` (signed, but the key is not imported on this server) or `unsigned` (no signature: a lab or local
- * build). A release manifest signature is not part of the product's channel; the rpm signature is the integrity statement.
+ * database), `signed-key-missing` (signed, but the key is not imported on this server) or `unsigned` (no rpm signature). Independently,
+ * `release_verified` says the installed build is exactly one of the packages listed in the signed release manifest that install.sh
+ * verified before installing it (the record ReleaseChannel::RECORD it writes after a verified install or upgrade); a lab or local
+ * build is neither.
  */
 final class UpdateCheck
 {
     public const FILE = 'update-check.json';
     public const CACHE_SECONDS = 900;
-    public const DNF = '/usr/bin/dnf';
+    public const ERROR_CACHE_SECONDS = 60;
     public const RPM = '/usr/bin/rpm';
-    private const VERSION = '/^[A-Za-z0-9._+~^-]+$/D';
 
     /** @var \Closure():int */
     private \Closure $clock;
@@ -38,37 +43,40 @@ final class UpdateCheck
     {
         $now = ($this->clock)();
         $cached = StateFile::read($this->state . '/' . self::FILE);
-        if (!$refresh && is_array($cached) && is_int($cached['checked_at'] ?? null) && $cached['checked_at'] > $now - self::CACHE_SECONDS
-            && $cached['checked_at'] <= $now) {
+        if (!$refresh && is_array($cached) && is_int($cached['checked_at'] ?? null) && $cached['checked_at'] <= $now
+            && $cached['checked_at'] > $now - (($cached['error'] ?? null) === null ? self::CACHE_SECONDS : self::ERROR_CACHE_SECONDS)) {
             return $cached + ['cached' => true];
         }
         $installed = Upgrade::installed($this->host);
-        $available = [];
+        $current = ReleaseChannel::installedVersion($this->host);
+        $latest = null;
         $error = null;
-        $check = $this->host->run('update-check', [self::DNF, '-q', 'check-update', '--refresh', ...Upgrade::PACKAGES], 60);
-        if ($check['exit_code'] === 100) {
-            foreach (explode("\n", $check['stdout']) as $line) {
-                if (preg_match('/^(ols-cpanel(?:-openlitespeed)?)\.([A-Za-z0-9_]+)\s+(\S+)\s+\S+/', $line, $m) === 1
-                    && in_array($m[1], Upgrade::PACKAGES, true) && preg_match(self::VERSION, $m[3]) === 1) {
-                    $available[$m[1]] = $m[3] . '.' . $m[2];
-                }
-            }
-        } elseif ($check['exit_code'] !== 0) {
-            $error = 'the package repositories could not be queried: ' . StateFile::clean(Host::tail(($check['stderr'] ?? '') . $check['stdout']), 200);
+        try {
+            $latest = ReleaseChannel::latest($this->host);
+        } catch (\RuntimeException $failure) {
+            $error = StateFile::clean($failure->getMessage(), 240);
         }
+        if ($current === null && $error === null) {
+            $error = 'the installed OLS-cPanel version could not be read';
+        }
+        $newer = $latest !== null && $current !== null && ReleaseChannel::compare($latest['version'], $current) > 0;
+        $record = ReleaseChannel::record($this->state);
         $packages = [];
         foreach (Upgrade::PACKAGES as $package) {
-            $packages[] = ['package' => $package, 'installed' => $installed[$package] ?? null, 'available' => $available[$package] ?? null,
-                'update_available' => isset($available[$package]), 'signature' => isset($installed[$package]) ? $this->signature($package) : null];
+            $version = $installed[$package] ?? null;
+            $packages[] = ['package' => $package, 'installed' => $version,
+                'signature' => $version !== null ? $this->signature($package) : null,
+                'release_verified' => $version !== null && $record !== null && in_array("$package-$version", $record['packages'], true)];
         }
-        $report = ['checked_at' => $now, 'error' => $error, 'update_available' => $available !== [], 'packages' => $packages,
-            'cpanel_version' => $this->cpanelVersion()];
-        if ($error === null) {
-            try {
-                StateFile::write($this->state . '/' . self::FILE, $report);
-            } catch (\RuntimeException) {
-                // A cache that cannot be written only costs the next view a query.
-            }
+        $report = ['checked_at' => $now, 'error' => $error, 'repository' => ReleaseChannel::REPOSITORY, 'installed_version' => $current,
+            'latest_release' => $latest, 'available_release' => $newer ? $latest : null, 'update_available' => $newer,
+            'verified_release' => $record === null ? null : ['version' => $record['version'], 'platform' => $record['platform'],
+                'manifest_sha256' => $record['manifest_sha256'], 'installed_at' => $record['installed_at']],
+            'packages' => $packages, 'cpanel_version' => $this->cpanelVersion()];
+        try {
+            StateFile::write($this->state . '/' . self::FILE, $report);
+        } catch (\RuntimeException) {
+            // A cache that cannot be written only costs the next view a query.
         }
         return $report + ['cached' => false];
     }
@@ -79,7 +87,7 @@ final class UpdateCheck
         $query = $this->host->run("signature-$package", [self::RPM, '-q', '--qf', '%{RSAHEADER:pgpsig}|%{SIGPGP:pgpsig}', $package]);
         $text = trim($query['stdout']);
         if ($query['exit_code'] !== 0 || preg_match('/Key ID ([0-9a-f]{16})/i', $text, $m) !== 1) {
-            return ['state' => 'unsigned', 'key_id' => null, 'detail' => 'No rpm signature (lab or local build).'];
+            return ['state' => 'unsigned', 'key_id' => null, 'detail' => 'No rpm signature.'];
         }
         $keyId = strtolower($m[1]);
         $known = $this->host->run("signature-key-$package", [self::RPM, '-q', 'gpg-pubkey-' . substr($keyId, 8)])['exit_code'] === 0;

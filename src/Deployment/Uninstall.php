@@ -193,6 +193,13 @@ final class Uninstall
         if (!$dryRun) {
             // recover.sh's lock file under /run (it would otherwise stay until a reboot).
             $this->env->host->run('recover-lock-remove', ['/usr/bin/rm', '-f', '--', RecoveryScript::LOCK]);
+            // The release key the installer imported into the rpm database (gpg-pubkey-<last 8 hex of the fingerprint>).
+            $fingerprint = @file_get_contents(\OlsCpanel\Operations\ReleaseChannel::FINGERPRINT);
+            if (is_string($fingerprint) && preg_match('/^[0-9A-F]{40}$/D', trim($fingerprint)) === 1) {
+                $this->env->host->run('release-key-remove', ['/usr/bin/rpm', '-e', '--allmatches', 'gpg-pubkey-' . strtolower(substr(trim($fingerprint), -8))]);
+            }
+            // The preparation report the installer keeps for support.
+            $this->env->host->run('prepare-report-remove', ['/usr/bin/rm', '-f', '--', '/root/ols-cpanel-prepare.json']);
         }
         $next = $this->packages($dryRun, $keepPackages, $actions);
         return ['result' => $dryRun ? 'dry_run' : 'uninstalled', 'actions' => $actions, 'kept' => [$this->env->backupsDir()], 'next' => $next];

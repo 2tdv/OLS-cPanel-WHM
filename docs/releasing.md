@@ -42,6 +42,16 @@ independently of GitHub. Upload it once (and again after extending its expiry):
 
    It refuses a version the product package does not carry, a missing package, a signing key other than the
    committed one and an existing output directory. Output: `artifacts/release/<version>/`.
+
+   The packages are rpm-signed with the same key before the manifests are written (the manifests list the digests of
+   the signed packages). `rpmsign` runs in the pinned builder image with rootless podman, which installs `rpm-sign`
+   from the AlmaLinux repositories on each run (network needed for that step); the key directory is mounted
+   read-only, and the container checks every signature with `rpmkeys --checksig` against the public key. Offline:
+   prepare once an image that already has `rpm-sign` (the builder image after `dnf install rpm-sign`, saved with
+   `podman commit`) and pass `--rpm-signer-image <image>`. `--no-rpm-signing` publishes the packages unsigned; the
+   installer still verifies them through the signed manifest, and WHM shows them as a verified release.
+   Servers find the new release through the GitHub API (`releases/latest`), so publish it as a full release (not a
+   draft or pre-release); WHM's Updates view then offers **Update now**.
 3. Create the GitHub release with tag `<version>`, attach every file of that directory except
    `RELEASE-NOTES.md`, and paste `RELEASE-NOTES.md` as the release description (it holds the one-command
    install line with the installer's SHA-256 and the key fingerprint).

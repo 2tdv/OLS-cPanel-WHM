@@ -26,6 +26,8 @@ LC_ALL=C
 export PATH LC_ALL
 umask 077
 CLI=/usr/local/ols-cpanel/bin/ols-cpanel
+# The product's state directory (created by `install --prepare`); the verified-release record goes there.
+STATE_DIR=/var/lib/ols-cpanel
 MANIFEST_FORMAT="ols-cpanel-release-manifest 1"
 MAX_DOWNLOAD=1073741824
 WORK=""
@@ -72,6 +74,25 @@ step() {
 }
 done_ok() {
     if [ -t 2 ]; then printf '\033[1;32m    ✓ %s\033[0m\n' "$*" >&2; else printf '    ✓ %s\n' "$*" >&2; fi
+}
+
+# Which verified release is installed (read by the WHM Updates view, Operations\ReleaseChannel::record): the version, the
+# platform row, the SHA-256 of the signed manifest and every package it listed. Written only after a successful install or
+# upgrade, root-only (umask 077) and replaced atomically; skipped while the state directory does not exist yet.
+record_release() {
+    [ -d "$STATE_DIR" ] && [ ! -L "$STATE_DIR" ] || return 0
+    manifest_digest=$(/usr/bin/sha256sum "$MANIFEST" | awk '{print $1}')
+    # The names passed the manifest grammar ([A-Za-z0-9._+-] only), so they need no JSON escaping.
+    package_list=$(sed 's/\.rpm$//; s/.*/"&"/' "$WORK/artifacts" | paste -sd, -)
+    record_tmp=$(/usr/bin/mktemp "$STATE_DIR/.installed-release.XXXXXXXXXX") || return 0
+    if printf '{"version": "%s", "platform": "%s", "manifest_sha256": "%s", "packages": [%s], "installed_at": %s}\n' \
+        "$RELEASE_VERSION" "$PLATFORM" "$manifest_digest" "$package_list" "$(date +%s)" > "$record_tmp" \
+        && chmod 0600 "$record_tmp" && mv -f -- "$record_tmp" "$STATE_DIR/installed-release.json"; then
+        :
+    else
+        rm -f -- "$record_tmp"
+        log "warning: the verified-release record could not be written"
+    fi
 }
 
 cleanup() {
@@ -246,13 +267,30 @@ for package in "$WORK"/verified/*.rpm; do
     fi
 done
 step "Installing the packages: OpenLiteSpeed, the PHP redis extension, the Valkey object cache engine, OLS-cPanel"
-log "installing the verified packages (files only; no service is started)"
-/usr/bin/dnf --assumeyes --setopt=install_weak_deps=False install "$WORK"/verified/*.rpm \
+# The release key goes into the rpm database too: release.py signs the packages with it, so rpm and dnf can check their
+# signatures and the WHM Updates view shows them as signed. Importing a key that is already there changes nothing. When every
+# package carries an rpm signature and the key is imported, dnf checks the signatures of these local packages as well
+# (localpkg_gpgcheck); packages of a release built without rpm signatures still install, authenticated by the signed manifest.
+release_key > "$WORK/release-key.asc"
+GPGCHECK=False
+if /usr/bin/rpm --import "$WORK/release-key.asc" 2>/dev/null; then
+    GPGCHECK=True
+    for package in "$WORK"/verified/*.rpm; do
+        case "$(/usr/bin/rpm -qp --queryformat '%{RSAHEADER:pgpsig}%{SIGPGP:pgpsig}' "$package" 2>/dev/null)" in
+            ""|"(none)(none)") GPGCHECK=False ;;
+        esac
+    done
+else
+    log "warning: the release key could not be imported into the rpm database; the packages are installed as verified by the manifest"
+fi
+log "installing the verified packages (files only; no service is started; rpm signature check: $GPGCHECK)"
+/usr/bin/dnf --assumeyes --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=$GPGCHECK install "$WORK"/verified/*.rpm \
     || die 70 "package installation failed; Apache is unaffected. Re-run the same command to retry"
 [ -x "$CLI" ] || die 70 "$CLI is missing after installation"
 done_ok "packages installed (nothing is started yet; Apache keeps serving)"
 
 if [ "$UPGRADE" = 1 ]; then
+    record_release
     cat <<EOF
 
 Upgraded to OLS-cPanel ${RELEASE_VERSION}. The product applies the upgrade by itself within a minute (services,
@@ -269,6 +307,7 @@ PREPARED=$("$CLI" install --prepare --format=json) || {
 }
 # The full report stays available for support; the screen gets a short summary.
 printf '%s\n' "$PREPARED" > /root/ols-cpanel-prepare.json 2>/dev/null && chmod 0600 /root/ols-cpanel-prepare.json 2>/dev/null || :
+record_release
 # The plan id the cutover approves (grammar of Deployment\CutoverPlan).
 PLAN=$(printf '%s\n' "$PREPARED" | sed -n 's/^ *"plan": "\(p[0-9]\{14\}-[0-9a-f]\{6\}\)",\{0,1\}$/\1/p' | head -n 1)
 [ -n "$PLAN" ] || die 70 "the preparation did not report a plan id; Apache keeps serving"

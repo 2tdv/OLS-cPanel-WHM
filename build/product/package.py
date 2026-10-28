@@ -15,6 +15,8 @@ Payload layout:
   /usr/local/ols-cpanel/libexec/                 ols-cpanel.php (repository bin/ols-cpanel), broker, activator
   /usr/local/ols-cpanel/share/ui/                the verified interface build, with its SHA256SUMS
   /usr/local/ols-cpanel/share/ols/               the OLS server policy template of the compiler
+  /usr/local/ols-cpanel/share/release-key.asc    the release public key and its fingerprint (build/release/): the key
+  /usr/local/ols-cpanel/share/release-key.fingerprint   `update install` verifies a new release's install.sh against
   /usr/local/ols-cpanel/libexec/ols-cpanel-hook  cPanel hook entry (runs `ols-cpanel hook`)
   /usr/local/ols-cpanel/plugins/{whm,cpanel}/    deployable plugin trees (entry point, lib/, assets/,
                                                  manifest.json, registration files); deployed by the CLI
@@ -58,7 +60,8 @@ RELEASE_INPUTS = ["src", "bin/ols-cpanel", "plugins/whm", "plugins/cpanel", *BRO
                   "build/product/ols-cpanel-php.timer",
                   "build/product/ols-cpanel-hybrid-trust.service", "build/product/ols-cpanel-hybrid-trust.timer",
                   "build/product/ols-cpanel-upgrade.service",
-                  "build/product/ols-cpanel.sysusers"]
+                  "build/product/ols-cpanel.sysusers",
+                  "build/release/ols-cpanel-release-key.asc", "build/release/ols-cpanel-release-key.fingerprint"]
 UNITS = ["ols-cpanel-broker.service", "ols-cpanel-reconciler.service", "ols-cpanel-objcache@.service",
          "ols-cpanel-objcache.service", "ols-cpanel-objcache.timer", "ols-cpanel-cache-clean.service",
          "ols-cpanel-cache-clean.timer", "ols-cpanel-notify.service", "ols-cpanel-notify.timer",
@@ -222,6 +225,10 @@ def assemble(payload, root=ROOT):
     place(root / "build/product/ols-cpanel-hook", prefix / "libexec/ols-cpanel-hook", 0o755)
     # The OLS server policy template the compiler starts from (Deployment\BuilderCompilation::TEMPLATE).
     place(root / "build/vm-qualification/ols-lab/ownership_httpd_config.conf", prefix / "share/ols/httpd_config.conf", 0o644)
+    # The release public key (Operations\ReleaseChannel::KEY/FINGERPRINT): updates from WHM trust only this key, never one
+    # obtained from the network.
+    place(root / "build/release/ols-cpanel-release-key.asc", prefix / "share/release-key.asc", 0o644)
+    place(root / "build/release/ols-cpanel-release-key.fingerprint", prefix / "share/release-key.fingerprint", 0o644)
     place(root / "artifacts/broker/ols-cpanel-broker", prefix / "libexec/ols-cpanel-broker", 0o755)
     if activator:
         place(root / "artifacts/broker/ols-cpanel-activator", prefix / "libexec/ols-cpanel-activator", 0o755)

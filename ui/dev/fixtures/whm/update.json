@@ -6,14 +6,19 @@
     "command": "update check",
     "checked_at": 1792629500,
     "error": null,
+    "repository": "2tdv/OLS-cPanel-WHM",
+    "installed_version": "0.9.4",
+    "latest_release": { "version": "0.9.5", "url": "https://github.com/2tdv/OLS-cPanel-WHM/releases/tag/0.9.5" },
+    "available_release": { "version": "0.9.5", "url": "https://github.com/2tdv/OLS-cPanel-WHM/releases/tag/0.9.5" },
     "update_available": true,
+    "verified_release": { "version": "0.9.4", "platform": "el9.x86_64", "manifest_sha256": "3f1c5e0a9b7d2c4e6f8a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e", "installed_at": 1792000000 },
     "cpanel_version": "11.134.0.20",
     "cached": false,
     "packages": [
-      { "package": "ols-cpanel", "installed": "0.9.4-1.el9.x86_64", "available": "0.9.5-1.el9.x86_64", "update_available": true,
-        "signature": { "state": "unsigned", "key_id": null, "detail": "No rpm signature (lab or local build)." } },
-      { "package": "ols-cpanel-openlitespeed", "installed": "1.8.5-1.el9.x86_64", "available": null, "update_available": false,
-        "signature": { "state": "unsigned", "key_id": null, "detail": "No rpm signature (lab or local build)." } }
+      { "package": "ols-cpanel", "installed": "0.9.4-1.el9.x86_64", "release_verified": true,
+        "signature": { "state": "unsigned", "key_id": null, "detail": "No rpm signature." } },
+      { "package": "ols-cpanel-openlitespeed", "installed": "1.8.5-1.el9.x86_64", "release_verified": false,
+        "signature": { "state": "unsigned", "key_id": null, "detail": "No rpm signature." } }
     ]
   }
 }

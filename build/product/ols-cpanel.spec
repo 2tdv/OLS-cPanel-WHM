@@ -63,6 +63,9 @@ cp -a payload/. %{buildroot}/
 %dir %attr(0755,root,root) %{prefix_dir}/share
 %{prefix_dir}/share/ui
 %{prefix_dir}/share/ols
+# The release public key and its fingerprint: `ols-cpanel update install` (the WHM "Update now" button) trusts only this key.
+%attr(0644,root,root) %{prefix_dir}/share/release-key.asc
+%attr(0644,root,root) %{prefix_dir}/share/release-key.fingerprint
 %{prefix_dir}/plugins
 %attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-broker.service
 %attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-reconciler.service

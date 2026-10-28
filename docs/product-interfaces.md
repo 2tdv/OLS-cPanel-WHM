@@ -25,7 +25,8 @@ State directory:
 | `notify.json` | root 0600 | Notification settings (FV-07): `{"emails": [..], "webhook": "https://..." \| null, "events": [..], "enabled_since", "updated_at"}`. Written by the broker's `admin.notify_set` (the webhook URL may hold a secret and is never an argument, never shown again, never audited or logged). Absent or without a channel = notifications off. |
 | `notify-ledger.json`, `notify.lock` | root 0600 | What `notify run` sent: key => time (de-duplication), the times of the last 24 hours (the daily limit), observed sets, the channels already delivered and the attempts per key and channel (only a failed channel is retried), the last ten messages and the last delivery error. |
 | `schedule.json`, `schedule.lock`, `schedule-run.lock` | root 0600 | Maintenance windows (FV-07): `{"entries": [{id, action, scope, digest, at, window_minutes, state, claimed, created, updated, job, note}]}`. Every read-modify-write holds `schedule.lock` (5 s wait); a pass claims an entry (`claimed`) before its broker calls, so a cancel then is refused as already started; `schedule-run.lock` keeps passes from overlapping. |
-| `update-check.json` | root 0600 | The last update check (15-minute cache). |
+| `update-check.json` | root 0600 | The last update check (15-minute cache; a result with an error one minute). Removed by `update install`. |
+| `installed-release.json` | root 0600 | Written by `install.sh` after a verified install or upgrade: `{"version", "platform", "manifest_sha256", "packages": [name-version-release.arch, ..], "installed_at"}` (the signed manifest's digest and every package it listed). Read by `update check` (`release_verified`). |
 | `support/`, `support-salt` | root 0700, files 0600 | Support bundles `bundle-<10-digit time>-<8 hex>.tar.gz` (the last three are kept) and the per-server salt of the anonymizing placeholders. |
 | `staging/` | root 0700 | Trees the broker writes for `engine.apply` before `activator stage`. |
 | `events/`, `events/done/`, `events/quarantine/` | root 0700 | Hook spool (one JSON file per event). Read and consumed only through the broker; malformed entries are moved to `quarantine/`. |
@@ -134,6 +135,14 @@ returns `{"job": id}`; `job.status {"job": id}` returns `{"state": "running" | "
 | `ols.php_env_repair` | `ols-cpanel php env repair --format=json`; scope `server` ("PHP environment") |
 | `ols.support_bundle` | `ols-cpanel support bundle --format=json`; scope `server` ("Operations", anonymized) |
 | `ols.support_bundle_raw` | `ols-cpanel support bundle --no-anonymize --format=json`; scope `server` ("Operations", names and addresses kept) |
+| `ols.update` | `ols-cpanel update install --latest --format=json`; scope `server`; a transient unit like `ols.plan` ("Operations", Updates) |
+
+`ols.plan`, `ols.plan_hybrid` and `ols.update` run as the root transient unit `ols-cpanel-job-<id>.service` (systemd-run through
+PID 1, outside the broker's mount namespace and cgroup). A broker restart ends only the systemd-run client; the unit keeps running and
+writing to the job's files. The restarted broker watches such a job through `systemctl is-active` until the unit ends and records its
+outcome from the `code` of the command's JSON report (every CLI failure report carries it; `update install` reports `"code": 0` on
+success); without a report it is failed with an unknown exit status. This is what lets `ols.update` survive the broker restart of the
+upgrade it installs.
 
 ## Command-line interface (`ols-cpanel`, root unless noted)
 
@@ -164,7 +173,8 @@ commands add `"command"` and their details). `hook` is the one exception: it alw
 | `php env status`, `php env sync`, `php env repair` | The PHP environment applier (root), see "PHP environment (EasyApache compatibility, FV-10)". `sync` is what `ols-cpanel-php.service` runs; `repair` (job `ols.php_env_repair`, the WHM button) ignores the back-off. |
 | `notify show`, `notify set [--emails=a@x,b@y\|none] [--webhook=https://...\|none] [--events=a,b\|none]`, `notify test`, `notify run` | Notifications (FV-07, root; "Operations"). `run` is what `ols-cpanel-notify.timer` starts every five minutes; `set` is the command-line form of the WHM Notifications form (the WHM form is written by the broker so the webhook URL never appears in a process list). |
 | `schedule list`, `schedule add --action=ols.cutover\|ols.apache_return --scope=<plan id>\|server --digest=<sha256> --at=<unix time> [--window=<minutes>]`, `schedule cancel --id=<id>`, `schedule run` | Maintenance windows (FV-07, root). `run` is what `ols-cpanel-schedule.timer` starts every minute. |
-| `update check [--refresh]` | Installed versus available versions of the product packages and their rpm signature state (root, read-only; "Operations"). |
+| `update check [--refresh]` | The installed version against the latest GitHub release, and per installed package its rpm signature state and whether it is a verified release build (root, read-only; "Operations"). |
+| `update install --version=<v> \| --latest` | Installs a newer release from GitHub after verifying its `install.sh` against the release key shipped in the package (root; job `ols.update`; "Operations"). |
 | `support bundle [--no-anonymize]`, `support list` | The redacted support bundle (root; "Operations"). |
 | `cache stats [--account=U] [--domain=D]` | LSCache entries and bytes per store (root; "LSCache management"). |
 | `cache purge (--all \| --account=U \| --domain=D)` | Deletes the entries of the selected stores and records the purge time of every store emptied completely (root); exit 1 with `result` `partial` or `failed` when a removal failed. `--account` may accompany `--domain` as an ownership check. |
@@ -720,7 +730,7 @@ log with `ModSecurityAuditLog` and prints `{log, available, limit, records, skip
 | `admin.schedule` | none | `ols-cpanel schedule list --format=json`: the scheduled jobs (never their digest). |
 | `admin.schedule_add` | `{"action": "ols.cutover"\|"ols.apache_return", "scope": plan id \| "server", "digest", "at": unix time, "window": 15..720 minutes}` | Stores a maintenance window. The digest must be the plan's (switch) or the server status' (return) right now, as for `cap.issue` (`STALE`, `NOT_FOUND`); `ols.cutover` is stored with the approved plan id and digest. Audited (`schedule_add`). |
 | `admin.schedule_cancel` | `{"id"}` | Cancels a job that is still `scheduled`; audited (`schedule_cancel`). |
-| `admin.update` | `{"refresh": bool}` (optional) | `ols-cpanel update check [--refresh] --format=json`: installed and available versions, rpm signature state (15-minute cache; 38 s limit). |
+| `admin.update` | `{"refresh": bool}` (optional) | `ols-cpanel update check [--refresh] --format=json`: installed version, latest and available release, rpm signature and verified-release state (15-minute cache; 38 s limit). |
 | `admin.bundle` | none | The support bundles that exist, newest first: `{"bundles": [{name, size, created}], "limit_bytes", "keep"}`. A bundle is made by the job `ols.support_bundle` or `ols.support_bundle_raw`. |
 | `php.status` | none | `ols-cpanel php status --format=json` as `{observed_at, source, exit_code, output}`: OPcache per version, the lsphp process summary per account and the limits in force ("PHP manager"). Synchronous, 30 s limit. |
 | `admin.requests` | none | `{"observed_at", "open", "total", "requests": [{id, user, subject, text, created_at, status: "open"\|"done", done_at}]}`: the requests accounts sent to the administrator, newest first (at most 200) ("Account tools"). Admin socket only. |
@@ -785,7 +795,7 @@ operation's schema; `POST ?action=<name>` with a JSON body `{"scope", "digest"}`
 session token in the URL is the CSRF boundary; the gateway also requires the header
 `X-OLS-cPanel-Request: 1`). `?api=cache` takes the optional `account` (`^[a-z0-9][a-z0-9_-]{0,31}$`) and `domain` (a lower-case
 domain name) and calls `cache.stats`; `POST ?action=ols.cache_purge` takes the scope `server`, `account:<user>` or
-`domain:<domain>` (the same grammar) with the status digest, like every server-scoped action; `?api=cache_limits` takes no argument and calls `admin.cache_limits`, and `POST ?action=cache_limits` (header required, no digest: a settings change, not a job) takes a JSON object of at least one of `per_site_mb`, `server_percent`, `server_max_gb` as whole numbers inside their bounds and relays `admin.cache_limits`; `?api=objcache` takes no argument and calls `admin.objcache`, and `POST ?action=objcache_automatic` (header required, no digest) takes exactly `{"automatic": true|false}` and relays `admin.objcache`; `?api=php` takes no argument and calls `php.status`; the Operations reads ("Operations") `?api=audit` (`query`, `page`, `size`, `event`, `result`; `admin.audit`), `?api=notify`, `?api=schedule`, `?api=bundle` (no argument) and `?api=update` (optional `refresh=1`; `admin.update`), `POST ?action=notify_settings` / `notify_test` / `schedule_add` / `schedule_cancel` (header required, no digest, a strict JSON body per action as in the table above; they relay `admin.notify_set`, `admin.notify_test`, `admin.schedule_add`, `admin.schedule_cancel`), the jobs `ols.support_bundle` and `ols.support_bundle_raw` with scope `server`, and `GET ?download=bundle-<10 digits>-<8 hex>.tar.gz`, which serves that file of `/var/lib/ols-cpanel/support/` as an attachment (never through a link, at most 21 MiB; any other name is `BAD_QUERY`); `?api=history` takes the optional `resolution` (`hour`, `day`, `week`) and `vhost` (a lower-case domain name) and calls `admin.metrics`; `ols.php_restart` takes `server` or `account:<user>`, `ols.opcache_install` `server` or `version:ea-phpNN`, `ols.php_env_repair` `server`. cPanel `index.live.php`:
+`domain:<domain>` (the same grammar) with the status digest, like every server-scoped action; `?api=cache_limits` takes no argument and calls `admin.cache_limits`, and `POST ?action=cache_limits` (header required, no digest: a settings change, not a job) takes a JSON object of at least one of `per_site_mb`, `server_percent`, `server_max_gb` as whole numbers inside their bounds and relays `admin.cache_limits`; `?api=objcache` takes no argument and calls `admin.objcache`, and `POST ?action=objcache_automatic` (header required, no digest) takes exactly `{"automatic": true|false}` and relays `admin.objcache`; `?api=php` takes no argument and calls `php.status`; the Operations reads ("Operations") `?api=audit` (`query`, `page`, `size`, `event`, `result`; `admin.audit`), `?api=notify`, `?api=schedule`, `?api=bundle` (no argument) and `?api=update` (optional `refresh=1`; `admin.update`), `POST ?action=notify_settings` / `notify_test` / `schedule_add` / `schedule_cancel` (header required, no digest, a strict JSON body per action as in the table above; they relay `admin.notify_set`, `admin.notify_test`, `admin.schedule_add`, `admin.schedule_cancel`), the jobs `ols.support_bundle`, `ols.support_bundle_raw` and `ols.update` with scope `server`, and `GET ?download=bundle-<10 digits>-<8 hex>.tar.gz`, which serves that file of `/var/lib/ols-cpanel/support/` as an attachment (never through a link, at most 21 MiB; any other name is `BAD_QUERY`); `?api=history` takes the optional `resolution` (`hour`, `day`, `week`) and `vhost` (a lower-case domain name) and calls `admin.metrics`; `ols.php_restart` takes `server` or `account:<user>`, `ols.opcache_install` `server` or `version:ea-phpNN`, `ols.php_env_repair` `server`. cPanel `index.live.php`:
 `GET ?api=sites|htaccess|status|cache|php|objcache|logs|php_errors|perf|requests|htaccess_backups|history` (`cache` calls `tenant.cache_stats`, `php` calls `tenant.php`, `objcache` calls `tenant.objcache`; none of these takes a query argument; `history` calls `tenant.metrics` and takes only the optional `resolution` and `vhost`, the broker refusing a vhost that is not the account's) and
 `POST ?action=cache_purge` or `?action=php_restart` with the header `X-OLS-cPanel-Request: 1` and a JSON body `{}` or `{"domain": <domain>}` for the purge, `{}` for the restart (at most 1 KiB,
 no other key), which calls `tenant.cache_purge` or `tenant.php_restart` on the tenant socket (40 s client timeout) and needs the account's feature
@@ -983,12 +993,30 @@ digest at the time it runs (it changes with every account change) and only runs 
 `refused`. A busy broker is retried every minute inside the window; a window that passed is `missed` and never run later. States:
 `scheduled`, `running`, `done`, `failed`, `missed`, `refused`, `cancelled`. Cancel is a button.
 
-**Updates (`admin.update`).** Installed and available versions of `ols-cpanel` and `ols-cpanel-openlitespeed` from
-`dnf -q check-update --refresh` (read-only; nothing is installed), the rpm signature state of each installed package (`signed`, with
-the key id, when that key is imported into the rpm database; `signed-key-missing`; or `unsigned`, shown neutrally for a lab or local
-build) and, beside it, whether this server's operating system and cPanel version are in the supported list (the same rule as the
-Overview's platform line). The update itself stays with dnf and cPanel's own update schedule; the product applies it by itself
-afterwards (`Upgrade::pending`, `ols-cpanel-upgrade.service`).
+**Updates (`admin.update`, `ols.update`).** The product has no package repository: releases are the GitHub releases of
+`2tdv/OLS-cPanel-WHM` (tag = product version; `Operations\ReleaseChannel::REPOSITORY`, the one place that names it). `update check`
+asks `https://api.github.com/repos/2tdv/OLS-cPanel-WHM/releases/latest` with curl (HTTPS only, redirects too; 10 s to connect, 20 s
+in all, at most 1 MiB) and accepts only a `tag_name` of the form `^[0-9]+(\.[0-9]+)*$` that is neither a draft nor a pre-release. Its
+report: `checked_at`, `error` (GitHub unreachable or a malformed reply: reported, the view still loads), `repository`,
+`installed_version` (rpm `%{VERSION}` of `ols-cpanel`), `latest_release` and `available_release` (`{version, url}`, the URL built
+from the tag; `available_release` only when newer in rpm order), `update_available`, `verified_release` (the `installed-release.json`
+record), `packages` (`ols-cpanel` and `ols-cpanel-openlitespeed`: `installed`, `signature` = `signed` with the key id when that key is
+imported into the rpm database, `signed-key-missing` or `unsigned`, and `release_verified`: this exact build is listed in the verified
+release record), `cpanel_version`. Beside it the view shows whether the operating system and cPanel version are in the supported list.
+
+**Update now** starts `ols.update` (`update install --latest`, scope `server`, status digest), after a confirmation that the release is
+verified with the project's signing key first, sites keep being served and the product applies the update by itself. The command
+refuses a version that is not newer than the installed one (before any download), downloads `install.sh` and `install.sh.asc` of that
+tag into a private 0700 directory under `/var/tmp`, imports the release key shipped in the package
+(`/usr/local/ols-cpanel/share/release-key.asc`, which must be exactly the primary key of `release-key.fingerprint`) into a temporary
+gpg home there, requires `VALIDSIG` with that fingerprint and an installer naming this release (`RELEASE_VERSION`), then runs
+`sh install.sh` with stdin `/dev/null`. On an installed server the installer verifies the signed manifest and every package, imports the
+release key into the rpm database, upgrades the packages with dnf (never a downgrade), records `installed-release.json` and exits 0;
+the product then applies its own upgrade (`Upgrade::pending`, `ols-cpanel-upgrade.service`). Report: `{"result": "updated" | "failed",
+"code": 0 | 1, "previous_version", "version", "installer_exit_code", "output_tail" (last 40 lines), "next"}`; refusals are the CLI's
+`{"result": "refused", "code": 1, "error"}`. The directory is always removed and the cached check dropped, so the view shows the new
+version. The release packages are rpm-signed with the release key (`build/release/release.py`), so after the update they show as
+`signed`; a release without rpm signatures shows `release_verified` instead.
 
 **Support bundle (`ols.support_bundle`, `ols.support_bundle_raw`, `admin.bundle`, `GET ?download=`).** A job of the capability flow
 that writes `/var/lib/ols-cpanel/support/bundle-<time>-<hex>.tar.gz` (root 0600, at most 20 MB, the last three kept): package

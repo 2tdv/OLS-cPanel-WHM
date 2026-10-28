@@ -71,6 +71,7 @@ final class Application
             ...array_map(static fn(string $action): Command => new Command\NotifyCommand($context, $action), array_keys(Command\NotifyCommand::ACTIONS)),
             ...array_map(static fn(string $action): Command => new Command\ScheduleCommand($context, $action), array_keys(Command\ScheduleCommand::ACTIONS)),
             new Command\UpdateCheckCommand($context),
+            new Command\UpdateInstallCommand($context),
             ...array_map(static fn(string $action): Command => new Command\SupportBundleCommand($context, $action), ['bundle', 'list']),
             new Command\PhpRestartCommand(),
             new Command\PhpStatusCommand(),

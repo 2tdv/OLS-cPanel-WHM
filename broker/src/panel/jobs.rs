@@ -10,6 +10,12 @@
 //! ("interrupted"), one that still runs (same PID and start time) is watched until it ends, then recorded
 //! as failed with an unknown exit status (the new broker is not its parent and cannot read it). With the
 //! unit's default KillMode a broker stop also ends the job, so the first case is the expected one.
+//! A `unit` job is the exception: the broker stop ends only its systemd-run client, while the transient unit
+//! (started through PID 1, outside the broker's cgroup) keeps running and keeps writing to the job's files
+//! (`--pipe` hands it the files themselves). `ols.update` relies on that: the product upgrade it installs
+//! restarts the broker. Such a job is watched through its unit until the unit ends, and its outcome is the
+//! `code` of the command's own JSON report (every failure report of the CLI carries it; `update install`
+//! reports it on success too); without one it is recorded as failed with an unknown exit status.
 //! Every start and finish is appended to the broker's audit log.
 
 use super::{audit, now, random_hex, read_bounded, Reply};
@@ -119,6 +125,9 @@ pub const ACTIONS: &[Action] = &[
     Action { name: "ols.php_env_repair", args: &["php", "env", "repair", "--format=json"], scope: Scope::Server, unit: false },
     Action { name: "ols.support_bundle", args: &["support", "bundle", "--format=json"], scope: Scope::Server, unit: false },
     Action { name: "ols.support_bundle_raw", args: &["support", "bundle", "--no-anonymize", "--format=json"], scope: Scope::Server, unit: false },
+    // A unit job: dnf writes below /usr (read-only in the broker's namespace), and the product upgrade that follows the
+    // package transaction restarts the broker, which this job must survive (see the module comment).
+    Action { name: "ols.update", args: &["update", "install", "--latest", "--format=json"], scope: Scope::Server, unit: true },
 ];
 
 pub fn action(name: &str) -> Option<&'static Action> {
@@ -213,6 +222,11 @@ fn alive(pid: u32, start: u64) -> bool {
     matches!(process(pid), Some((state, s)) if s == start && state != 'Z' && state != 'X')
 }
 
+/// A recovered job's start, for its time limit.
+fn started_at(record: &Value) -> Instant {
+    Instant::now() - Duration::from_secs(now().saturating_sub(record["started"].as_u64().unwrap_or(0)))
+}
+
 fn size(path: &Path) -> u64 {
     fs::symlink_metadata(path).map(|m| m.len()).unwrap_or(0)
 }
@@ -243,7 +257,12 @@ enum Watched {
     Child(Child),
     /// A job of an earlier broker process: PID and start time.
     Orphan(u32, u64),
+    /// A `unit` job of an earlier broker process whose transient unit still runs.
+    Unit,
 }
+
+/// How often a recovered unit job's state is asked from systemd (one systemctl call each time).
+const UNIT_POLL: Duration = Duration::from_secs(1);
 
 impl Inner {
     fn job_dir(&self, id: &str) -> PathBuf {
@@ -291,6 +310,21 @@ impl Inner {
         }
     }
 
+    /// Whether the job's transient unit is still running (systemd's view; false without a launcher).
+    fn unit_running(&self, id: &str) -> bool {
+        let Some(launcher) = &self.launcher else { return false };
+        Command::new(&launcher.systemctl).args(["is-active", &unit_name(id)]).env_clear().envs(command::ENV)
+            .stdin(Stdio::null()).stderr(Stdio::null()).output()
+            .map_or(false, |o| matches!(String::from_utf8_lossy(&o.stdout).trim(), "active" | "activating" | "deactivating" | "reloading"))
+    }
+
+    /// The exit code the command's own JSON report states (`code`), when the report is complete.
+    fn reported_code(&self, id: &str) -> Option<i32> {
+        let bytes = read_bounded(&self.job_dir(id).join("output"), self.limits.max_output)?;
+        let report = serde_json::from_slice::<Value>(&bytes).ok()?;
+        report.get("code")?.as_i64().and_then(|c| i32::try_from(c).ok())
+    }
+
     /// Records the outcome, audits it and frees the slot.
     fn finish(&self, id: &str, exit_code: Option<i32>, reason: Option<String>) {
         let mut record = self.read(id).unwrap_or_else(|| json!({"job": id}));
@@ -330,6 +364,8 @@ impl Inner {
                     unsafe { libc::killpg(*pid as libc::pid_t, libc::SIGKILL) };
                 }
             }
+            // Stopped through systemctl above.
+            Watched::Unit => {}
         }
     }
 
@@ -341,6 +377,7 @@ impl Inner {
             let ended = match &watched {
                 Watched::Child(child) => command::exited(child),
                 Watched::Orphan(pid, start) => !alive(*pid, *start),
+                Watched::Unit => !self.unit_running(&id),
             };
             if ended {
                 break None;
@@ -353,7 +390,7 @@ impl Inner {
                 self.kill(&id, &watched);
                 break Some(format!("no result within {} s; the job was stopped", self.limits.timeout.as_secs()));
             }
-            thread::sleep(self.limits.poll);
+            thread::sleep(if matches!(watched, Watched::Unit) { self.limits.poll.max(UNIT_POLL) } else { self.limits.poll });
         };
         // A command that wrote past the limit and ended between two polls is not a success either.
         let reason = reason.or_else(|| (size(&dir.join("output")) > limit || size(&dir.join("log")) > limit)
@@ -368,6 +405,12 @@ impl Inner {
             Watched::Orphan(..) => (None, Some(reason.unwrap_or_else(|| {
                 "the broker restarted while the job ran; its exit status is unknown".into()
             }))),
+            Watched::Unit => match (self.reported_code(&id), reason) {
+                (Some(code), reason) => (Some(code), reason),
+                (None, reason) => (None, Some(reason.unwrap_or_else(|| {
+                    "the broker restarted while the job ran; its unit ended without a report".into()
+                }))),
+            },
         };
         self.finish(&id, code, reason);
     }
@@ -400,8 +443,17 @@ impl Jobs {
                 (Some(pid), Some(start)) if alive(pid, start) && lock(&self.0.running).is_none() => {
                     *lock(&self.0.running) = Some(id.clone());
                     let inner = Arc::clone(&self.0);
-                    let started = Instant::now() - Duration::from_secs(now().saturating_sub(record["started"].as_u64().unwrap_or(0)));
-                    thread::spawn(move || inner.monitor(id, Watched::Orphan(pid, start), started));
+                    thread::spawn(move || inner.monitor(id, Watched::Orphan(pid, start), started_at(&record)));
+                }
+                // The systemd-run client ended with the old broker; the transient unit runs on.
+                _ if record["unit"] == json!(true) && lock(&self.0.running).is_none() && self.0.unit_running(&id) => {
+                    *lock(&self.0.running) = Some(id.clone());
+                    let inner = Arc::clone(&self.0);
+                    thread::spawn(move || inner.monitor(id, Watched::Unit, started_at(&record)));
+                }
+                // The unit ended while no broker watched it: its own report says how.
+                _ if record["unit"] == json!(true) && self.0.reported_code(&id).is_some() => {
+                    self.0.finish(&id, self.0.reported_code(&id), None);
                 }
                 _ => self.0.finish(&id, None, Some("interrupted: the broker stopped while the job ran".into())),
             }
@@ -576,6 +628,7 @@ esac"#;
             ("ols.php_env_repair", "php env repair --format=json".to_string()),
             ("ols.support_bundle", "support bundle --format=json".to_string()),
             ("ols.support_bundle_raw", "support bundle --no-anonymize --format=json".to_string()),
+            ("ols.update", "update install --latest --format=json".to_string()),
         ]);
         let restart = action("ols.php_restart").unwrap();
         for (scope, flag) in [("server", "--all"), ("account:olscpa", "--account=olscpa")] {
@@ -814,5 +867,52 @@ esac"#;
         wait(&slow);
         let stopped = fs::read_to_string(dir.join("ctl.args")).unwrap();
         assert_eq!(stopped.lines().collect::<Vec<_>>(), ["stop", &format!("ols-cpanel-job-{id}.service")]);
+    }
+
+    /// `ols.update` runs as a unit and survives the broker restart its own upgrade causes: a recovered unit job is watched through
+    /// systemd until the unit ends, and its outcome is the report's `code`.
+    #[test]
+    fn unit_jobs_survive_a_broker_restart() {
+        let temp = setup();
+        let dir = temp.path();
+        assert!(action("ols.update").unwrap().unit && action("ols.update").unwrap().scope == Scope::Server);
+        let ctl = dir.join("systemctl");
+        // "active" while the marker file of that unit exists.
+        fs::write(&ctl, format!("#!/bin/sh\nprintf '%s\\n' \"$*\" >> {0}/ctl.args\n[ \"$1\" = is-active ] || exit 0\n\
+            if [ -e {0}/active-$2 ]; then echo active; else echo inactive; exit 3; fi\n", dir.display())).unwrap();
+        fs::set_permissions(&ctl, fs::Permissions::from_mode(0o755)).unwrap();
+        let launcher = Launcher { systemd_run: dir.join("systemd-run"), systemctl: ctl };
+        let jobs_dir = dir.join("state/jobs");
+        let unit_record = |id: &str, output: Option<&str>| {
+            fs::create_dir_all(jobs_dir.join(id)).unwrap();
+            fs::write(jobs_dir.join(id).join("job.json"), json!({"job": id, "action": "ols.update", "scope": "server", "state": "running",
+                "started": now(), "finished": null, "exit_code": null, "pid": u32::MAX - 1, "pid_start": 1, "unit": true}).to_string()).unwrap();
+            if let Some(text) = output {
+                fs::write(jobs_dir.join(id).join("output"), text).unwrap();
+            }
+        };
+        // Still running: watched until the unit ends; the report says it succeeded.
+        unit_record("j1761134400-0000000a", None);
+        fs::write(dir.join("active-ols-cpanel-job-j1761134400-0000000a.service"), "").unwrap();
+        // Ended while no broker watched: a failure report, and no report at all.
+        unit_record("j1761134400-0000000b", Some(r#"{"result": "refused", "code": 1, "error": "not newer"}"#));
+        unit_record("j1761134400-0000000c", None);
+        let jobs = Jobs::with_launcher(jobs_dir.clone(), dir.join("ols-cpanel"), dir.join("state/broker-audit.log"), quick(), Some(launcher));
+        jobs.recover();
+        assert_eq!(jobs.running().as_deref(), Some("j1761134400-0000000a"));
+        let failed = status(&jobs, "j1761134400-0000000b");
+        assert_eq!((failed["state"].as_str(), failed["exit_code"].as_i64()), (Some("failed"), Some(1)));
+        let lost = status(&jobs, "j1761134400-0000000c");
+        assert_eq!((lost["state"].as_str(), lost["exit_code"].clone()), (Some("failed"), Value::Null));
+        assert!(lost["reason"].as_str().unwrap().starts_with("interrupted"));
+        assert_eq!(status(&jobs, "j1761134400-0000000a")["state"], json!("running"));
+        fs::write(jobs_dir.join("j1761134400-0000000a/output"), r#"{"command": "update install", "result": "updated", "code": 0}"#).unwrap();
+        fs::remove_file(dir.join("active-ols-cpanel-job-j1761134400-0000000a.service")).unwrap();
+        wait(&jobs);
+        let done = status(&jobs, "j1761134400-0000000a");
+        assert_eq!((done["state"].as_str(), done["exit_code"].as_i64(), done["reason"].clone()), (Some("done"), Some(0), Value::Null));
+        assert_eq!(done["output"]["result"], json!("updated"));
+        // Never a stop: the units ended by themselves.
+        assert!(!fs::read_to_string(dir.join("ctl.args")).unwrap().lines().any(|l| l.starts_with("stop")));
     }
 }

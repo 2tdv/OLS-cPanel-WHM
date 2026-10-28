@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 """build/release/release.py: a release built with a throwaway key installs through the installer it produced
 (stubbed host, like tests/product_package.py), and the tool refuses every malformed input. The committed release
-key is a public key only and matches its fingerprint."""
+key is a public key only and matches its fingerprint. The packages are rpm-signed before the manifests are written
+(a stand-in signer here; the real one is rpmsign in the pinned builder image, whose command line is checked)."""
 import hashlib
 import importlib.util
 import os
@@ -73,14 +74,44 @@ with tempfile.TemporaryDirectory() as tmp:
     refused("a key directory without the committed key", "0.2.0", base, paths, other, t / "o6")
     assert not any((t / f"o{i}").exists() for i in range(1, 7)), "a refusal left files behind"
 
+    # The rpm signer: a stand-in that appends a marker (rpmsign changes the package file in place), and the key id it leaves.
+    signed_calls = []
+
+    def fake_signer(files, key_dir, signer_fpr):
+        signed_calls.append(([f.name for f in files], key_dir, signer_fpr))
+        for f in files:
+            with open(f, "ab") as handle:
+                handle.write(b"+rpmsig")
+
+    def fake_key_id(path):
+        return test_fpr[-16:].lower() if path.read_bytes().endswith(b"+rpmsig") else None
+
+    refused("a signer that leaves a package unsigned", "0.2.0", base, paths, keys, t / "o7", signer=lambda *a: None, key_id=fake_key_id)
+    assert not (t / "o7").exists(), "a failed signature left a release directory behind"
     out = t / "release"
-    result = rel.build("0.2.0", base, paths, keys, out)
+    result = rel.build("0.2.0", base, paths, keys, out, signer=fake_signer, key_id=fake_key_id)
     refused("an existing release directory", "0.2.0", base, paths, keys, out)
-    assert result["platforms"] == ["el9"] and result["fingerprint"] == test_fpr
+    assert result["platforms"] == ["el9"] and result["fingerprint"] == test_fpr and result["rpm_signed"] is True
+    assert signed_calls == [(list(rpms), keys, test_fpr)], signed_calls
+    assert all((pkgs / n).read_bytes() == data for n, data in rpms.items()), "the input packages are never changed"
     manifest = out / "ols-cpanel-0.2.0.el9.x86_64.manifest"
     lines = manifest.read_text().splitlines()
     assert lines[:3] == ["ols-cpanel-release-manifest 1", "version 0.2.0", "platform el9.x86_64"]
-    assert lines[3:] == [f"artifact {hashlib.sha256(rpms[n]).hexdigest()} {n}" for n in rpms]
+    # The manifest lists the digests of the signed packages, the ones published.
+    assert lines[3:] == [f"artifact {hashlib.sha256(rpms[n] + b'+rpmsig').hexdigest()} {n}" for n in rpms]
+    unsigned = rel.build("0.2.0", base, paths, keys, t / "unsigned", signer=False)
+    assert unsigned["rpm_signed"] is False and (t / "unsigned/ols-cpanel-0.2.0-1.olscp38.el9.x86_64.rpm").read_bytes() == b"product"
+    # The real signer: rpmsign in the pinned builder image, the key directory read-only and never relabelled.
+    argv = rel.sign_command(rel.signer_image(), keys, out, test_fpr, list(rpms))
+    assert argv[:2] == ["podman", "run"] and "--rm" in argv and argv[argv.index("--security-opt") + 1] == "label=disable"
+    assert f"{keys}:/key:ro" in argv and f"{out}:/rpms" in argv and re.fullmatch(r".+@sha256:[0-9a-f]{64}", argv[argv.index(f"{out}:/rpms") + 1])
+    assert argv[-4:] == [test_fpr, *rpms] and "rpmkeys --checksig" in rel.SIGN_SCRIPT and "--passphrase-file /key/passphrase.txt" in rel.SIGN_SCRIPT
+    for bad in (["x.rpm"], ["ols-cpanel-0.2.0-1.el9.x86_64.rpm; id"]):
+        try:
+            rel.sign_command("img@sha256:" + "0" * 64, keys, out, test_fpr, bad)
+            raise AssertionError(f"not refused: {bad}")
+        except rel.ReleaseError:
+            pass
     installer = (out / "install.sh").read_text()
     assert not any(old in installer for old, _ in rel.PLACEHOLDERS) and 'RELEASE_VERSION="0.2.0"' in installer
     assert f'RELEASE_BASE_URL="{base}"' in installer
@@ -134,5 +165,6 @@ with tempfile.TemporaryDirectory() as tmp:
     (out / paths[2].name).write_bytes(b"tampered")
     run = subprocess.run(["sh", str(t / "install.sh"), "--prepare-only"], capture_output=True, text=True, stdin=subprocess.DEVNULL)
     assert run.returncode == 65 and not re.search(r"^dnf ", calls.read_text() if calls.exists() else "", re.M), run.stderr[-400:]
-print("Release tool: signed manifests, filled installer and digests; the produced installer verifies and installs its "
-      "release and refuses a changed package; malformed inputs and foreign keys refused; the committed key is public only.")
+print("Release tool: rpm-signed packages, signed manifests of the signed packages, filled installer and digests; the produced "
+      "installer verifies and installs its release and refuses a changed package; malformed inputs and foreign keys refused; "
+      "the committed key is public only.")

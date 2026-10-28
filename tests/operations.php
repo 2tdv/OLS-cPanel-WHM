@@ -15,6 +15,8 @@ use OlsCpanel\Infrastructure\Process\LocalCommandRunner;
 use OlsCpanel\Operations\Notifier;
 use OlsCpanel\Operations\NotifySettings;
 use OlsCpanel\Operations\Redactor;
+use OlsCpanel\Operations\ReleaseChannel;
+use OlsCpanel\Operations\ReleaseUpdate;
 use OlsCpanel\Operations\Schedule;
 use OlsCpanel\Operations\StateFile;
 use OlsCpanel\Operations\SupportBundle;
@@ -468,6 +470,8 @@ final class ScriptedRunner implements CommandRunner
     /** @var array<string,array{exit_code:int,stdout:string,stderr?:string}> */
     public array $answers = [];
     public array $calls = [];
+    /** @var (\Closure(string,list<string>,int):?array)|null answers a call itself when it returns an array */
+    public ?\Closure $handler = null;
 
     public function run(string $name, array $argv, int $timeout): array
     {
@@ -475,36 +479,194 @@ final class ScriptedRunner implements CommandRunner
         if ($name === 'support-tar') {
             return (new LocalCommandRunner())->run($name, $argv, $timeout);
         }
-        return $this->answers[$name] ?? ['exit_code' => 0, 'stdout' => ''];
+        $handled = $this->handler !== null ? ($this->handler)($name, $argv, $timeout) : null;
+        return $handled ?? $this->answers[$name] ?? ['exit_code' => 0, 'stdout' => ''];
     }
 }
+$release = static fn(string $tag, array $extra = []): array => ['exit_code' => 0, 'stdout' => json_encode($extra + ['tag_name' => $tag,
+    'html_url' => 'https://evil.example/elsewhere', 'draft' => false, 'prerelease' => false, 'body' => str_repeat('notes ', 50)])];
 $state = fresh_state();
 $runner = new ScriptedRunner();
-$runner->answers['package-ols-cpanel'] = ['exit_code' => 0, 'stdout' => '1.0.0-1.el9.x86_64'];
-$runner->answers['package-ols-cpanel-openlitespeed'] = ['exit_code' => 0, 'stdout' => '1.8.5-1.el9.x86_64'];
-$runner->answers['update-check'] = ['exit_code' => 100, 'stdout' => "\nols-cpanel.x86_64                1.1.0-1.el9      ols-cpanel\nsomething-else.noarch 2-1 repo\n"];
+$runner->answers['package-ols-cpanel'] = ['exit_code' => 0, 'stdout' => '0.2.2-46.el9.x86_64'];
+$runner->answers['package-ols-cpanel-openlitespeed'] = ['exit_code' => 0, 'stdout' => '1.8.5-1.olscp9.el9.x86_64'];
+$runner->answers['release-installed'] = ['exit_code' => 0, 'stdout' => '0.2.2'];
+$runner->answers['release-latest'] = $release('0.2.10');
 $runner->answers['signature-ols-cpanel'] = ['exit_code' => 0, 'stdout' => 'RSA/SHA256, Mon 01 Jan 2026 10:00:00 AM UTC, Key ID 0123456789abcdef|(none)'];
 $runner->answers['signature-key-ols-cpanel'] = ['exit_code' => 0, 'stdout' => 'gpg-pubkey-89abcdef-1'];
 $runner->answers['signature-ols-cpanel-openlitespeed'] = ['exit_code' => 0, 'stdout' => '(none)|(none)'];
+StateFile::write($state . '/installed-release.json', ['version' => '0.2.2', 'platform' => 'el9.x86_64', 'manifest_sha256' => str_repeat('ab', 32),
+    'packages' => ['ols-cpanel-openlitespeed-1.8.5-1.olscp9.el9.x86_64', 'ols-cpanel-php-redis-6.3.0-1.olscp1.el9.x86_64', 'ols-cpanel-0.2.2-45.el9.x86_64'],
+    'installed_at' => 1_700_000_000]);
 $now = 1_800_000_000;
 $check = new UpdateCheck(new Host($runner), $state, static function () use (&$now): int {
     return $now;
 });
 $report = $check->report();
-check($report['update_available'] && $report['packages'][0]['available'] === '1.1.0-1.el9.x86_64' && $report['packages'][1]['available'] === null
-    && $report['packages'][0]['installed'] === '1.0.0-1.el9.x86_64', 'the update check lists installed and available versions of the product packages only');
-check($report['packages'][0]['signature']['state'] === 'signed' && $report['packages'][1]['signature']['state'] === 'unsigned', 'signature state: signed with a known key, unsigned for a lab build');
+check($report['update_available'] && $report['available_release'] === ['version' => '0.2.10', 'url' => 'https://github.com/2tdv/OLS-cPanel-WHM/releases/tag/0.2.10']
+    && $report['installed_version'] === '0.2.2' && $report['error'] === null, 'a newer GitHub release (0.2.10 after 0.2.2, numeric order) is offered; the page link is built from the tag');
+$latestCall = array_values(array_filter($runner->calls, static fn(array $c): bool => $c[0] === 'release-latest'))[0][1];
+check($latestCall[0] === '/usr/bin/curl' && $latestCall[array_search('--proto', $latestCall, true) + 1] === '=https'
+    && $latestCall[array_search('--proto-redir', $latestCall, true) + 1] === '=https' && in_array('--max-filesize', $latestCall, true)
+    && in_array('--max-time', $latestCall, true) && end($latestCall) === 'https://api.github.com/repos/2tdv/OLS-cPanel-WHM/releases/latest',
+    'the release is asked over HTTPS only (redirects too), with a time and size bound');
+check(!in_array('/usr/bin/dnf', array_merge(...array_column($runner->calls, 1)), true), 'no package manager command is used: there is no package repository');
+check($report['packages'][0]['installed'] === '0.2.2-46.el9.x86_64' && $report['packages'][0]['signature']['state'] === 'signed'
+    && $report['packages'][1]['signature']['state'] === 'unsigned', 'signature state: signed with a known key, unsigned without an rpm signature');
+check($report['packages'][1]['release_verified'] === true && $report['packages'][0]['release_verified'] === false
+    && $report['verified_release']['version'] === '0.2.2', 'a package is a verified release build only when the verified-release record lists exactly that build');
 $runner->answers['signature-key-ols-cpanel'] = ['exit_code' => 1, 'stdout' => ''];
 $calls = count($runner->calls);
 $cached = $check->report();
 check($cached['cached'] === true && count($runner->calls) === $calls, 'the result is cached for fifteen minutes');
 check($check->report(true)['packages'][0]['signature']['state'] === 'signed-key-missing', 'a refresh asks again; a signature key that is not imported is reported');
-$runner->answers['update-check'] = ['exit_code' => 1, 'stdout' => '', 'stderr' => 'Failed to download metadata'];
-$err = (new UpdateCheck(new Host($runner), fresh_state(), static fn(): int => $now))->report();
-check($err['error'] !== null && !$err['update_available'], 'an unreachable repository is reported as an error, not as "up to date"');
-check(in_array('--refresh', array_column(array_filter($runner->calls, static fn(array $c): bool => $c[0] === 'update-check'), 1)[0], true)
-    && !in_array('install', $runner->calls[0][1], true), 'only read-only package manager commands are used');
+foreach (['0.2.2' => 'the same version', '0.2.1' => 'an older version', '0.2' => 'a shorter older version'] as $tag => $label) {
+    $runner->answers['release-latest'] = $release((string) $tag);
+    $r = $check->report(true);
+    check(!$r['update_available'] && $r['available_release'] === null && $r['latest_release']['version'] === (string) $tag && $r['error'] === null, "no update offered for $label");
+}
+$runner->answers['release-latest'] = $release('0.2.2.1');
+check($check->report(true)['update_available'], 'a release with one more segment is newer (rpm order)');
+foreach (['v0.3.0', '0.3.0-rc1', '0.3.0 ', '', '0..3', '../0.3'] as $bad) {
+    $runner->answers['release-latest'] = $release($bad);
+    $r = $check->report(true);
+    check($r['error'] !== null && !$r['update_available'] && $r['latest_release'] === null, 'a malformed release tag is refused: ' . json_encode($bad));
+}
+$runner->answers['release-latest'] = $release('0.3.0', ['prerelease' => true]);
+check($check->report(true)['error'] !== null, 'a pre-release is never offered');
+$runner->answers['release-latest'] = ['exit_code' => 0, 'stdout' => '<html>not json</html>'];
+check($check->report(true)['error'] === 'the GitHub reply is not a release', 'a reply that is not JSON is reported');
+$runner->answers['release-latest'] = ['exit_code' => 6, 'stdout' => '', 'stderr' => 'curl: (6) Could not resolve host: api.github.com'];
+$err = $check->report(true);
+check($err['error'] !== null && str_contains($err['error'], 'Could not resolve host') && !$err['update_available'] && $err['packages'][0]['installed'] !== null,
+    'an unreachable GitHub is reported as an error, not as "up to date", and the installed packages are still shown');
+$runner->answers['release-latest'] = $release('0.9.0');
+$now += 30;
+check($check->report()['cached'] === true, 'an error result is kept briefly, so page views during an outage do not each wait for the timeout');
+$now += 61;
+check($check->report()['update_available'] === true, 'after a minute an error result is asked again');
+check(ReleaseChannel::compare('1.10', '1.9') === 1 && ReleaseChannel::compare('01.2', '1.2') === 0 && ReleaseChannel::compare('1.0', '1.0.0') === -1
+    && ReleaseChannel::compare('99999999999999999999.1', '99999999999999999998.9') === 1, 'version order: numeric segments, no overflow, more segments newer');
+check(str_contains((string) file_get_contents(dirname(__DIR__) . '/build/release/release.py'), 'DEFAULT_BASE = "' . ReleaseChannel::DOWNLOAD_BASE . '"'),
+    'the release tool publishes to the download base the product updates from');
 tree_remove($state);
+
+// ---- Update install: install.sh verified against the shipped release key ------------------------------------------------
+$work = fresh_state();
+$gpgRun = static function (array $argv): array {
+    return (new LocalCommandRunner())->run('test-gpg', ['/usr/bin/gpg', '--batch', '--no-tty', ...$argv], 120);
+};
+$makeKey = static function (string $home) use ($gpgRun): string {
+    mkdir($home, 0700);
+    $gpgRun(['--homedir', $home, '--passphrase', '', '--pinentry-mode', 'loopback', '--quick-generate-key', 'Test Release <t@example.invalid>', 'ed25519', 'sign', '1d']);
+    $colons = $gpgRun(['--homedir', $home, '--with-colons', '--fingerprint'])['stdout'];
+    preg_match('/^fpr:+([0-9A-F]{40}):/m', $colons, $m);
+    return $m[1];
+};
+// The agents gpg starts for the signing homes end with the test, also when a check fails.
+register_shutdown_function(static function () use ($work): void {
+    foreach (["$work/release-home", "$work/other-home"] as $home) {
+        (new LocalCommandRunner())->run('test-gpgconf', ['/usr/bin/gpgconf', '--homedir', $home, '--kill', 'all'], 30);
+    }
+});
+$fpr = $makeKey("$work/release-home");
+$otherFpr = $makeKey("$work/other-home");
+file_put_contents("$work/release-key.asc", $gpgRun(['--homedir', "$work/release-home", '--armor', '--export', $fpr])['stdout']);
+file_put_contents("$work/release-key.fingerprint", "$fpr\n");
+mkdir("$work/site");
+mkdir("$work/tmp", 0700);
+$publish = static function (string $version, string $signer, ?string $body = null) use ($work, $gpgRun): void {
+    $text = $body ?? "#!/bin/sh\n# installer\nRELEASE_VERSION=\"$version\"\necho upgraded\n";
+    @mkdir("$work/site/$version");
+    file_put_contents("$work/site/$version/install.sh", $text);
+    @unlink("$work/site/$version/install.sh.asc");
+    $gpgRun(['--homedir', "$work/$signer", '--pinentry-mode', 'loopback', '--passphrase', '', '--armor', '--detach-sign',
+        '--output', "$work/site/$version/install.sh.asc", "$work/site/$version/install.sh"]);
+};
+$runner = new ScriptedRunner();
+$runner->answers['release-installed'] = ['exit_code' => 0, 'stdout' => '0.2.2'];
+$runner->answers['release-latest'] = $release('0.2.3');
+$runner->answers['update-installer'] = ['exit_code' => 0, 'stdout' => "Upgraded to OLS-cPanel 0.2.3.\n", 'stderr' => "ols-cpanel installer: all 3 packages verified\n"];
+$seenInstaller = null;
+$runner->handler = static function (string $name, array $argv, int $timeout) use ($work, &$seenInstaller): ?array {
+    if (str_starts_with($name, 'update-download-')) {
+        // The fake GitHub: the URL's tag and file name map to the published directory.
+        $url = end($argv);
+        $output = $argv[array_search('--output', $argv, true) + 1];
+        $prefix = 'https://github.com/2tdv/OLS-cPanel-WHM/releases/download/';
+        $source = str_starts_with($url, $prefix) ? "$work/site/" . substr($url, strlen($prefix)) : '';
+        return $source !== '' && is_file($source) && copy($source, $output) ? ['exit_code' => 0, 'stdout' => '']
+            : ['exit_code' => 22, 'stdout' => '', 'stderr' => 'curl: (22) The requested URL returned error: 404'];
+    }
+    if (str_starts_with($name, 'update-key-') || $name === 'update-verify') {
+        return (new LocalCommandRunner())->run($name, $argv, $timeout);
+    }
+    if ($name === 'update-installer') {
+        $seenInstaller = ['argv' => $argv, 'text' => (string) file_get_contents($argv[1]), 'dir' => dirname($argv[1])];
+    }
+    return null;
+};
+$lines = new ArrayObject();
+$updater = static fn(): ReleaseUpdate => new ReleaseUpdate(new Host($runner), $work, "$work/release-key.asc", "$work/release-key.fingerprint", "$work/tmp",
+    static function (string $line) use ($lines): void {
+        $lines[] = $line;
+    });
+$noLeftovers = static fn(): bool => glob("$work/tmp/*") === [];
+$publish('0.2.3', 'release-home');
+file_put_contents("$work/update-check.json", '{}');
+$result = $updater()->install('0.2.3');
+check($result['result'] === 'updated' && $result['code'] === 0 && $result['previous_version'] === '0.2.2' && $result['version'] === '0.2.3',
+    'a release signed by the shipped key is installed');
+check($seenInstaller['argv'][0] === '/usr/bin/sh' && count($seenInstaller['argv']) === 2 && str_contains($seenInstaller['text'], 'RELEASE_VERSION="0.2.3"')
+    && str_starts_with($seenInstaller['dir'], "$work/tmp/ols-cpanel-update."), 'the verified installer runs from the private directory, without arguments');
+check($noLeftovers() && !file_exists("$work/update-check.json"), 'the private directory is removed and the cached check is dropped');
+check(in_array('Upgraded to OLS-cPanel 0.2.3.', $result['output_tail'], true) && in_array("install.sh of release 0.2.3 verified (key $fpr)", $lines->getArrayCopy(), true),
+    'the installer output tail is reported and the steps are logged');
+$downloads = array_values(array_filter($runner->calls, static fn(array $c): bool => str_starts_with($c[0], 'update-download-')));
+check(count($downloads) === 2 && end($downloads[0][1]) === 'https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.3/install.sh'
+    && $downloads[0][1][array_search('--proto-redir', $downloads[0][1], true) + 1] === '=https', 'exactly install.sh and its signature of that tag are downloaded over HTTPS');
+$runner->answers['update-installer'] = ['exit_code' => 70, 'stdout' => '', 'stderr' => "ols-cpanel installer: ERROR: package installation failed\n"];
+$failed = $updater()->install('0.2.3');
+check($failed['result'] === 'failed' && $failed['code'] === 1 && $failed['installer_exit_code'] === 70 && $noLeftovers(), 'a failing installer is reported with its exit status');
+$runner->answers['update-installer'] = ['exit_code' => 0, 'stdout' => ''];
+$refusedUpdate = static function (?string $version, string $label, string $reason) use ($updater, $noLeftovers, &$seenInstaller): void {
+    $seenInstaller = null;
+    try {
+        $updater()->install($version);
+        check(false, $label);
+    } catch (Refused $e) {
+        check($seenInstaller === null && $noLeftovers() && str_contains($e->getMessage(), $reason), "$label (nothing runs, nothing is left)");
+    }
+};
+$publish('0.2.4', 'other-home');
+$refusedUpdate('0.2.4', 'install.sh signed by another key is refused', 'not signed by the release key');
+$publish('0.2.5', 'release-home');
+file_put_contents("$work/site/0.2.5/install.sh", "\necho tampered\n", FILE_APPEND);
+$refusedUpdate('0.2.5', 'a changed install.sh is refused', 'not signed by the release key');
+$publish('0.2.6', 'release-home', "#!/bin/sh\nRELEASE_VERSION=\"0.2.5\"\n");
+$refusedUpdate('0.2.6', 'the signed installer of another release served under this tag is refused', 'not the installer of release 0.2.6');
+$refusedUpdate('0.2.7', 'a release that does not exist is refused', 'could not be downloaded');
+$downloadsBefore = count(array_filter($runner->calls, static fn(array $c): bool => str_starts_with($c[0], 'update-download-')));
+foreach (['0.2.2' => 'the installed version', '0.2.1' => 'an older version', '0.1.99' => 'an older version with more digits'] as $version => $label) {
+    $refusedUpdate((string) $version, "$label is never installed", 'is not newer than the installed version');
+}
+$refusedUpdate('0.3.0-rc1', 'a malformed version is refused', 'dotted number');
+check($downloadsBefore === count(array_filter($runner->calls, static fn(array $c): bool => str_starts_with($c[0], 'update-download-'))),
+    'a version that is not newer is refused before anything is downloaded');
+file_put_contents("$work/release-key.fingerprint", "$otherFpr\n");
+$refusedUpdate('0.2.3', 'a shipped key that does not match the shipped fingerprint is refused', 'does not match its fingerprint');
+file_put_contents("$work/release-key.fingerprint", "$fpr\n");
+$runner->answers['release-latest'] = $release('0.2.3');
+check($updater()->install(null)['version'] === '0.2.3', 'without a version the latest release is installed (the WHM button)');
+$runner->answers['release-latest'] = ['exit_code' => 7, 'stdout' => '', 'stderr' => 'curl: (7) Failed to connect'];
+$refusedUpdate(null, 'an unreachable GitHub refuses the update', 'GitHub could not be asked');
+$stdout = fopen('php://memory', 'w+');
+$stderr = fopen('php://memory', 'w+');
+$code = (new Application([new \OlsCpanel\Cli\Command\UpdateInstallCommand(new \OlsCpanel\Cli\EngineContext(), static fn(Output $o): ReleaseUpdate => $updater())]))
+    ->run(['update', 'install', '--version=0.2.3', '--latest', '--format=json'], new Output(true, $stdout, $stderr));
+check($code === Application::EXIT_USAGE, 'update install takes exactly one of --version and --latest');
+foreach ([$work . '/release-home', $work . '/other-home'] as $home) {
+    (new LocalCommandRunner())->run('test-gpgconf', ['/usr/bin/gpgconf', '--homedir', $home, '--kill', 'all'], 30);
+}
 
 // ---- Redaction and the support bundle --------------------------------------------------------------------------------
 $state = fresh_state();
@@ -654,7 +816,7 @@ tree_remove($state);
 
 // ---- The CLI commands are root only -----------------------------------------------------------------------------------
 if (function_exists('posix_geteuid') && posix_geteuid() !== 0) {
-    foreach ([['notify', 'show'], ['notify', 'run'], ['schedule', 'list'], ['update', 'check'], ['support', 'bundle'], ['support', 'list']] as $argv) {
+    foreach ([['notify', 'show'], ['notify', 'run'], ['schedule', 'list'], ['update', 'check'], ['update', 'install', '--latest'], ['support', 'bundle'], ['support', 'list']] as $argv) {
         $stdout = fopen('php://memory', 'w+');
         $stderr = fopen('php://memory', 'w+');
         $code = (new Application())->run([...$argv, '--format=json'], new Output(true, $stdout, $stderr));
@@ -662,7 +824,7 @@ if (function_exists('posix_geteuid') && posix_geteuid() !== 0) {
     }
 }
 $help = (new Application())->help();
-foreach (['notify show', 'notify set', 'notify test', 'notify run', 'schedule list', 'schedule add', 'schedule cancel', 'schedule run', 'update check', 'support bundle', 'support list'] as $words) {
+foreach (['notify show', 'notify set', 'notify test', 'notify run', 'schedule list', 'schedule add', 'schedule cancel', 'schedule run', 'update check', 'update install', 'support bundle', 'support list'] as $words) {
     check(str_contains($help, $words), "the command line lists `$words`");
 }
 echo "$count checks passed\n";

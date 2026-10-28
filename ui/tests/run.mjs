@@ -344,7 +344,7 @@ await test('catalog: every dynamic key family is complete', () => {
   for (const k of ['job', 'held', 'php_env', 'upgrade', 'cache_emergency', 'disk', 'objcache', 'schedule']) need.push(`whm.notify.events.${k}`)
   for (const k of ['email', 'webhook']) need.push(`whm.notify.channels.${k}`)
   for (const k of ['scheduled', 'running', 'done', 'failed', 'missed', 'refused', 'cancelled', 'unknown']) need.push(`whm.maintenance.state.${k}`)
-  for (const k of ['signed', 'signed-key-missing', 'unsigned', 'unknown']) need.push(`whm.updates.sig.${k}`)
+  for (const k of ['signed', 'signed-key-missing', 'verified', 'unverified', 'unknown']) need.push(`whm.updates.sig.${k}`)
   assert.deepEqual(need.filter(k => !i18n.global.te(k)), [])
   assert.ok(Object.keys(findings.HELP_DOCS).every(k => k === 'default' || i18n.global.te(`help.${k}.title`)))
 })
@@ -616,9 +616,22 @@ await test('operations fixtures: activity, notifications, maintenance windows, u
   // Updates: read-only; a refresh asks again; only `refresh=1` is accepted.
   const first = api.commandOutput(await client.get('update'))
   assert.equal(first.update_available, true)
+  assert.deepEqual([first.installed_version, first.available_release.version], ['0.9.4', '0.9.5'])
   assert.equal(first.packages[0].signature.state, 'unsigned')
+  assert.equal(first.packages[0].release_verified, true)
   assert.equal(api.commandOutput(await client.get('update', { refresh: 1 })).cached, false)
   await assert.rejects(client.get('update', { refresh: 'true' }), e => e.code === 'BAD_QUERY')
+  // Update now: the job ols.update of the capability flow (scope "server" only); afterwards the view shows the new version.
+  const updateDigest = (await client.get('status')).digest
+  for (const scope of [plan.id, 'all', '0.9.5', 'version:0.9.5']) {
+    await assert.rejects(client.act(api.ACTIONS.update, { scope, digest: updateDigest }), e => e.code === 'BAD_BODY', scope)
+  }
+  const updateJob = (await client.act(api.ACTIONS.update, { scope: 'server', digest: updateDigest })).job
+  let updated = await client.get('job', { job: updateJob })
+  for (let i = 0; i < 12 && updated.state === 'running'; i++) updated = await client.get('job', { job: updateJob })
+  assert.deepEqual([updated.state, updated.action, updated.output.result, updated.output.code, updated.output.version], ['done', 'ols.update', 'updated', 0, '0.9.5'])
+  const after = api.commandOutput(await client.get('update', { refresh: 1 }))
+  assert.deepEqual([after.installed_version, after.update_available, after.available_release], ['0.9.5', false, null])
   // Support bundles are jobs of the capability flow; the archive appears in the list and the activity.
   const digest = (await client.get('status')).digest
   for (const action of ['ols.support_bundle', 'ols.support_bundle_raw']) {
@@ -851,7 +864,8 @@ const EXPECT = {
     unauthorized: [/not allowed to see this view/],
   },
   'src/whm/views/UpdatesView.vue': {
-    default: [/Before you update/, /AlmaLinux 9\.8/, /11\.138/, /Supported/, /An update is available/, /Check now/, /nothing needs to be run by hand/, { rows: 2 }],
+    default: [/Before you update/, /AlmaLinux 9\.8/, /11\.138/, /Supported/, /Version 0\.9\.5 is available/, /Installed version 0\.9\.4/, /Update now/,
+      /Release notes/, /Verified release/, /Check now/, /nothing needs to be run by hand/, { rows: 2 }],
     unauthorized: [/not allowed to see this view/],
     error: [/Could not load this view/],
   },

@@ -13,8 +13,9 @@ use OlsCpanel\Infrastructure\Process\LocalCommandRunner;
 use OlsCpanel\Operations\UpdateCheck;
 
 /**
- * `update check [--refresh]` (FV-07, root): installed versus available versions of the product packages and the rpm signature
- * state of the installed ones. Read-only; the update itself is done by dnf and cPanel's update schedule. See Operations\UpdateCheck.
+ * `update check [--refresh]` (FV-07, root): the installed product version against the latest GitHub release, and per installed
+ * package its rpm signature state and whether it is a verified release build. Read-only; the update itself is `update install`
+ * (the WHM "Update now" button). See Operations\UpdateCheck.
  */
 final class UpdateCheckCommand implements Command
 {
@@ -30,7 +31,7 @@ final class UpdateCheckCommand implements Command
 
     public function summary(): string
     {
-        return 'Show installed and available product versions and the package signature state: [--refresh] (root, read-only)';
+        return 'Show the installed version, the latest release and the package signature state: [--refresh] (root, read-only)';
     }
 
     public function run(array $argv, Output $out): int

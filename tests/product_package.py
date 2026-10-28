@@ -207,7 +207,7 @@ if not gpg:
 else:
     with tempfile.TemporaryDirectory() as temp:
         t = pathlib.Path(temp)
-        for name in ("keys", "other", "rel", "work", "bin"):
+        for name in ("keys", "other", "rel", "work", "bin", "state"):
             (t / name).mkdir(mode=0o700)
         quiet = {"capture_output": True, "check": True}
         for home, uid in ((t / "keys", "Test Release <release@example.invalid>"), (t / "other", "Other <o@example.invalid>")):
@@ -242,6 +242,7 @@ else:
                          ("/usr/bin/dnf --assumeyes", f"sh {t}/bin/dnf --assumeyes"),
                          ("/usr/bin/rpm ", f"sh {t}/bin/rpm "),
                          ("CLI=/usr/local/ols-cpanel/bin/ols-cpanel", f"CLI={t}/bin/cli"),
+                         ("STATE_DIR=/var/lib/ols-cpanel", f"STATE_DIR={t}/state"),
                          ('[ -x "$CLI" ]', "true"), ('"$CLI" install', 'sh "$CLI" install'),
                          ("    /usr/bin/curl --proto '=https' --proto-redir '=https' --tlsv1.2 --fail --silent "
                           "--show-error --location \\\n        --retry 3 --connect-timeout 20 --max-filesize "
@@ -286,13 +287,28 @@ else:
         assert any(c.startswith("dnf --assumeyes") and c.endswith(".rpm") for c in recorded), recorded
         assert recorded.index(next(c for c in recorded if c.startswith("dnf"))) < recorded.index("cli install --prepare --format=json")
         assert "install --cutover --plan=p20261022120000-0a1b2c" in result.stdout
+        # The release key is offered to the rpm database before dnf; the stub refuses it here, so dnf does not check rpm signatures.
+        assert recorded.index(next(c for c in recorded if c.startswith("rpm --import"))) < recorded.index(next(c for c in recorded if c.startswith("dnf")))
+        assert any("--setopt=localpkg_gpgcheck=False" in c for c in recorded if c.startswith("dnf")), recorded
+        # The verified-release record: root-only JSON naming exactly the verified packages and the signed manifest's digest.
+        record_path = t / "state/installed-release.json"
+        record = json.loads(record_path.read_text())
+        assert record_path.stat().st_mode & 0o777 == 0o600 and set(record) == {"version", "platform", "manifest_sha256", "packages", "installed_at"}
+        assert (record["version"], record["platform"]) == ("0.2.0", "el9.x86_64")
+        assert record["manifest_sha256"] == hashlib.sha256((t / "rel" / manifest_name).read_bytes()).hexdigest()
+        assert record["packages"] == [name[:-4] for name in packages], record
+        assert [p.name for p in (t / "state").iterdir()] == ["installed-release.json"]
+        record_path.unlink()
         (t / "installed").write_text("name-1-1.x86_64\n")
         recorded, _ = run("same build already installed (resume)", 0)
         assert any(c.startswith("dnf --assumeyes") for c in recorded), recorded
         (t / "installed").write_text("name-0.9-1.x86_64\n")
         run("an older build installed: upgraded, the product applies it by itself", 0, forbidden=("cli",))
         (t / "installed").write_text("name-9.9-1.x86_64\n")
+        assert (t / "state/installed-release.json").is_file(), "an upgrade records the verified release"
+        (t / "state/installed-release.json").unlink()
         run("a newer build installed: never downgraded", 70, forbidden=("dnf", "cli"))
+        assert not (t / "state/installed-release.json").exists(), "a refused run records nothing"
         (t / "installed").unlink()
         release(good, signer="other")
         run("manifest signed by another key", 65)
@@ -407,7 +423,8 @@ with tempfile.TemporaryDirectory() as temp:
     assert not activator and set(artifacts) == {"ols-cpanel-broker", "ui/SHA256SUMS"}
     prefix = payload / "usr/local/ols-cpanel"
     expect = {"bin/ols-cpanel": 0o755, "libexec/ols-cpanel.php": 0o644, "libexec/ols-cpanel-broker": 0o755,
-              "lib/bootstrap.php": 0o644, "share/ui/SHA256SUMS": 0o644, "share/ui/.vite/manifest.json": 0o644,
+              "lib/bootstrap.php": 0o644, "share/ui/SHA256SUMS": 0o644,
+              "share/release-key.asc": 0o644, "share/release-key.fingerprint": 0o644, "share/ui/.vite/manifest.json": 0o644,
               "plugins/whm/index.cgi": 0o755, "plugins/whm/ols-cpanel.conf": 0o644,
               "plugins/whm/lib/BrokerClient.php": 0o644, "plugins/whm/lib/AssetManifest.php": 0o644,
               "plugins/whm/manifest.json": 0o644, "plugins/whm/assets/whm-1.js": 0o644,
@@ -416,6 +433,9 @@ with tempfile.TemporaryDirectory() as temp:
               "plugins/cpanel/lib/i18n.htaccess.en.json": 0o644}
     for name, mode in expect.items():
         assert (prefix / name).is_file() and (prefix / name).stat().st_mode & 0o777 == mode, name
+    # Updates from WHM trust only the release key shipped in the package: the committed public key and its fingerprint.
+    assert (prefix / "share/release-key.asc").read_bytes() == (ROOT / "build/release/ols-cpanel-release-key.asc").read_bytes()
+    assert (prefix / "share/release-key.fingerprint").read_text().strip() == "118DFA42F66A585D176C0B5148E26833CB82EAD1"
     cli = (prefix / "libexec/ols-cpanel.php").read_text()
     assert package.PACKAGED_BOOTSTRAP in cli and package.CLI_BOOTSTRAP not in cli
     for unit in UNITS:

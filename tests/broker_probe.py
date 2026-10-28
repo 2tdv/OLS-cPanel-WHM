@@ -64,8 +64,9 @@ for name, command in table.items():
 for required in (".env_clear()", ".envs(command::ENV)", "process_group(0)", "Stdio::null()", "MAX_OUTPUT: u64 = 1 << 20",
                  "mode(0o700)", "O_NOFOLLOW", "\"BUSY\"", "job_start", "job_finish", "fn recover(", "write_durable"):
     assert required in jobs, required
-# Two process starts outside the tests: the job itself and (RV-31 item 7) `systemctl stop` of a job's transient unit; never a shell.
-assert jobs.count("Command::new(") == 2 + jobs.split("#[cfg(test)]", 1)[1].count("Command::new(")
+# Three process starts outside the tests: the job itself, (RV-31 item 7) `systemctl stop` of a job's transient unit and (RV-39)
+# `systemctl is-active` of a unit job recovered after a broker restart; never a shell.
+assert jobs.count("Command::new(") == 3 + jobs.split("#[cfg(test)]", 1)[1].count("Command::new(")
 assert "Command::new(&launcher.systemctl)" in jobs and "unit: true" in jobs and "--unit=" in jobs
 assert "sh -c" not in jobs.split("#[cfg(test)]", 1)[0]
 assert '"STALE"' in source and "summary::plan_digest" in source and "panel::status_digest" in source

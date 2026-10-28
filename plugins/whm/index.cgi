@@ -60,7 +60,8 @@ const BOOLEAN_PARAMS = ['refresh'];
 /** POST ?action=<name>: the job actions and the scope each takes ("server", a plan id, or a cache purge scope). */
 const ACTIONS = ['ols.sync' => 'server', 'ols.rollback' => 'server', 'ols.plan' => 'server', 'ols.plan_hybrid' => 'server',
     'ols.cutover' => 'plan', 'ols.apache_return' => 'server', 'ols.cache_purge' => 'cache', 'ols.php_restart' => 'php_restart',
-    'ols.opcache_install' => 'opcache', 'ols.php_env_repair' => 'server', 'ols.support_bundle' => 'server', 'ols.support_bundle_raw' => 'server'];
+    'ols.opcache_install' => 'opcache', 'ols.php_env_repair' => 'server', 'ols.support_bundle' => 'server', 'ols.support_bundle_raw' => 'server',
+    'ols.update' => 'server'];
 /** The scope of ols.cache_purge: "server", "account:<user>" or "domain:<domain>". */
 const CACHE_SCOPE = '/^(?:server|account:[a-z0-9][a-z0-9_-]{0,31}|domain:(?=.{3,253}$)[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+)$/D';
 /** The scope of ols.php_restart: "server" or "account:<user>"; of ols.opcache_install: "server" or "version:ea-phpNN". */

@@ -1187,7 +1187,8 @@ esac"#;
         assert_eq!(code(&capability(&s, "ols.php_restart", "server", &"0".repeat(64))), "STALE");
         for (action, scope) in [("ols.php_restart", "version:ea-php83"), ("ols.php_restart", "domain:a.test"), ("ols.opcache_install", "account:olscpa"),
                                 ("ols.opcache_install", "version:ea-php8"), ("ols.opcache_install", "version:ea-php83 --all"), ("ols.php_restart", ""),
-                                ("ols.php_env_repair", "all"), ("ols.php_env_repair", "version:ea-php83"), ("ols.php_env_repair", "account:olscpa")] {
+                                ("ols.php_env_repair", "all"), ("ols.php_env_repair", "version:ea-php83"), ("ols.php_env_repair", "account:olscpa"),
+                                ("ols.update", "all"), ("ols.update", "version:0.2.3"), ("ols.update", "")] {
             let reply = call(&s, Socket::Admin, "cap.issue", json!({"principal": "root", "action": action, "scope": scope, "digest": digest}));
             assert_eq!(code(&reply), "BAD_ARGS", "{action} {scope}");
         }

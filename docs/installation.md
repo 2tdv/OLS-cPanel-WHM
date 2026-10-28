@@ -93,8 +93,9 @@ The installer prints each stage. Stages 1 to 3 change nothing on the server.
    using a separate, temporary keyring (your system keyrings are not used or changed). The manifest must
    name this release and this platform. Every package must match its SHA-256 digest from the manifest. If
    anything does not match, the installer stops and the server is unchanged.
-4. **Package installation.** The verified packages are installed with `dnf`. If a different build of either
-   package is already installed, the installer stops: upgrades use a separate workflow. Running the same
+4. **Package installation.** The release key is imported into the rpm database (so `dnf` also checks the packages'
+   rpm signatures) and the verified packages are installed with `dnf`. If an older build is installed, the packages are
+   upgraded instead (see Upgrading); a newer installed build is never downgraded. Running the same
    command again after an interruption is safe; it installs the same packages again or finds them already
    installed.
 5. **Preparation** (`/usr/local/ols-cpanel/bin/ols-cpanel install --prepare`; hybrid profile by default: Apache stays in standby behind OpenLiteSpeed on ports 81/444, closed to the outside, and serves automatically only the sites whose `.htaccess` or PHP handler OpenLiteSpeed cannot reproduce exactly; add `--native` to opt out, in which case an untranslatable change refuses the compile for safety). A read-only preflight report of the server; a backup of
@@ -139,14 +140,33 @@ that location.
 
 ## Upgrading
 
-Run the one command of the newer release (from its release notes), exactly as for the installation. The installer
-verifies the new release the same way (signed manifest, package digests); when an older build is installed it
-upgrades the packages, never downgrades a newer one, and changes nothing else. It does not ask for a cutover again.
+**From WHM (recommended).** Open WHM, Plugins, OLS-cPanel, **Updates**. The view checks the project's GitHub releases
+(at most every 15 minutes; **Check now** asks again) and shows **Version X is available** when a newer release exists.
+Click **Update now** and confirm. The update runs as a job you can follow on the page and in Jobs:
+
+1. `install.sh` and its signature `install.sh.asc` of exactly that release are downloaded over HTTPS into a private
+   temporary directory;
+2. the signature is checked against the release key **shipped inside the installed product**
+   (`/usr/local/ols-cpanel/share/release-key.asc`, fingerprint above), in a separate temporary keyring; a release that is
+   not newer than the installed one, a signature by any other key or a changed installer is refused and nothing changes;
+3. the verified installer runs: it verifies the release manifest and every package exactly as for an installation,
+   imports the release key into the rpm database (the packages are rpm-signed with it) and upgrades the packages, never
+   downgrading anything.
+
+The Updates view then shows the new installed version. A failure is shown with the installer's last lines; nothing is
+changed when a check fails.
+
+**From the command line** (the same steps): run the one command of the newer release from its release notes, exactly as
+for the installation, or `/usr/local/ols-cpanel/bin/ols-cpanel update install --latest` (or `--version=<v>`). On an
+installed server the installer upgrades the packages, never downgrades a newer one, changes nothing else and does not
+ask for a cutover again.
 
 After the package transaction the product applies the upgrade by itself within a minute: it restarts its own
 services, refreshes the WHM and cPanel plugins, reloads OpenLiteSpeed gracefully when its binary changed, and
 restarts only the PHP processes whose settings changed. Your sites keep being served; nothing else is needed.
-The WHM plugin's Updates view shows the installed and available versions.
+For each installed package the Updates view shows **Signed** (the package carries the project's rpm signature and the key
+is imported) or **Verified release** (the installer checked exactly this build against the signed release; it records
+this in `/var/lib/ols-cpanel/installed-release.json`). A build installed by hand is shown as not from a verified release.
 
 To apply an upgrade by hand (support only): `/usr/local/ols-cpanel/bin/ols-cpanel upgrade`.
 

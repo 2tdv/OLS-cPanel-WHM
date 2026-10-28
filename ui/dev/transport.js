@@ -86,7 +86,7 @@ function tenantTools(state, name, params, scenario) {
 const ACTION_SCOPES = {
   'ols.sync': 'server', 'ols.rollback': 'server', 'ols.plan': 'server', 'ols.plan_hybrid': 'server',
   'ols.cutover': 'plan', 'ols.apache_return': 'server', 'ols.cache_purge': 'cache', 'ols.php_restart': 'php_restart', 'ols.opcache_install': 'opcache', 'ols.php_env_repair': 'server',
-  'ols.support_bundle': 'server', 'ols.support_bundle_raw': 'server',
+  'ols.support_bundle': 'server', 'ols.support_bundle_raw': 'server', 'ols.update': 'server',
 }
 export const ACTION_NAMES = Object.keys(ACTION_SCOPES)
 const API_PARAMS = { inventory: ['query', 'page', 'size'], compat: ['query', 'page', 'size'], job: ['job'], cache: ['account', 'domain'], cache_limits: [], objcache: [], php: [], history: ['resolution', 'vhost'],
@@ -187,6 +187,7 @@ function createState(scenario) {
     schedule: clone(FIXTURES.whm.schedule.output),
     bundles: clone(FIXTURES.whm.bundle.bundles),
     updateChecked: FIXTURES.whm.update.output.checked_at,
+    update: clone(FIXTURES.whm.update.output),
   }
   if (scenario === 'cutover' || scenario === 'metrics-stale') switchTo(state, true)
   if (scenario === 'empty') {
@@ -227,6 +228,8 @@ const SCRIPTS = {
   'ols.opcache_install': ['ea-php package installed', 'tuning file written', 'extension verified with php -i', 'lsphp restarted for the accounts on it'],
   'ols.support_bundle': ['versions and reports collected', 'configuration and logs redacted', 'archive written'],
   'ols.support_bundle_raw': ['versions and reports collected', 'configuration and logs redacted', 'archive written'],
+  'ols.update': ['updating OLS-cPanel 0.9.4 to release 0.9.5', 'downloading install.sh and its signature', 'install.sh of release 0.9.5 verified',
+    'running the verified installer', 'release 0.9.5 installed; the product applies the upgrade by itself'],
   'ols.php_env_repair': ['every EA4 PHP version checked', 'ea-phpXX-php-litespeed installed where missing', 'OPcache and redis verified', 'state recorded'],
 }
 
@@ -262,6 +265,15 @@ function finishJob(state, detail) {
     env.checked_at = nowSeconds()
     detail.output = { command: 'php env repair', result: repaired.length ? 'repaired' : 'unchanged', forced: true,
       versions: env.versions.map(v => ({ version: v.version, status: v.status })) }
+  } else if (detail.action === 'ols.update') {
+    // update install --latest: the release is installed and the cached check dropped, so the view shows the new version.
+    const previous = state.update.installed_version
+    const version = state.update.available_release?.version ?? previous
+    state.update = { ...state.update, installed_version: version, available_release: null, update_available: false,
+      verified_release: { ...state.update.verified_release, version, installed_at: nowSeconds() },
+      packages: state.update.packages.map(p => (p.package === 'ols-cpanel' ? { ...p, installed: `${version}-1.el9.x86_64`, release_verified: true } : p)) }
+    detail.output = { command: 'update install', result: 'updated', code: 0, previous_version: previous, version, installer_exit_code: 0,
+      output_tail: [`Upgraded to OLS-cPanel ${version}.`], next: 'The product applies the upgrade by itself within a minute; sites keep being served.' }
   } else if (detail.action === 'ols.support_bundle' || detail.action === 'ols.support_bundle_raw') {
     const name = `bundle-${nowSeconds()}-${hex(8)}.tar.gz`
     state.bundles.unshift({ name, size: 1228800 + Math.floor(Math.random() * 400000), created: nowSeconds() })
@@ -407,7 +419,7 @@ function read(state, app, name, params, scenario) {
     case 'update': {
       if (args.refresh) state.updateChecked = nowSeconds()
       return ok({ observed_at: nowSeconds(), source: FIXTURES.whm.update.source, exit_code: 0,
-        output: { ...clone(FIXTURES.whm.update.output), checked_at: state.updateChecked, cached: !args.refresh } })
+        output: { ...clone(state.update), checked_at: state.updateChecked, cached: !args.refresh } })
     }
     case 'bundle': return ok({ ...clone(FIXTURES.whm.bundle), observed_at: nowSeconds(), bundles: clone(state.bundles) })
     case 'plan': return ok({ observed_at: nowSeconds(), source: FIXTURES.whm.plan.source, plan: state.plan ? clone(state.plan) : null })
