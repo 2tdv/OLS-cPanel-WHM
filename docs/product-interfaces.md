@@ -298,15 +298,37 @@ account's own flush). Memory limits are whole MB from 16 to 8192 (default 64).
 `^[a-z0-9][a-z0-9_.-]{0,31}$`, not `root`, no `..`).
 
 **State** `objcache.json`: `{"schema_version": 1, "defaults": {"memory_mb": 64}, "packages": {"<cPanel package>":
-{"memory_mb": N}}, "accounts": {"<u>": {"enabled": true|false, "memory_mb": N}}}`. An account's instance is
-wanted when its entry has `enabled: true`, or it has no entry and its cPanel package (`PLAN=` in
-`/var/cpanel/users/<u>`) is listed; `enabled: false` opts it out of its package. The optional key `"wordpress": {"<u>": {"<install dir>": {"state":
+{"memory_mb": N}}, "accounts": {"<u>": {"enabled": true|false, "memory_mb": N, "origin": "automatic" (optional)}}}`. An account's
+instance is wanted when its entry has `enabled: true`, or it has no entry and its cPanel package (`PLAN=` in
+`/var/cpanel/users/<u>`) is listed with a memory above 0. `enabled: false` is the administrator's durable "off" (`objcache disable`):
+it opts the account out of its package and out of the automatic mode until `objcache enable` replaces the entry. A package with
+`"memory_mb": 0` is switched off for its accounts (no package instance, no automatic one). An entry with `"origin": "automatic"` was
+created by the automatic mode (below); an entry without `origin` was set by the administrator, and the automatic mode never
+changes it. The optional top-level `"automatic": false` turns the automatic mode off (absent: on; only `false` is ever written),
+and the optional `"discovery": {"<u>": <unix time>}` records when the pass last looked for WordPress with LiteSpeed Cache in an
+account without an object cache. The optional key `"wordpress": {"<u>": {"<install dir>": {"state":
 "automatic"|"owner"|"inactive"|"error", "product_set": bool, "checked": <unix time>, "php": "ea-phpNN"|null, "error": text|null, "previous_socket": <old product socket, optional>}}}`
 records the WordPress sites (see "WordPress sites with LiteSpeed Cache"); it is absent while nothing is recorded. Malformed
 state is refused, never replaced.
 
+**Automatic mode (on by default).** A customer who switches LiteSpeed Cache's object cache on with the plugin's defaults
+(Redis, `localhost:6379`) got "Connection Test: Failed" while their account had no instance (lab finding on 0.2.1); the
+automatic mode makes that work without the customer or the administrator doing anything, and never with one Redis shared by
+all accounts. Every reconcile pass looks, as the account, for a WordPress installation with the LiteSpeed Cache plugin
+directory (`wp-content/plugins/litespeed-cache`, through the same search as below: the domain table read once per pass, one
+`find` per document root, one `test -d` per site; never wp-cli) in accounts that have no entry, no package setting and are not
+suspended (nothing is looked at while the suspension state is unknown). Each such account is looked at at most every
+`DISCOVERY_INTERVAL` (600 s), at most `DISCOVERY_PER_PASS` (20) accounts per pass (never looked at first, then the longest
+unseen), inside the pass budget. A hit gets the entry `{"enabled": true, "memory_mb": <default>, "origin": "automatic"}` and is
+then handled exactly like an enabled account: its instance is started and its WordPress sites are set up. An automatic entry is
+removed (instance stopped and removed, the product's sites switched off first) when the account's last WordPress with LiteSpeed
+Cache is gone (judged from the site records of the pass: an installation not looked at yet, or whose look failed, keeps it),
+when its package gets a setting of its own (memory 0: off; memory above 0: the package takes it over) or when the mode is turned
+off. `objcache enable` turns an automatic entry into the administrator's; `objcache disable` records the durable "off". A rename
+migration replaces an automatic entry the new name got meanwhile with the old name's entry.
+
 **Lifecycle and privilege.** The reconciler (`olscpanel`) has no authority over systemd units and the broker gets
-no new operation: `objcache reconcile` is a root, level-triggered, idempotent pass run by the oneshot unit
+no operation that manages instances (`admin.objcache` only reads and switches the automatic mode): `objcache reconcile` is a root, level-triggered, idempotent pass run by the oneshot unit
 `ols-cpanel-objcache.service` (root; `ProtectSystem=full`), started by `ols-cpanel-objcache.timer` (60 s, and 60 s
 after boot) and, without waiting (`systemctl start --no-block`), by the cPanel hook entry (root) after
 `Accounts::suspendacct`, `unsuspendacct`, `Remove`, `change_package`, `Create`, `Modify`, `PkgAcct/Restore` and
@@ -335,8 +357,10 @@ wp-cli argv above and the PHP version of the serving domain: `plugin is-active l
 state `inactive`; anything else is `error`), then `litespeed-option get object`. Object cache off, or on with `object-host` equal to
 this account's socket: when `object-kind` is 1 and `object-port` is 0 nothing is written (`automatic`), otherwise
 `object-kind 1`, `object-host <socket>`, `object-port 0`, `object true` are set (the redis extension must be loaded in that PHP;
-if it is not, the site is an `error` until it is). Object cache on with any other host (or Memcached): `owner`, left untouched and
-never turned off by the product. `product_set` is true where the product's settings are in place. Timing: `enable` looks at once;
+if it is not, the site is an `error` until it is). LiteSpeed Cache's own defaults are nobody's choice and are treated like this
+account's socket: `object-host` `localhost`, `127.0.0.1` or empty together with `object-port` `6379` or empty (in the runtime
+configuration too, where the cheap look then leaves the decision to wp-cli). Object cache on with any other host or port (or
+Memcached): `owner`, left untouched and never turned off by the product. `product_set` is true where the product's settings are in place. Timing: `enable` looks at once;
 a pass looks at a site every 15 min (the cheap look), retries a site with an error after 5 min doubled per failed attempt
 up to a day, asks wp-cli again about an `inactive` plugin only when the names LiteSpeed Cache creates in `wp-content` (plugin
 directory, `advanced-cache.php`, drop-in, runtime configuration) changed or after a day, runs at `Nice=19`, `CPUWeight=10` and the
@@ -367,12 +391,17 @@ extension is wanted, enables the units of the PHP environment pass again and sta
 **Commands** (root; `--format=json` result objects):
 `objcache enable --account=U [--memory=MB]` validates the name, that `/var/cpanel/users/U` exists, the uid
 (>= 500) and the home, records the state, writes the files, creates the socket directory as the account, starts
-(`systemctl restart`, so a new limit applies) unless suspended, and enables the timer; `disable --account=U` stops,
-removes files and the socket directory, drops the state (an opt-out entry inside an enabled package);
+(`systemctl restart`, so a new limit applies) unless suspended, and enables the timer (an earlier "off" or an automatic entry
+becomes the administrator's enable); `disable --account=U` stops, removes files and the socket directory and records the durable
+"off" `{"enabled": false, "memory_mb": N}` for an existing cPanel account (packages and the automatic mode leave it off;
+`unchanged` when it was off already);
 `flush --account=U` runs `valkey-cli -s <socket> FLUSHALL` as the account; `status` lists accounts and engine
-presence, `status --account=U` adds package, suspension, state and `usage` (`used_memory`, `maxmemory`, `keys`,
-`evicted_keys`, `keyspace_hits`, `keyspace_misses`, `hit_rate`, `connected_clients`, `uptime_seconds`);
-`package --name=P --memory=MB | --remove` enables or removes a package; `reconcile` (exit 1 with
+presence, `automatic` (the mode) and per account `origin` (`automatic`, `administrator`, `package`, `disabled`, `package_off`
+or null: nothing decided), `status --account=U` adds package, `origin`, `automatic`, suspension, state and `usage` (`used_memory`,
+`maxmemory`, `keys`, `evicted_keys`, `keyspace_hits`, `keyspace_misses`, `hit_rate`, `connected_clients`, `uptime_seconds`);
+`package --name=P --memory=MB | --off | --remove` enables a package, switches it off (`--off` or `--memory=0`, result
+`package_off`) or removes its setting; `auto --on | --off` turns the automatic mode on or off (result `automatic_on`,
+`automatic_off` or `unchanged`; it starts a pass without waiting, and off removes only automatic accounts); `reconcile` (exit 1 with
 `"result": "errors"` when an account failed). `configure-wordpress --account=U --path=DIR [--php=ea-phpNN]`
 (kept for support and automation; the product does this for every site by itself, see above)
 requires an enabled cache, `DIR` inside the account's own home (no `.`/`..` components, no trailing slash), a
@@ -682,6 +711,7 @@ log with `ModSecurityAuditLog` and prints `{log, available, limit, records, skip
 | `generation.list` | none | `ols-cpanel generation list --format=json` |
 | `doctor.report` | none | `ols-cpanel doctor --read-only --format=json` (cached 60 s) |
 | `cache.stats` | `{"account": text, "domain": text}` (both optional) | `ols-cpanel cache stats [--account=..] [--domain=..] --format=json`, as `generation.list` gives its own: `{observed_at, source, exit_code, output}` with `output` the report of "LSCache management"; a refusal (unknown account or domain) is `REFUSED`. Synchronous, 30 s limit. |
+| `admin.objcache` | none (read), or `{"automatic": true\|false}` (write) | `ols-cpanel objcache status --format=json` as `{observed_at, source, exit_code, output}` (every account with its `origin`, the `automatic` mode; "Object cache"). A write first runs `ols-cpanel objcache auto --on\|--off --format=json` (anything else is `BAD_ARGS`), is appended to the audit log (`event: objcache_automatic_set`, `args: ["--on"\|"--off"]`) and answers with the status after the change. Admin socket only. |
 | `admin.cache_limits` | none (read), or any of `{"per_site_mb": 16..102400, "server_percent": 1..50, "server_max_gb": 1..2048}` (whole numbers, write) | `ols-cpanel cache limits [--per-site-mb=..] [--server-percent=..] [--server-max-gb=..] --format=json`, as `cache.stats` gives its report: `{observed_at, source, exit_code, output}` with `output` the report of "LSCache management" (automatic cleanup). A write validates the bounds before any command runs (`BAD_ARGS`; the engine checks them again, `REFUSED`) and is appended to the audit log (`event: cache_limits_set`). Admin socket only. |
 | `admin.audit` | `{"query", "page", "size", "event", "result"}` (all optional; `event` lower-case letters and underscores, `result` `ok` or `failed`) | The broker's audit log, newest first ("Operations"): `{"observed_at", "source", "total", "page", "size", "records": [{"time", "event", "actor", "action", "scope", "job", "result": "ok"\|"failed", "detail"}], "events": [names present], "truncated", "window_bytes"}`. Reads the last 4 MiB of the log; digests are never shown. |
 | `admin.notify` | none | `ols-cpanel notify show --format=json` as `{observed_at, source, exit_code, output}`: the settings (the webhook as `{"set", "host"}` only), the limits (20 per day, one per event key per 6 h), messages sent in the last 24 hours, the last delivery error and the last ten messages. |
@@ -737,7 +767,7 @@ a domain the summary does not contain. `install --prepare` embeds the compile su
 | `tenant.cache_stats` | `{"user", "observed_at", "source", "generation", "stores": [...], "totals"}`: the caller's own cache stores (rows of the report of "LSCache management", filtered to the caller's account); no arguments. An account without stores gets an empty list. |
 | `tenant.cache_purge` | `{"domain": text}` (optional) in; out `{"user", "domain", "observed_at", "purged_at", "stores", "totals"}` (what was removed). Without `domain`, every store of the caller's account. Synchronous (30 s limit); at most one purge per account every 10 s (`RATE_LIMITED`). |
 | `tenant.php` | `{"user", "observed_at", "source", "sites": [{domain, type, vhost, engine, php_version, php_handler}], "opcache": [{version, php, loaded, tuned}], "processes": {account, parents, children, rss_kb, cpu_percent, runaway, processes: [...]} \| null, "thresholds", "limits": {children, max_conns, mem_soft, mem_hard, proc_soft, proc_hard}}`: the caller's own PHP view (only the versions its sites use, only its own processes); no arguments. See "PHP manager". |
-| `tenant.objcache` | `{"user", "observed_at", "source", "enabled", "suspended", "state", "memory_mb", "connection": {"host": <socket path>, "port": 0, "password": null} \| absent, "wordpress": [{path, state, configured_by_product, checked_at, error}], "usage": {used_memory, maxmemory, keys, evicted_keys, hit_rate, connected_clients} \| null}`: the caller's own object cache (`objcache status --account=<caller>`, see "Object cache"); no arguments; nothing of other accounts or of the operator's configuration. |
+| `tenant.objcache` | `{"user", "observed_at", "source", "enabled", "origin", "automatic", "suspended", "state", "memory_mb", "connection": {"host": <socket path>, "port": 0, "password": null} \| absent, "wordpress": [{path, state, configured_by_product, checked_at, error}], "usage": {used_memory, maxmemory, keys, evicted_keys, hit_rate, connected_clients} \| null}`: the caller's own object cache (`objcache status --account=<caller>`, see "Object cache"); no arguments; nothing of other accounts or of the operator's configuration. |
 | `tenant.metrics` | `{"resolution": "hour"\|"day"\|"week", "vhost": domain}` (both optional) | `{"user", "observed_at", "source", "vhost", "vhosts": [the caller's vhosts], "resolution", "start", "step", "count", "samples", "interval", "channels": {requests_per_second, cache_hits_per_second, static_hits_per_second, php_in_use}}`: the history of one of the caller's own vhosts (default the first by name). A vhost of another account is `NOT_FOUND`, the same as one that does not exist; server data is never returned. |
 | `tenant.php_restart` | no arguments; out `{"user", "observed_at", "result", "found", "killed", "remaining"}`: ends the caller's own lsphp processes (`php restart --account=<caller>`). Needs a domain in `/etc/userdatadomains` (`NOT_FOUND`), at most one restart per account every 30 s (`RATE_LIMITED`), audited (`event: tenant_php_restart`). |
 | `tenant.logs` | `{"domain", "kind": "access"\|"access_http"\|"error", "lines"?: 1..500 (default 200), "search"?: text (at most 100 characters), "download"?: bool}` | `{"user", "domain", "kind", "file", "observed_at", "exists", "lines": [...], "count", "window_truncated", "search", "download"}` (`text` and `bytes` instead of `lines` for a download): redacted lines of the caller's own domain logs ("Account tools"). `NOT_FOUND` for a domain that is not the caller's, `UNREADABLE` for a link or a non-regular file. |
@@ -750,12 +780,12 @@ a domain the summary does not contain. `install --prepare` embeds the compile su
 ### Gateways
 
 WHM `index.cgi` (root only, as today): `GET ?api=<name>` for the read operations (names: `status`, `metrics`,
-`inventory`, `compat`, `plan`, `generations`, `doctor`, `jobs`, `job`, `cache`, `cache_limits`, `php`, `history`, `requests`, `audit`, `notify`, `schedule`, `update`, `bundle`), query arguments validated against the
+`inventory`, `compat`, `plan`, `generations`, `doctor`, `jobs`, `job`, `cache`, `cache_limits`, `objcache`, `php`, `history`, `requests`, `audit`, `notify`, `schedule`, `update`, `bundle`), query arguments validated against the
 operation's schema; `POST ?action=<name>` with a JSON body `{"scope", "digest"}` for mutations (cpsrvd's
 session token in the URL is the CSRF boundary; the gateway also requires the header
 `X-OLS-cPanel-Request: 1`). `?api=cache` takes the optional `account` (`^[a-z0-9][a-z0-9_-]{0,31}$`) and `domain` (a lower-case
 domain name) and calls `cache.stats`; `POST ?action=ols.cache_purge` takes the scope `server`, `account:<user>` or
-`domain:<domain>` (the same grammar) with the status digest, like every server-scoped action; `?api=cache_limits` takes no argument and calls `admin.cache_limits`, and `POST ?action=cache_limits` (header required, no digest: a settings change, not a job) takes a JSON object of at least one of `per_site_mb`, `server_percent`, `server_max_gb` as whole numbers inside their bounds and relays `admin.cache_limits`; `?api=php` takes no argument and calls `php.status`; the Operations reads ("Operations") `?api=audit` (`query`, `page`, `size`, `event`, `result`; `admin.audit`), `?api=notify`, `?api=schedule`, `?api=bundle` (no argument) and `?api=update` (optional `refresh=1`; `admin.update`), `POST ?action=notify_settings` / `notify_test` / `schedule_add` / `schedule_cancel` (header required, no digest, a strict JSON body per action as in the table above; they relay `admin.notify_set`, `admin.notify_test`, `admin.schedule_add`, `admin.schedule_cancel`), the jobs `ols.support_bundle` and `ols.support_bundle_raw` with scope `server`, and `GET ?download=bundle-<10 digits>-<8 hex>.tar.gz`, which serves that file of `/var/lib/ols-cpanel/support/` as an attachment (never through a link, at most 21 MiB; any other name is `BAD_QUERY`); `?api=history` takes the optional `resolution` (`hour`, `day`, `week`) and `vhost` (a lower-case domain name) and calls `admin.metrics`; `ols.php_restart` takes `server` or `account:<user>`, `ols.opcache_install` `server` or `version:ea-phpNN`, `ols.php_env_repair` `server`. cPanel `index.live.php`:
+`domain:<domain>` (the same grammar) with the status digest, like every server-scoped action; `?api=cache_limits` takes no argument and calls `admin.cache_limits`, and `POST ?action=cache_limits` (header required, no digest: a settings change, not a job) takes a JSON object of at least one of `per_site_mb`, `server_percent`, `server_max_gb` as whole numbers inside their bounds and relays `admin.cache_limits`; `?api=objcache` takes no argument and calls `admin.objcache`, and `POST ?action=objcache_automatic` (header required, no digest) takes exactly `{"automatic": true|false}` and relays `admin.objcache`; `?api=php` takes no argument and calls `php.status`; the Operations reads ("Operations") `?api=audit` (`query`, `page`, `size`, `event`, `result`; `admin.audit`), `?api=notify`, `?api=schedule`, `?api=bundle` (no argument) and `?api=update` (optional `refresh=1`; `admin.update`), `POST ?action=notify_settings` / `notify_test` / `schedule_add` / `schedule_cancel` (header required, no digest, a strict JSON body per action as in the table above; they relay `admin.notify_set`, `admin.notify_test`, `admin.schedule_add`, `admin.schedule_cancel`), the jobs `ols.support_bundle` and `ols.support_bundle_raw` with scope `server`, and `GET ?download=bundle-<10 digits>-<8 hex>.tar.gz`, which serves that file of `/var/lib/ols-cpanel/support/` as an attachment (never through a link, at most 21 MiB; any other name is `BAD_QUERY`); `?api=history` takes the optional `resolution` (`hour`, `day`, `week`) and `vhost` (a lower-case domain name) and calls `admin.metrics`; `ols.php_restart` takes `server` or `account:<user>`, `ols.opcache_install` `server` or `version:ea-phpNN`, `ols.php_env_repair` `server`. cPanel `index.live.php`:
 `GET ?api=sites|htaccess|status|cache|php|objcache|logs|php_errors|perf|requests|htaccess_backups|history` (`cache` calls `tenant.cache_stats`, `php` calls `tenant.php`, `objcache` calls `tenant.objcache`; none of these takes a query argument; `history` calls `tenant.metrics` and takes only the optional `resolution` and `vhost`, the broker refusing a vhost that is not the account's) and
 `POST ?action=cache_purge` or `?action=php_restart` with the header `X-OLS-cPanel-Request: 1` and a JSON body `{}` or `{"domain": <domain>}` for the purge, `{}` for the restart (at most 1 KiB,
 no other key), which calls `tenant.cache_purge` or `tenant.php_restart` on the tenant socket (40 s client timeout) and needs the account's feature

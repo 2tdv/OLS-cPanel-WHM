@@ -17,22 +17,34 @@ use OlsCpanel\Events\HookEntry;
  * ("<account>": {"<install directory>": {"state", "product_set", "checked", "php", "error"}}); "product_set" is true
  * only where the product itself switched LiteSpeed Cache's object cache on, so only those are switched off again.
  * An absent file is the empty state. A malformed file is refused (never silently replaced): the operator
- * fixes or removes it. An account entry with "enabled": false opts an account out of its package.
+ * fixes or removes it. An account entry with "enabled": false is the administrator's durable "off" for that account: it
+ * opts the account out of its package and out of the automatic mode until `objcache enable` replaces it.
+ *
+ * Automatic mode (on unless the top-level "automatic" is false, the only value of it ever written): an account with a
+ * WordPress site that has LiteSpeed Cache gets its own instance without anyone enabling it. Its entry carries "origin":
+ * "automatic" (an entry without "origin" was set by the administrator), and only such entries are ever removed again by
+ * the pass: when the account's last WordPress with LiteSpeed Cache is gone, when its package is switched off or when the
+ * automatic mode is turned off. A package with "memory_mb": 0 is switched off for its accounts (no package instance and
+ * no automatic one). The optional "discovery" key ("<account>": <unix time>) records when the pass last looked for
+ * WordPress with LiteSpeed Cache in an account without an object cache, so that each such account is looked at only once
+ * per ObjectCacheManager::DISCOVERY_INTERVAL.
  */
 final class ObjectCacheState
 {
     public const SITE_STATES = ['automatic', 'owner', 'inactive', 'error'];
     public const PACKAGE = '/^[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}$/D';
+    /** The origin of an account entry the automatic mode created (and may remove again). */
+    public const AUTOMATIC = 'automatic';
 
     /**
-     * @param array<string,array{memory_mb:int}> $packages
-     * @param array<string,array{enabled:bool, memory_mb:int}> $accounts
-     */
-    /**
+     * @param array<string,array{memory_mb:int}> $packages memory_mb 0: the package is switched off
+     * @param array<string,array{enabled:bool, memory_mb:int, origin?:string}> $accounts
      * @param array<string,array<string,array{state:string, product_set:bool, checked:int, php:?string, error:?string}>> $wordpress
+     * @param array<string,int> $discovery account => when the pass last looked for WordPress with LiteSpeed Cache in it
      */
     public function __construct(public int $defaultMemory = ValkeyConfig::DEFAULT_MEMORY_MB, public array $packages = [],
-                                public array $accounts = [], public array $wordpress = [])
+                                public array $accounts = [], public array $wordpress = [], public bool $automatic = true,
+                                public array $discovery = [])
     {
     }
 
@@ -54,18 +66,31 @@ final class ObjectCacheState
         $state = new self($default);
         foreach ($data['packages'] as $name => $entry) {
             $mb = is_array($entry) ? ($entry['memory_mb'] ?? null) : null;
-            if (!is_string($name) || !preg_match(self::PACKAGE, $name) || !is_int($mb) || ValkeyConfig::parseMemory((string) $mb) === null) {
+            if (!is_string($name) || !preg_match(self::PACKAGE, $name) || !is_int($mb) || ($mb !== 0 && ValkeyConfig::parseMemory((string) $mb) === null)) {
                 throw new Refused("$path: invalid package entry");
             }
             $state->packages[$name] = ['memory_mb' => $mb];
         }
         foreach ($data['accounts'] as $user => $entry) {
             $mb = is_array($entry) ? ($entry['memory_mb'] ?? null) : null;
+            $origin = is_array($entry) ? ($entry['origin'] ?? null) : null;
             if (!is_string($user) || !ValkeyConfig::validUser($user) || !is_bool($entry['enabled'] ?? null)
-                || !is_int($mb) || ValkeyConfig::parseMemory((string) $mb) === null) {
+                || !is_int($mb) || ValkeyConfig::parseMemory((string) $mb) === null || !($origin === null || $origin === self::AUTOMATIC)) {
                 throw new Refused("$path: invalid account entry");
             }
-            $state->accounts[(string) $user] = ['enabled' => $entry['enabled'], 'memory_mb' => $mb];
+            $state->accounts[(string) $user] = ['enabled' => $entry['enabled'], 'memory_mb' => $mb] + ($origin === null ? [] : ['origin' => $origin]);
+        }
+        $automatic = $data['automatic'] ?? true;
+        $discovery = $data['discovery'] ?? [];
+        if (!is_bool($automatic) || !is_array($discovery)) {
+            throw new Refused("$path: invalid automatic mode entry");
+        }
+        $state->automatic = $automatic;
+        foreach ($discovery as $user => $checked) {
+            if (!is_string($user) || !ValkeyConfig::validUser($user) || !is_int($checked) || $checked < 0) {
+                throw new Refused("$path: invalid discovery entry");
+            }
+            $state->discovery[$user] = $checked;
         }
         $sites = $data['wordpress'] ?? [];
         if (!is_array($sites)) {
@@ -97,6 +122,13 @@ final class ObjectCacheState
         ksort($this->accounts, SORT_STRING);
         $document = ['schema_version' => 1, 'defaults' => ['memory_mb' => $this->defaultMemory],
             'packages' => (object) $this->packages, 'accounts' => (object) $this->accounts];
+        if (!$this->automatic) {
+            $document['automatic'] = false;  // only the administrator's "off" is written; absent means on
+        }
+        if ($this->discovery !== []) {
+            ksort($this->discovery, SORT_STRING);
+            $document['discovery'] = $this->discovery;
+        }
         $sites = [];
         foreach ($this->wordpress as $user => $paths) {
             if ($paths !== []) {
@@ -123,6 +155,28 @@ final class ObjectCacheState
         if ($entry !== null) {
             return $entry['enabled'] ? $entry['memory_mb'] : null;
         }
-        return $package !== null && isset($this->packages[$package]) ? $this->packages[$package]['memory_mb'] : null;
+        return $this->packageMemory($package) ?: null;  // 0: the package is switched off
+    }
+
+    /** The package's memory: null when the package has no object cache setting, 0 when it is switched off. */
+    public function packageMemory(?string $package): ?int
+    {
+        return $package !== null ? ($this->packages[$package]['memory_mb'] ?? null) : null;
+    }
+
+    /**
+     * Who decided the account's object cache: "automatic" (the automatic mode), "administrator" (enabled for the account),
+     * "package" (its package has memory), "disabled" (the administrator turned it off for the account), "package_off" (its
+     * package is switched off), or null (nothing decided: while the automatic mode is on, the account gets its cache once
+     * it has WordPress with LiteSpeed Cache).
+     */
+    public function origin(string $user, ?string $package): ?string
+    {
+        $entry = $this->accounts[$user] ?? null;
+        if ($entry !== null) {
+            return !$entry['enabled'] ? 'disabled' : (($entry['origin'] ?? null) === self::AUTOMATIC ? 'automatic' : 'administrator');
+        }
+        $mb = $this->packageMemory($package);
+        return $mb === null ? null : ($mb === 0 ? 'package_off' : 'package');
     }
 }

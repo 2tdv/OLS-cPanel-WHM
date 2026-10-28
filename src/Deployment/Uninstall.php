@@ -33,6 +33,8 @@ final class Uninstall
         'ols-cpanel-logs.service', CutoverPlan::BROKER_UNIT];
     /** Every per-account object cache instance (FV-09), stopped by pattern. */
     public const OBJCACHE_INSTANCES = 'ols-cpanel-objcache@*.service';
+    /** Units of earlier builds (merged into the PHP environment units); their unit files may already be gone. */
+    public const LEGACY_UNITS = ['ols-cpanel-php-ext.path', 'ols-cpanel-php-ext.service'];
     /** The product packages, removed together (the spec has no scriptlets, so the removal never calls back into uninstall). */
     public const PACKAGES = ['ols-cpanel', 'ols-cpanel-openlitespeed', 'ols-cpanel-php-redis'];
     /** The transient unit that runs dnf outside this process (which lives in a package being removed). */
@@ -110,7 +112,16 @@ final class Uninstall
             }
             $record = $this->env->host->run('disable-unit', [Host::SYSTEMCTL, 'disable', '--now', $unit]);
             $stopped = $this->env->host->unitStopped($unit, 'unit-stopped');
-            $actions[] = ['action' => "disable and stop $unit", 'ok' => $record['exit_code'] === 0 && $stopped, 'stopped' => $stopped];
+            $ok = $record['exit_code'] === 0 && $stopped;
+            if (!$ok && $stopped && in_array($unit, self::LEGACY_UNITS, true)) {
+                // A unit of an earlier build whose file is gone: `disable` fails and leaves its enable link behind
+                // (lab 2026-10-28). It is stopped; its links are removed, which is all that is left of it.
+                foreach (['paths.target.wants', 'multi-user.target.wants', 'timers.target.wants'] as $wants) {
+                    $this->env->host->run('legacy-unit-link', ['/usr/bin/rm', '-f', '--', "{$this->env->unitDir}/$wants/$unit"]);
+                }
+                $ok = true;
+            }
+            $actions[] = ['action' => "disable and stop $unit", 'ok' => $ok, 'stopped' => $stopped];
             if (!$stopped) {
                 return ['result' => 'failed', 'actions' => $actions,
                     'error' => "$unit did not stop; the state directory was not removed"];
@@ -135,6 +146,8 @@ final class Uninstall
                 return ['result' => 'failed', 'actions' => $actions,
                     'error' => 'object cache instances did not stop; the state directory was not removed'];
             }
+            // Their slice stays active (empty) until a reboot otherwise.
+            $this->env->host->run('objcache-slice-stop', [Host::SYSTEMCTL, 'stop', 'system-ols\\x2dcpanel\\x2dobjcache.slice']);
         }
         // The per-account systemd drop-ins of the instances (only the product's own file in a directory of its name).
         foreach ($objcache->removeDropIns($dryRun) as $dropIn) {
@@ -176,6 +189,10 @@ final class Uninstall
                 self::delete($path);
             }
             $actions[] = ['action' => "remove $path"];
+        }
+        if (!$dryRun) {
+            // recover.sh's lock file under /run (it would otherwise stay until a reboot).
+            $this->env->host->run('recover-lock-remove', ['/usr/bin/rm', '-f', '--', RecoveryScript::LOCK]);
         }
         $next = $this->packages($dryRun, $keepPackages, $actions);
         return ['result' => $dryRun ? 'dry_run' : 'uninstalled', 'actions' => $actions, 'kept' => [$this->env->backupsDir()], 'next' => $next];

@@ -33,7 +33,7 @@ export const CPANEL_ACTIONS = Object.freeze({
 })
 
 // Settings changes and small operations of the WHM gateway: synchronous, no job, no digest (the limits of the automatic page cache
-// cleanup, the notification settings and test, maintenance windows).
+// cleanup, the notification settings and test, maintenance windows, the object cache's automatic mode).
 export const WHM_SETTINGS = Object.freeze({
   cacheLimits: 'cache_limits',
   requestStatus: 'request_status',
@@ -41,6 +41,7 @@ export const WHM_SETTINGS = Object.freeze({
   notifyTest: 'notify_test',
   scheduleAdd: 'schedule_add',
   scheduleCancel: 'schedule_cancel',
+  objcacheAutomatic: 'objcache_automatic',
 })
 
 export const REQUEST_HEADER = 'X-OLS-cPanel-Request'

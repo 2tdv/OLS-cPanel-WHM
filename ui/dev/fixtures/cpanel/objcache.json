@@ -3,6 +3,8 @@
   "observed_at": 1792630000,
   "source": "ols-cpanel objcache status",
   "enabled": true,
+  "origin": "automatic",
+  "automatic": true,
   "suspended": false,
   "state": "active",
   "memory_mb": 64,

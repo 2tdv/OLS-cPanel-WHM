@@ -320,6 +320,17 @@ with tempfile.TemporaryDirectory() as temp:
                 {"server_max_gb": 2049}, {"per_site_mb": "512"}, {"per_site_mb": 512.5}, {"per_site_mb": True}, {"per_site_mb": None},
                 {"x": 1}, {"per_site_mb": 600, "x": 1}, {"scope": "server", "digest": DIGEST}, "text"]:
         refused(post("cache_limits", bad), 400, "BAD_BODY")
+    # The object cache: read with GET (no argument); the automatic mode switched with exactly {automatic: bool}.
+    _, _, _, calls = whm.request(query="api=objcache")
+    assert [(c["op"], c["args"]) for c in calls] == [("admin.objcache", None)], calls
+    refused(whm.request(query="api=objcache&account=olscpa"), 400, "BAD_QUERY")
+    for value in [True, False]:
+        status, _, body, calls = post("objcache_automatic", {"automatic": value})
+        assert status == 200 and [(c["op"], c["args"]) for c in calls] == [("admin.objcache", {"automatic": value})], (status, body, calls)
+    refused(whm.request(method="POST", query="action=objcache_automatic", body={"automatic": False}), 403, "REQUEST_HEADER")
+    for bad in [{}, [], [True], {"automatic": "off"}, {"automatic": 0}, {"automatic": None}, {"automatic": True, "x": 1}, {"enabled": True},
+                {"scope": "server", "digest": DIGEST}, "text"]:
+        refused(post("objcache_automatic", bad), 400, "BAD_BODY")
     # Requests to the administrator: listed without arguments; a status change takes exactly {id, status}.
     _, _, _, calls = whm.request(query="api=requests")
     assert [(c["op"], c["args"], c["socket"].endswith("/admin.sock")) for c in calls] == [("admin.requests", None, True)], calls

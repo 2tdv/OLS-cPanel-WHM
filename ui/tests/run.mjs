@@ -337,7 +337,10 @@ await test('catalog: every dynamic key family is complete', () => {
   for (const k of ['native', 'hybrid']) need.push(`whm.switch.profileHelp.${k}`)
   for (const k of fixtures.ACTION_NAMES) need.push(`actions.${k.replace('.', '_')}`)
   for (const k of ['job_start', 'job_finish', 'cache_limits_set', 'tenant_cache_purge', 'tenant_php_restart', 'enforcement', 'enforcement_error', 'capability',
-    'notify_settings_set', 'notify_test', 'schedule_add', 'schedule_cancel']) need.push(`whm.activity.events.${k}`)
+    'notify_settings_set', 'notify_test', 'schedule_add', 'schedule_cancel', 'objcache_automatic_set']) need.push(`whm.activity.events.${k}`)
+  for (const k of ['automatic', 'administrator', 'package', 'disabled', 'package_off', 'none']) need.push(`whm.objcache.origins.${k}`)
+  for (const k of ['active', 'inactive', 'failed', 'activating']) need.push(`whm.objcache.states.${k}`)
+  for (const k of ['off', 'providerOff', 'ready']) need.push(`cpanel.objcache.${k}`)
   for (const k of ['job', 'held', 'php_env', 'upgrade', 'cache_emergency', 'disk', 'objcache', 'schedule']) need.push(`whm.notify.events.${k}`)
   for (const k of ['email', 'webhook']) need.push(`whm.notify.channels.${k}`)
   for (const k of ['scheduled', 'running', 'done', 'failed', 'missed', 'refused', 'cancelled', 'unknown']) need.push(`whm.maintenance.state.${k}`)
@@ -519,6 +522,41 @@ await test('cache cleanup limits: read, strict write with the gateway rules, bou
     assert.equal(refused.body.error.code, 'BAD_BODY', bad)
   }
   assert.throws(() => client.post('ols.sync', {}), e => e.code === 'BAD_ACTION')
+})
+
+await test('object cache automatic mode: read, strict switch with the gateway rules, off removes only automatic accounts', async () => {
+  const send = fixtures.createFixtureSend('default', { latency: 0 })
+  const client = api.createClient('index.cgi', send)
+  const before = api.commandOutput(await client.get('objcache'))
+  assert.equal(before.automatic, true)
+  assert.deepEqual(before.accounts.map(a => a.origin), ['automatic', 'administrator', 'package', 'disabled'])
+  await assert.rejects(client.get('objcache', { account: 'legacy' }), e => e.code === 'BAD_QUERY')
+  const off = api.commandOutput(await client.post('objcache_automatic', { automatic: false }))
+  assert.equal(off.automatic, false)
+  assert.deepEqual(off.accounts.map(a => a.account), ['shopowner', 'goldsite', 'quietblog'])
+  assert.equal(api.commandOutput(await client.get('objcache')).automatic, false)
+  assert.equal(api.commandOutput(await client.post('objcache_automatic', { automatic: true })).automatic, true)
+  const raw = (body, headers = { 'X-OLS-cPanel-Request': '1' }) => send({ method: 'POST', url: 'index.cgi?action=objcache_automatic', headers, body })
+  assert.equal((await raw('{"automatic": false}', {})).body.error.code, 'REQUEST_HEADER')
+  for (const bad of ['{}', '[]', '[true]', '{"automatic": "off"}', '{"automatic": 0}', '{"automatic": null}', '{"automatic": true, "x": 1}', 'text']) {
+    const refused = await raw(bad)
+    assert.equal(refused.status, 400, bad)
+    assert.equal(refused.body.error.code, 'BAD_BODY', bad)
+  }
+})
+
+await test('cPanel object cache: ready when running, the provider\'s off told apart from not started yet', async () => {
+  const component = (await load('/src/cpanel/views/ObjectCacheView.vue')).default
+  const view = extra => async () => ({ status: 200, body: { v: 1, ok: true, result: { ...fixtures.FIXTURES.cpanel.objcache, ...extra } } })
+  const html = async extra => render(component, {}, undefined, api.createClient('index.live.php', view(extra)))
+  assert.match(await html({}), /ready and configured for your WordPress sites/)
+  const off = { enabled: false, state: 'inactive', connection: null, wordpress: [], usage: null }
+  for (const extra of [{ origin: 'disabled' }, { origin: 'package_off' }, { origin: null, automatic: false }]) {
+    const text = await html({ ...off, ...extra })
+    assert.match(text, /hosting provider turned the object cache off/, JSON.stringify(extra))
+    assert.doesNotMatch(text, /ready and configured/)
+  }
+  assert.match(await html({ ...off, origin: null, automatic: true }), /starts by itself as soon as a WordPress site with LiteSpeed Cache is found/)
 })
 
 await test('operations fixtures: activity, notifications, maintenance windows, updates and support bundles follow the gateway rules', async () => {
@@ -787,6 +825,13 @@ const EXPECT = {
     unauthorized: [/not allowed to see this view/],
     error: [/Could not load this view/],
   },
+  'src/whm/views/ObjectCacheView.vue': {
+    default: [/Every account with WordPress and LiteSpeed Cache gets its own private object cache automatically\./, /Automatic object cache/, /Turn off/,
+      { rows: 4 }],
+    empty: [/No account has an object cache yet/],
+    unauthorized: [/not allowed to see this view/],
+    error: [/Could not load this view/],
+  },
   'src/whm/views/ActivityView.vue': {
     default: [/Search activity/, /7 in total/, /Kind of activity/, /Result/, { rows: 7 }],
     empty: [/No activity has been recorded yet/],
@@ -839,8 +884,8 @@ const EXPECT = {
     unauthorized: [/not allowed to see this view/, /not enabled for your account/],
   },
   'src/cpanel/views/ObjectCacheView.vue': {
-    default: [/Connection values/, /\/home\/legacy\/\.ols-objcache\/valkey\.sock/, /None needed/, /Copy/, /configured automatically/, /Joomla, Drupal, Magento/, /My WordPress sites/, /tried again automatically/, { rows: 4 }],
-    empty: [/The object cache is not turned on for your account/],
+    default: [/ready and configured for your WordPress sites/, /Connection values/, /\/home\/legacy\/\.ols-objcache\/valkey\.sock/, /None needed/, /Copy/, /configured automatically/, /Joomla, Drupal, Magento/, /My WordPress sites/, /tried again automatically/, { rows: 4 }],
+    empty: [/starts by itself as soon as a WordPress site with LiteSpeed Cache is found/],
     unauthorized: [/not allowed to see this view/, /not enabled for your account/],
   },
   'src/cpanel/views/HistoryView.vue': {

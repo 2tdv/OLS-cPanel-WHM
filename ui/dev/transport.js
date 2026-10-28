@@ -21,6 +21,7 @@ import whmAction from './fixtures/whm/action.json'
 import whmCache from './fixtures/whm/cache.json'
 import whmPhp from './fixtures/whm/php.json'
 import whmCacheLimits from './fixtures/whm/cache_limits.json'
+import whmObjcache from './fixtures/whm/objcache.json'
 import whmAudit from './fixtures/whm/audit.json'
 import whmNotify from './fixtures/whm/notify.json'
 import whmSchedule from './fixtures/whm/schedule.json'
@@ -45,7 +46,7 @@ import whmRequests from './fixtures/whm/requests.json'
 export const FIXTURES = {
   whm: {
     status: whmStatus, metrics: whmMetrics, inventory: whmInventory, compat: whmCompat, plan: whmPlan,
-    generations: whmGenerations, doctor: whmDoctor, jobs: whmJobs, job: whmJob, cache: whmCache, cache_limits: whmCacheLimits, php: whmPhp,
+    generations: whmGenerations, doctor: whmDoctor, jobs: whmJobs, job: whmJob, cache: whmCache, cache_limits: whmCacheLimits, objcache: whmObjcache, php: whmPhp,
     history: whmHistory, requests: whmRequests, audit: whmAudit, notify: whmNotify, schedule: whmSchedule, update: whmUpdate, bundle: whmBundle,
   },
   cpanel: {
@@ -88,7 +89,7 @@ const ACTION_SCOPES = {
   'ols.support_bundle': 'server', 'ols.support_bundle_raw': 'server',
 }
 export const ACTION_NAMES = Object.keys(ACTION_SCOPES)
-const API_PARAMS = { inventory: ['query', 'page', 'size'], compat: ['query', 'page', 'size'], job: ['job'], cache: ['account', 'domain'], cache_limits: [], php: [], history: ['resolution', 'vhost'],
+const API_PARAMS = { inventory: ['query', 'page', 'size'], compat: ['query', 'page', 'size'], job: ['job'], cache: ['account', 'domain'], cache_limits: [], objcache: [], php: [], history: ['resolution', 'vhost'],
   audit: ['query', 'page', 'size', 'event', 'result'], notify: [], schedule: [], update: ['refresh'], bundle: [] }
 // plugins/whm/index.cgi CACHE_LIMITS: the settings of the automatic cache cleanup (POST ?action=cache_limits), inclusive bounds.
 const CACHE_LIMIT_BOUNDS = { per_site_mb: [16, 102400], server_percent: [1, 50], server_max_gb: [1, 2048] }
@@ -171,6 +172,7 @@ function createState(scenario) {
     compat: [...clone(FIXTURES.whm.compat.vhosts), ...generatedCompat(420)],
     cache: clone(FIXTURES.whm.cache.output),
     cacheLimits: clone(FIXTURES.whm.cache_limits.output),
+    objcache: clone(FIXTURES.whm.objcache.output),
     cpanelCache: clone(FIXTURES.cpanel.cache),
     lastTenantPurge: 0,
     lastTenantRestart: 0,
@@ -189,6 +191,7 @@ function createState(scenario) {
   if (scenario === 'cutover' || scenario === 'metrics-stale') switchTo(state, true)
   if (scenario === 'empty') {
     Object.assign(state, { plan: null, jobs: [], domains: [], compat: [], audit: [], bundles: [], requests: [] })
+    state.objcache.accounts = []
     state.schedule.entries = []
     state.cache = { ...state.cache, stores: [], totals: cacheTotals([]) }
     state.cpanelCache = { ...state.cpanelCache, stores: [], totals: cacheTotals([]) }
@@ -336,7 +339,7 @@ function read(state, app, name, params, scenario) {
     }
     if (name === 'objcache') {
       const view = { ...clone(FIXTURES.cpanel.objcache), observed_at: nowSeconds() }
-      return ok(scenario === 'empty' ? { ...view, enabled: false, state: 'inactive', connection: null, wordpress: [], usage: null } : view)
+      return ok(scenario === 'empty' ? { ...view, enabled: false, origin: null, state: 'inactive', connection: null, wordpress: [], usage: null } : view)
     }
     if (name === 'cache') {
       return ok({ ...state.cpanelCache, observed_at: nowSeconds(), user: state.cpanelCache.user })
@@ -382,6 +385,7 @@ function read(state, app, name, params, scenario) {
     }
     case 'cache_limits': return ok({ observed_at: nowSeconds(), source: FIXTURES.whm.cache_limits.source, exit_code: 0,
       output: { ...clone(state.cacheLimits), observed_at: nowSeconds() } })
+    case 'objcache': return ok({ observed_at: nowSeconds(), source: FIXTURES.whm.objcache.source, exit_code: 0, output: clone(state.objcache) })
     case 'php': return ok({ observed_at: nowSeconds(), source: FIXTURES.whm.php.source, exit_code: 0, output: { ...clone(state.php), observed_at: nowSeconds() } })
     case 'history': {
       const vhosts = FIXTURES.whm.history.vhosts
@@ -445,7 +449,7 @@ function setCacheLimits(state, body) {
 // plugins/whm/index.cgi SETTINGS: settings changes and small operations (no job, no digest), strict bodies.
 const EMAIL = /^[A-Za-z0-9][A-Za-z0-9._%+-]{0,63}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/
 const NOTIFY_EVENTS = ['job', 'held', 'php_env', 'upgrade', 'cache_emergency', 'disk', 'objcache', 'schedule']
-const SETTINGS = ['cache_limits', 'request_status', 'notify_settings', 'notify_test', 'schedule_add', 'schedule_cancel']
+const SETTINGS = ['cache_limits', 'request_status', 'notify_settings', 'notify_test', 'schedule_add', 'schedule_cancel', 'objcache_automatic']
 const BAD_BODY = 'The body does not fit this action: see docs/product-interfaces.md, "Gateways".'
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 const webhookOk = value => {
@@ -456,6 +460,18 @@ const webhookOk = value => {
   } catch {
     return false
   }
+}
+
+// POST ?action=objcache_automatic: exactly {automatic: bool}; off removes the accounts the automatic mode set up (the pass
+// the command starts), the reply is the state after the change (admin.objcache).
+function setObjcacheAutomatic(state, body) {
+  if (!isObject(body) || Object.keys(body).join() !== 'automatic' || typeof body.automatic !== 'boolean') return fail(400, 'BAD_BODY', BAD_BODY)
+  const out = state.objcache
+  out.automatic = body.automatic
+  if (!body.automatic) out.accounts = out.accounts.filter(a => a.origin !== 'automatic')
+  state.audit.unshift({ time: nowSeconds(), event: 'objcache_automatic_set', actor: 'system', action: null, scope: null, job: null, result: 'ok',
+    detail: body.automatic ? '--on' : '--off' })
+  return ok({ observed_at: nowSeconds(), source: FIXTURES.whm.objcache.source, exit_code: 0, output: clone(out) })
 }
 
 function setRequestStatus(state, change) {
@@ -546,7 +562,7 @@ function act(state, parsed, headers, body) {
     try {
       parsedBody = JSON.parse(body)
     } catch { /* refused below */ }
-    return { request_status: setRequestStatus, notify_settings: setNotify, notify_test: testNotify, schedule_add: addSchedule, schedule_cancel: cancelSchedule }[action](state, parsedBody)
+    return { request_status: setRequestStatus, notify_settings: setNotify, notify_test: testNotify, schedule_add: addSchedule, schedule_cancel: cancelSchedule, objcache_automatic: setObjcacheAutomatic }[action](state, parsedBody)
   }
   let payload = null
   try {

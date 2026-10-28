@@ -23,6 +23,10 @@ const connection = computed(() => objcache.data.value?.connection || null)
 const sites = computed(() => (Array.isArray(objcache.data.value?.wordpress) ? objcache.data.value.wordpress : []))
 const usage = computed(() => objcache.data.value?.usage || null)
 const running = computed(() => objcache.data.value?.state === 'active')
+// Off: either the hosting provider decided so (the account or its package turned off, or the automatic mode switched off),
+// or nothing was decided yet and the cache starts by itself once WordPress with LiteSpeed Cache is found.
+const providerOff = computed(() => ['disabled', 'package_off'].includes(objcache.data.value?.origin) || objcache.data.value?.automatic === false)
+const offText = computed(() => (providerOff.value ? t('cpanel.objcache.providerOff') : t('cpanel.objcache.off')))
 const num = value => formatNumber(value) ?? t('state.unknown')
 const size = value => formatBytes(value) ?? t('state.unknown')
 const percent = value => (Number.isFinite(value) ? `${Math.round(value * 100)}%` : t('state.unknown'))
@@ -46,11 +50,12 @@ async function copy(text) {
   <div>
     <PageHeader :title="t('cpanel.objcache.title')" :description="t('cpanel.objcache.description')" />
 
-    <StateView :resource="objcache" :empty="objcache.data.value !== null && !enabled" :empty-text="t('cpanel.objcache.off')">
+    <StateView :resource="objcache" :empty="objcache.data.value !== null && !enabled" :empty-text="offText">
       <el-alert v-if="objcache.data.value?.suspended" type="warning" show-icon :closable="false" class="olsc-gap-below"
                 :title="t('cpanel.objcache.suspended')" />
       <el-alert v-else-if="!running" type="warning" show-icon :closable="false" class="olsc-gap-below"
                 :title="t('cpanel.objcache.notRunning')" :description="t('cpanel.objcache.notRunningBody')" />
+      <el-alert v-else type="success" show-icon :closable="false" class="olsc-gap-below" :title="t('cpanel.objcache.ready')" />
 
       <section v-if="connection" class="olsc-card olsc-section" :aria-label="t('cpanel.objcache.connectionTitle')">
         <h3 class="olsc-h3">{{ t('cpanel.objcache.connectionTitle') }}</h3>

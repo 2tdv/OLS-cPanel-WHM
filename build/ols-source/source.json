@@ -23,6 +23,6 @@
   "third_party_patches": [
     "0001-Link-curl-configure-checks-with-libstdc.patch"
   ],
-  "product_release": 10,
-  "release_inputs_sha256": "f28081a70c559b919234f39031a67cb1578397bbdf689aaa1fdf7e8893a3f883"
+  "product_release": 11,
+  "release_inputs_sha256": "6377f4d988cb1ffc5379044e4df8b8493d3aaa2a5532b5b0e3c7503d82904bec"
 }

@@ -221,7 +221,7 @@ const messages = {
       title: 'OLS-cPanel for WHM',
       nav: {
         overview: 'Overview', switch: 'Switch center', compat: 'Compatibility', accounts: 'Accounts & domains',
-        generations: 'Generations', jobs: 'Jobs', diagnostics: 'Diagnostics', cache: 'Page cache', php: 'PHP', requests: 'Requests',
+        generations: 'Generations', jobs: 'Jobs', diagnostics: 'Diagnostics', cache: 'Page cache', php: 'PHP', objcache: 'Object cache', requests: 'Requests',
         activity: 'Activity', notifications: 'Notifications', maintenance: 'Maintenance windows', updates: 'Updates', support: 'Support',
       },
       activity: {
@@ -235,7 +235,23 @@ const messages = {
           tenant_php_restart: 'Account restarted its PHP processes', enforcement: 'Restriction enforced', enforcement_error: 'Restriction enforcement error',
           capability: 'Approved action', notify_settings_set: 'Notification settings changed', notify_test: 'Test notification sent',
           schedule_add: 'Maintenance window scheduled', schedule_cancel: 'Maintenance window cancelled',
+          objcache_automatic_set: 'Automatic object cache switched',
         },
+      },
+      objcache: {
+        title: 'Object cache',
+        description: 'A private Valkey (Redis compatible) cache per account, on its own socket in the account\'s home. No account can reach another account\'s cache.',
+        autoTitle: 'Automatic object cache',
+        autoLead: 'Every account with WordPress and LiteSpeed Cache gets its own private object cache automatically.',
+        autoDetail: 'Its WordPress sites are set up to use it, also when the customer only switched the object cache on in LiteSpeed Cache with its defaults. Nothing needs to be done by you or the customer. Accounts you turned off, and packages you switched off, are never touched.',
+        autoOn: 'On', autoOff: 'Off', turnOn: 'Turn on', turnOff: 'Turn off',
+        confirmOff: 'Turn the automatic object cache off? Accounts it set up lose their object cache; accounts you set up keep theirs.',
+        confirmYes: 'Turn off', confirmNo: 'Cancel', failed: 'The setting could not be changed',
+        accountsTitle: 'Accounts with an object cache decision', none: 'No account has an object cache yet. Accounts with WordPress and LiteSpeed Cache get one automatically.',
+        account: 'Account', origin: 'Set by', running: 'Running', memory: 'Memory limit', sites: 'WordPress sites',
+        origins: { automatic: 'Automatic', administrator: 'Set by administrator', package: 'Set by administrator (package)', disabled: 'Turned off by administrator',
+          package_off: 'Turned off by administrator (package)', none: 'Not decided' },
+        states: { active: 'Running', inactive: 'Stopped', failed: 'Failed', activating: 'Starting' },
       },
       notify: {
         title: 'Notifications', description: 'Get a message when something needs your attention. Off until you add an address or a webhook.',
@@ -578,7 +594,9 @@ const messages = {
       objcache: {
         title: 'Object cache',
         description: 'A private cache for your applications (Valkey, Redis compatible) that keeps database results in memory so dynamic pages are built faster.',
-        off: 'The object cache is not turned on for your account. Ask your hosting provider to turn it on.',
+        off: 'Your object cache starts by itself as soon as a WordPress site with LiteSpeed Cache is found in your account. Nothing needs to be done.',
+        providerOff: 'Your hosting provider turned the object cache off for this account.',
+        ready: 'Your object cache is ready and configured for your WordPress sites.',
         suspended: 'Your account is suspended, so the object cache is stopped.',
         notRunning: 'The object cache is not running right now',
         notRunningBody: 'It is started automatically; check back in a minute. Applications keep working without it.',

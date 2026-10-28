@@ -66,6 +66,7 @@ cp -a payload/. %{buildroot}/
 %dir %attr(0710,root,root) %{serverroot}/admin/cgid
 /usr/lib/systemd/system/ols-cpanel.service
 /usr/lib/systemd/system/ols-cpanel-logs.service
+%dir %attr(0755,root,root) /usr/libexec/ols-cpanel
 %attr(0755,root,root) /usr/libexec/ols-cpanel/ols-cpanel-logship
 %attr(0755,root,root) /usr/libexec/ols-cpanel/ols-cpanel-reload
 %attr(0755,root,root) /usr/libexec/ols-cpanel/ols-cpanel-epoch-check

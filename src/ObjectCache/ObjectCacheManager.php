@@ -16,10 +16,21 @@ use OlsCpanel\PhpExtensions\ExtensionService;
  * argv array, account names and paths are validated first, and everything that touches an account's home runs
  * as that account (runuser), so root never follows a path the account controls.
  *
- * Desired state is the state file (accounts enabled explicitly, cPanel packages enabled by the operator) minus
- * what cPanel says: an account that is suspended runs no instance, one that no longer exists loses its
- * instance and files. reconcile() is level-triggered and idempotent; enable() and disable() apply one
+ * Desired state is the state file (accounts enabled explicitly, cPanel packages enabled by the operator, accounts the
+ * automatic mode enabled) minus what cPanel says: an account that is suspended runs no instance, one that no longer
+ * exists loses its instance and files. reconcile() is level-triggered and idempotent; enable() and disable() apply one
  * account immediately with the same code.
+ *
+ * Automatic mode (on by default; `objcache auto --off|--on`): a customer who switches LiteSpeed Cache's object cache on
+ * with the plugin's defaults (Redis on localhost:6379) must get a working cache without anyone doing anything, and never
+ * one Redis shared by all accounts. So the pass looks, a few accounts at a time (DISCOVERY_PER_PASS, each at most once
+ * per DISCOVERY_INTERVAL, inside PASS_BUDGET), for WordPress sites with the LiteSpeed Cache plugin directory in accounts
+ * that have no object cache and no decision against it (no "disabled" entry, package not switched off, not suspended).
+ * Such an account gets an entry with origin "automatic" and from then on is handled exactly like an enabled one: its
+ * own instance on its private socket, its WordPress sites pointed at that socket. The look is cheap (the domain table
+ * once per pass, one find per document root and one directory test per site, as the account; never wp-cli). An
+ * automatic entry is removed again, with its instance, when the account's last WordPress with LiteSpeed Cache is gone,
+ * its package is switched off or the mode is turned off; the administrator's own decisions are never changed by it.
  */
 final class ObjectCacheManager
 {
@@ -66,6 +77,15 @@ final class ObjectCacheManager
     /** All site checks of one reconcile pass together (the unit's limit is 300 s). */
     public const PASS_BUDGET = 200;
     public const MAX_SITES = 25;
+    /** An account without an object cache is looked at for WordPress with LiteSpeed Cache at most this often (seconds). */
+    public const DISCOVERY_INTERVAL = 600;
+    /** Accounts looked at by one pass at most (the oldest look first), so a large server spreads the looks over many passes. */
+    public const DISCOVERY_PER_PASS = 20;
+    /** LiteSpeed Cache's plugin directory: its presence is what makes an account a candidate (and keeps it one). */
+    private const PLUGIN_DIR = 'wp-content/plugins/litespeed-cache';
+    /** LiteSpeed Cache's defaults for a Redis object cache: nobody chose them, so they never count as the site owner's server. */
+    private const DEFAULT_HOSTS = ['', 'localhost', '127.0.0.1'];
+    private const DEFAULT_PORTS = ['', '6379'];
 
     public function __construct(private readonly CommandRunner $runner, private readonly string $statePath = self::STATE,
                                 private readonly string $confRoot = self::CONF_ROOT, private readonly string $unitDir = self::UNIT_DIR,
@@ -73,6 +93,10 @@ final class ObjectCacheManager
                                 private readonly ?\Closure $clock = null)
     {
     }
+
+    /** /etc/userdatadomains for the reconcile pass: null outside a pass (every caller reads it), [] in a pass before the
+     * first read, then ['rows' => ...]. One read per pass instead of one per account. */
+    private ?array $userdataMemo = null;
 
     // --- Operator operations ------------------------------------------------------------------------------
 
@@ -87,7 +111,10 @@ final class ObjectCacheManager
             $account = $this->account($user);
             $state = ObjectCacheState::load($this->statePath);
             $mb ??= $state->accounts[$user]['memory_mb'] ?? $this->planMemory($state, $user) ?? $state->defaultMemory;
+            // Set by the administrator from now on (no "origin"): this also replaces an earlier "disabled" decision, and an
+            // automatic entry becomes the administrator's, which the automatic mode never removes.
             $state->accounts[$user] = ['enabled' => true, 'memory_mb' => $mb];
+            unset($state->discovery[$user]);
             $state->save($this->statePath);  // the wish survives a failed start; reconcile retries it
             $suspended = $this->suspendedNow($user);  // throws when unknown: an instance is never started blind
             $this->apply($user, $account['home'], $mb, $suspended, $this->instanceState($user));
@@ -109,13 +136,18 @@ final class ObjectCacheManager
                 throw new Refused('invalid account name');
             }
             $state = ObjectCacheState::load($this->statePath);
-            $known = isset($state->accounts[$user]);
+            $entry = $state->accounts[$user] ?? null;
             $plan = $this->planOf($user);
-            if ($plan !== null && isset($state->packages[$plan])) {
-                $state->accounts[$user] = ['enabled' => false, 'memory_mb' => $state->accounts[$user]['memory_mb'] ?? $state->packages[$plan]['memory_mb']];
+            if ($plan !== null) {
+                // The administrator's "off" is durable: neither the package nor the automatic mode turns the cache on again
+                // until `objcache enable`. The memory is kept for that enable.
+                $state->accounts[$user] = ['enabled' => false,
+                    'memory_mb' => $entry['memory_mb'] ?? ($state->packageMemory($plan) ?: $state->defaultMemory)];
             } else {
-                unset($state->accounts[$user]);
+                unset($state->accounts[$user]);  // not a cPanel account (any more): nothing to remember
             }
+            unset($state->discovery[$user]);
+            $known = $entry === null ? $plan !== null : $entry['enabled'];  // 'unchanged': it was off by decision already
             $home = $this->homeIfAny($user);
             // Sites the product set up stop using the socket before it goes away; a failure stays recorded and is retried by the pass.
             $off = $this->turnOffWordPress($state, $user, $home);
@@ -157,20 +189,27 @@ final class ObjectCacheManager
             $names = array_unique([...array_keys($state->accounts), ...array_keys($running), ...$this->configured()]);
             sort($names, SORT_STRING);
             $homes = $this->passwd();
+            try {
+                $plans = $this->plans();
+            } catch (Refused) {
+                $plans = [];  // the origin of package accounts is then unknown (null); everything else is shown
+            }
             foreach ($names as $name) {
                 $entry = $state->accounts[$name] ?? null;
                 $home = $homes[$name]['home'] ?? null;
                 $accounts[] = ['account' => $name, 'enabled' => $entry === null ? null : $entry['enabled'],
-                    'memory_mb' => $entry['memory_mb'] ?? null, 'state' => $running[$name] ?? 'inactive']
+                    'memory_mb' => $entry['memory_mb'] ?? null, 'origin' => $state->origin($name, $plans[$name] ?? null),
+                    'state' => $running[$name] ?? 'inactive']
                     + $this->connection($name, $home) + ['wordpress' => self::siteRows($state, $name)];
             }
-            return ['result' => 'status', 'engine' => $engine, 'defaults' => ['memory_mb' => $state->defaultMemory],
+            return ['result' => 'status', 'engine' => $engine, 'automatic' => $state->automatic, 'defaults' => ['memory_mb' => $state->defaultMemory],
                 'packages' => $state->packages, 'accounts' => $accounts] + $extension;
         }
         $account = $this->account($user);
         $plan = $this->planOf($user);
         $memory = $state->memoryFor($user, $plan);
-        $record = ['result' => 'status', 'engine' => $engine, 'account' => $user, 'package' => $plan, 'enabled' => $memory !== null,
+        $record = ['result' => 'status', 'engine' => $engine, 'automatic' => $state->automatic, 'account' => $user, 'package' => $plan,
+            'origin' => $state->origin($user, $plan), 'enabled' => $memory !== null,
             'memory_mb' => $memory, 'suspended' => $this->suspendedNow($user), 'state' => $running[$user] ?? 'inactive',
             'socket' => ValkeyConfig::socket($account['home'])] + $this->connection($user, $account['home'])
             + ['wordpress' => self::siteRows($state, $user)] + $extension;
@@ -180,10 +219,14 @@ final class ObjectCacheManager
         return $record;
     }
 
-    /** Sets the memory a package's accounts get (or removes the package from the object cache). @return array<string,mixed> */
-    public function package(string $name, ?string $memory, bool $remove): array
+    /**
+     * Sets the memory a package's accounts get (or removes the package from the object cache). Memory "0" (or $off) switches
+     * the package off: its accounts get no instance, neither from the package nor from the automatic mode.
+     * @return array<string,mixed>
+     */
+    public function package(string $name, ?string $memory, bool $remove, bool $off = false): array
     {
-        return $this->locked(function () use ($name, $memory, $remove): array {
+        return $this->locked(function () use ($name, $memory, $remove, $off): array {
             if (!preg_match(ObjectCacheState::PACKAGE, $name)) {
                 throw new Refused('invalid package name');
             }
@@ -191,9 +234,9 @@ final class ObjectCacheManager
             if ($remove) {
                 unset($state->packages[$name]);
             } else {
-                $mb = $memory === null ? $state->defaultMemory : ValkeyConfig::parseMemory($memory);
+                $mb = $off || $memory === '0' ? 0 : ($memory === null ? $state->defaultMemory : ValkeyConfig::parseMemory($memory));
                 if ($mb === null) {
-                    throw new Refused('memory must be a whole number of MB from ' . ValkeyConfig::MIN_MEMORY_MB . ' to ' . ValkeyConfig::MAX_MEMORY_MB);
+                    throw new Refused('memory must be 0 (off) or a whole number of MB from ' . ValkeyConfig::MIN_MEMORY_MB . ' to ' . ValkeyConfig::MAX_MEMORY_MB);
                 }
                 $state->packages[$name] = ['memory_mb' => $mb];
             }
@@ -201,8 +244,30 @@ final class ObjectCacheManager
             // Applied now without waiting for the next timer period; never blocks this command.
             $timer = $this->ensureTimer();
             $this->run('objcache-trigger', [self::SYSTEMCTL, 'start', '--no-block', self::SERVICE]);
-            return ['result' => $remove ? 'package_removed' : 'package_enabled', 'package' => $name,
-                'memory_mb' => $state->packages[$name]['memory_mb'] ?? null, 'timer' => $timer];
+            $mb = $state->packages[$name]['memory_mb'] ?? null;
+            return ['result' => $remove ? 'package_removed' : ($mb === 0 ? 'package_off' : 'package_enabled'), 'package' => $name,
+                'memory_mb' => $mb, 'timer' => $timer];
+        });
+    }
+
+    /**
+     * Turns the automatic mode on or off (`objcache auto --on|--off`). Off removes only the instances the automatic mode
+     * created (by the pass started here, without waiting); the administrator's and the packages' accounts are untouched.
+     * @return array<string,mixed>
+     */
+    public function automatic(bool $on): array
+    {
+        return $this->locked(function () use ($on): array {
+            $state = ObjectCacheState::load($this->statePath);
+            $changed = $state->automatic !== $on;
+            $state->automatic = $on;
+            if (!$on) {
+                $state->discovery = [];
+            }
+            $state->save($this->statePath);
+            $timer = $this->ensureTimer();
+            $this->run('objcache-trigger', [self::SYSTEMCTL, 'start', '--no-block', self::SERVICE]);
+            return ['result' => $changed ? ($on ? 'automatic_on' : 'automatic_off') : 'unchanged', 'automatic' => $on, 'timer' => $timer];
         });
     }
 
@@ -409,111 +474,152 @@ final class ObjectCacheManager
     public function reconcile(): array
     {
         return $this->locked(function (): array {
-            $state = ObjectCacheState::load($this->statePath);
-            $plans = $this->plans();  // every existing cPanel account with its package (empty only when authoritative)
-            $suspended = $this->suspendedSet();  // null: the suspension markers cannot be read; nothing is started then
-            $running = $this->running();
-            $homes = $this->passwd();
-            $pending = [];
-            $errors = $this->migrateRenames($state, $plans, $homes, $pending);
-            \OlsCpanel\Php\PhpLimits::reconcileAccounts(dirname($this->statePath) . '/php-limits.json', [...array_keys($plans), ...array_keys($pending)]);
-            $configured = $this->configured();
-            $actions = [];
-            $desired = [];
-            $dirty = false;
-            foreach (array_unique([...array_keys($state->accounts), ...array_keys($plans)]) as $user) {
-                if (!ValkeyConfig::validUser($user)) {
-                    continue;
-                }
-                if (!isset($plans[$user])) {
-                    if (isset($pending[$user])) {
-                        continue;  // its rename migration failed: nothing of it is dropped before the job succeeds
-                    }
-                    // Removed from cPanel: cleaned below, and its explicit entry dropped.
-                    if (isset($state->accounts[$user])) {
-                        unset($state->accounts[$user]);
-                        $dirty = true;
-                    }
-                    continue;
-                }
-                $mb = $state->memoryFor($user, $plans[$user]);
-                if ($mb !== null) {
-                    $desired[$user] = $mb;
-                }
+            $this->userdataMemo = [];  // the domain table is read once for the whole pass
+            try {
+                return $this->reconcilePass();
+            } finally {
+                $this->userdataMemo = null;
             }
-            $deadline = $this->now() + self::PASS_BUDGET;
-            $reload = false;
-            foreach (array_unique([...$configured, ...array_keys($running)]) as $user) {
-                if (isset($desired[$user]) || isset($pending[$user]) && !isset($plans[$user]) || !ValkeyConfig::validUser($user)) {
-                    continue;
-                }
-                try {
-                    $this->cleanup($user, $homes[$user]['home'] ?? null);
-                    $reload = true;
-                    $actions[] = ['account' => $user, 'action' => isset($plans[$user]) ? 'removed (disabled)' : 'removed (account gone)'];
-                } catch (\Throwable $error) {
-                    $errors[] = ['account' => $user, 'error' => self::message($error)];
-                }
-            }
-            foreach ($desired as $user => $mb) {
-                try {
-                    $home = $homes[$user]['home'] ?? null;
-                    if ($home === null || ($homes[$user]['uid'] ?? 0) < self::MIN_UID || HomePath::homeOf($home, $user) !== $home
-                        || strlen(ValkeyConfig::socket($home)) > ValkeyConfig::MAX_SOCKET_PATH) {
-                        throw new Refused('the account has no usable home directory');
-                    }
-                    if ($suspended === null) {
-                        // Fail closed: with the suspension state unknown an instance is neither started nor restarted,
-                        // and a running one is left as it is until the markers can be read again.
-                        throw new Refused('the suspension state of the account cannot be read; the instance was neither started nor changed');
-                    }
-                    $done = $this->apply($user, $home, $mb, isset($suspended[$user]), $running[$user] ?? 'inactive');
-                    foreach ($done as $action) {
-                        $actions[] = ['account' => $user, 'action' => $action];
-                    }
-                    if (!isset($suspended[$user])) {
-                        // The instance is up: WordPress sites are found and set up. Site errors are recorded, never errors of the pass.
-                        $dirty = $this->syncWordPress($state, $user, $home, false, $deadline) || $dirty;
-                    }
-                } catch (\Throwable $error) {
-                    $errors[] = ['account' => $user, 'error' => self::message($error)];
-                }
-            }
-            // Sites the product set up whose account no longer has a running cache (disabled, suspended or gone).
-            foreach (array_keys($state->wordpress) as $user) {
-                if (isset($pending[$user]) && !isset($plans[$user])) {
-                    continue;
-                }
-                $wanted = isset($desired[$user]);
-                if ($wanted && ($suspended === null || !isset($suspended[$user]))) {
-                    continue;
-                }
-                $home = isset($plans[$user]) ? ($homes[$user]['home'] ?? null) : null;
-                $before = $state->wordpress[$user];
-                $this->turnOffWordPress($state, $user, $home !== null && ($homes[$user]['uid'] ?? 0) >= self::MIN_UID
-                    && HomePath::homeOf($home, $user) === $home ? $home : null);
-                $dirty = $dirty || ($state->wordpress[$user] ?? []) !== $before;
-            }
-            if ($reload) {
-                $this->run('daemon-reload', [self::SYSTEMCTL, 'daemon-reload']);
-            }
-            if ($dirty) {
-                $state->save($this->statePath);
-            }
-            foreach ($this->removeAccountLeftovers(array_keys($plans), $homes)['errors'] as $message) {
-                $errors[] = ['account' => '(removal)', 'error' => $message];
-            }
-            if (!$this->ensureTimer()) {
-                // Nothing would retry a failure without the timer: reported, and tried again by every pass that does run.
-                $errors[] = ['account' => '(timer)', 'error' => 'the object cache timer ' . self::TIMER . ' could not be enabled'];
-            }
-            $extension = null;
-            if ($this->extensions !== null && $desired !== []) {
-                $extension = $this->watchExtension($actions, $errors);
-            }
-            return ['result' => $errors === [] ? 'reconciled' : 'errors', 'actions' => $actions, 'errors' => $errors]
-                + ($extension === null ? [] : ['php_extension' => $extension]);
         });
+    }
+
+    /** @return array<string,mixed> */
+    private function reconcilePass(): array
+    {
+        $state = ObjectCacheState::load($this->statePath);
+        $plans = $this->plans();  // every existing cPanel account with its package (empty only when authoritative)
+        $suspended = $this->suspendedSet();  // null: the suspension markers cannot be read; nothing is started then
+        $running = $this->running();
+        $homes = $this->passwd();
+        $pending = [];
+        $errors = $this->migrateRenames($state, $plans, $homes, $pending);
+        \OlsCpanel\Php\PhpLimits::reconcileAccounts(dirname($this->statePath) . '/php-limits.json', [...array_keys($plans), ...array_keys($pending)]);
+        $configured = $this->configured();
+        $actions = [];
+        $desired = [];
+        $dirty = false;
+        foreach ($state->accounts as $user => $entry) {
+            // An automatic entry no longer decides when the mode is off or the account's package now has a setting of its
+            // own (switched off, or memory that enables it anyway): it is dropped, and the instance follows the rest.
+            if (($entry['origin'] ?? null) === ObjectCacheState::AUTOMATIC && isset($plans[$user])
+                && (!$state->automatic || $state->packageMemory($plans[$user]) !== null)) {
+                unset($state->accounts[$user]);
+                $dirty = true;
+            }
+        }
+        foreach (array_unique([...array_keys($state->accounts), ...array_keys($plans)]) as $user) {
+            if (!ValkeyConfig::validUser($user)) {
+                continue;
+            }
+            if (!isset($plans[$user])) {
+                if (isset($pending[$user])) {
+                    continue;  // its rename migration failed: nothing of it is dropped before the job succeeds
+                }
+                // Removed from cPanel: cleaned below, and its explicit entry dropped.
+                if (isset($state->accounts[$user])) {
+                    unset($state->accounts[$user]);
+                    $dirty = true;
+                }
+                continue;
+            }
+            $mb = $state->memoryFor($user, $plans[$user]);
+            if ($mb !== null) {
+                $desired[$user] = $mb;
+            }
+        }
+        $deadline = $this->now() + self::PASS_BUDGET;
+        $dirty = $this->discover($state, $plans, $suspended, $homes, $desired, $deadline) || $dirty;
+        $reload = false;
+        foreach (array_unique([...$configured, ...array_keys($running)]) as $user) {
+            if (isset($desired[$user]) || isset($pending[$user]) && !isset($plans[$user]) || !ValkeyConfig::validUser($user)) {
+                continue;
+            }
+            try {
+                $this->cleanup($user, $homes[$user]['home'] ?? null);
+                $reload = true;
+                $actions[] = ['account' => $user, 'action' => isset($plans[$user]) ? 'removed (disabled)' : 'removed (account gone)'];
+            } catch (\Throwable $error) {
+                $errors[] = ['account' => $user, 'error' => self::message($error)];
+            }
+        }
+        $lapsed = [];
+        foreach ($desired as $user => $mb) {
+            try {
+                $home = self::usableHome($homes, $user);
+                if ($home === null) {
+                    throw new Refused('the account has no usable home directory');
+                }
+                if ($suspended === null) {
+                    // Fail closed: with the suspension state unknown an instance is neither started nor restarted,
+                    // and a running one is left as it is until the markers can be read again.
+                    throw new Refused('the suspension state of the account cannot be read; the instance was neither started nor changed');
+                }
+                $done = $this->apply($user, $home, $mb, isset($suspended[$user]), $running[$user] ?? 'inactive');
+                foreach ($done as $action) {
+                    $actions[] = ['account' => $user, 'action' => $action];
+                }
+                if (!isset($suspended[$user])) {
+                    // The instance is up: WordPress sites are found and set up. Site errors are recorded, never errors of the pass.
+                    $found = null;
+                    $dirty = $this->syncWordPress($state, $user, $home, false, $deadline, $found) || $dirty;
+                    if (($state->accounts[$user]['origin'] ?? null) === ObjectCacheState::AUTOMATIC && $found !== null
+                        && !self::keepsAutomatic($state, $user, $found)) {
+                        $lapsed[$user] = $home;
+                    }
+                }
+            } catch (\Throwable $error) {
+                $errors[] = ['account' => $user, 'error' => self::message($error)];
+            }
+        }
+        foreach ($lapsed as $user => $home) {
+            // The automatic mode enabled this account for its WordPress with LiteSpeed Cache, and none is left: the entry
+            // goes (looked at again after DISCOVERY_INTERVAL), the product's sites are switched off before the socket goes.
+            unset($state->accounts[$user], $desired[$user]);
+            $state->discovery[$user] = $this->now();
+            $dirty = true;
+            try {
+                $this->turnOffWordPress($state, $user, $home);
+                $this->cleanup($user, $home);
+                $reload = true;
+                $actions[] = ['account' => $user, 'action' => 'removed (no WordPress with LiteSpeed Cache left)'];
+            } catch (\Throwable $error) {
+                $errors[] = ['account' => $user, 'error' => self::message($error)];  // the next pass removes it as not wanted
+            }
+        }
+        // Sites the product set up whose account no longer has a running cache (disabled, suspended or gone).
+        foreach (array_keys($state->wordpress) as $user) {
+            if (isset($pending[$user]) && !isset($plans[$user])) {
+                continue;
+            }
+            $wanted = isset($desired[$user]);
+            if ($wanted && ($suspended === null || !isset($suspended[$user]))) {
+                continue;
+            }
+            $home = isset($plans[$user]) ? ($homes[$user]['home'] ?? null) : null;
+            $before = $state->wordpress[$user];
+            $this->turnOffWordPress($state, $user, $home !== null && ($homes[$user]['uid'] ?? 0) >= self::MIN_UID
+                && HomePath::homeOf($home, $user) === $home ? $home : null);
+            $dirty = $dirty || ($state->wordpress[$user] ?? []) !== $before;
+        }
+        if ($reload) {
+            $this->run('daemon-reload', [self::SYSTEMCTL, 'daemon-reload']);
+        }
+        if ($dirty) {
+            $state->save($this->statePath);
+        }
+        foreach ($this->removeAccountLeftovers(array_keys($plans), $homes)['errors'] as $message) {
+            $errors[] = ['account' => '(removal)', 'error' => $message];
+        }
+        if (!$this->ensureTimer()) {
+            // Nothing would retry a failure without the timer: reported, and tried again by every pass that does run.
+            $errors[] = ['account' => '(timer)', 'error' => 'the object cache timer ' . self::TIMER . ' could not be enabled'];
+        }
+        $extension = null;
+        if ($this->extensions !== null && $desired !== []) {
+            $extension = $this->watchExtension($actions, $errors);
+        }
+        return ['result' => $errors === [] ? 'reconciled' : 'errors', 'actions' => $actions, 'errors' => $errors]
+            + ($extension === null ? [] : ['php_extension' => $extension]);
     }
 
     /**
@@ -621,7 +727,11 @@ final class ObjectCacheManager
             $this->cleanup($old, null);
         }
         if (isset($state->accounts[$old])) {
-            $state->accounts[$new] ??= $state->accounts[$old];
+            // The old name's decision moves with it; an automatic entry the new name got meanwhile (the automatic mode may
+            // look at it before the job runs) gives way to it.
+            if (!isset($state->accounts[$new]) || ($state->accounts[$new]['origin'] ?? null) === ObjectCacheState::AUTOMATIC) {
+                $state->accounts[$new] = $state->accounts[$old];
+            }
             unset($state->accounts[$old]);
         }
         foreach ($state->wordpress[$old] ?? [] as $site => $record) {
@@ -634,9 +744,12 @@ final class ObjectCacheManager
             if ($record['product_set']) {
                 $record['previous_socket'] ??= ValkeyConfig::socket($oldHome);
             }
-            $state->wordpress[$new][$target] ??= $record;
+            if (!($state->wordpress[$new][$target]['product_set'] ?? false)) {
+                // A look by the new name before the job ran saw the old socket as someone else's; the old record knows better.
+                $state->wordpress[$new][$target] = $record;
+            }
         }
-        unset($state->wordpress[$old]);
+        unset($state->wordpress[$old], $state->discovery[$old]);
         $state->save($this->statePath);
         \OlsCpanel\Php\PhpLimits::reconcileAccounts(dirname($this->statePath) . '/php-limits.json', array_keys($plans), $old, $new);
         $this->run('daemon-reload', [self::SYSTEMCTL, 'daemon-reload']);
@@ -695,11 +808,14 @@ final class ObjectCacheManager
      * Finds the account's WordPress installations and sets LiteSpeed Cache's object cache where that is the product's to
      * do: off, or already on this account's socket. A different object cache host is the site owner's choice and is left
      * alone. Results (or the error) are recorded per site in $state->wordpress; nothing is thrown for a site. A site that was
-     * looked at recently is not looked at again unless $force.
+     * looked at recently is not looked at again unless $force. $found receives the installations found (null when the
+     * search failed).
+     * @param array<string,?string>|null $found
      * @return bool whether the recorded state changed
      */
-    private function syncWordPress(ObjectCacheState $state, string $user, string $home, bool $force, int $deadline): bool
+    private function syncWordPress(ObjectCacheState $state, string $user, string $home, bool $force, int $deadline, ?array &$found = null): bool
     {
+        $found = null;
         try {
             $found = $this->findWordPress($user, $home);
         } catch (\Throwable) {
@@ -737,15 +853,7 @@ final class ObjectCacheManager
      */
     private function findWordPress(string $user, string $home): array
     {
-        $table = $this->run('userdatadomains', [self::CAT, self::USERDATADOMAINS]);
-        if ($table['exit_code'] !== 0) {
-            throw new Refused('cannot read ' . self::USERDATADOMAINS);
-        }
-        try {
-            $rows = (new AccountVhosts())->parseUserdataDomains($table['stdout']);
-        } catch (\InvalidArgumentException $error) {
-            throw new Refused(self::message($error));
-        }
+        $rows = $this->domainRows();
         $roots = [];
         foreach ($rows as $row) {
             if ($row['user'] === $user && self::safeDirectory($row['docroot'], $user, $home) && !isset($roots[$row['docroot']])) {
@@ -766,6 +874,127 @@ final class ObjectCacheManager
         }
         ksort($found, SORT_STRING);
         return array_slice($found, 0, self::MAX_SITES, true);
+    }
+
+    /**
+     * The rows of /etc/userdatadomains; inside a reconcile pass the table is read once and kept for the pass (a failed read
+     * is not kept, so each caller of that pass sees the failure).
+     * @return list<array<string,string>>
+     */
+    private function domainRows(): array
+    {
+        if ($this->userdataMemo !== null && $this->userdataMemo !== []) {
+            return $this->userdataMemo['rows'];
+        }
+        $table = $this->run('userdatadomains', [self::CAT, self::USERDATADOMAINS]);
+        if ($table['exit_code'] !== 0) {
+            throw new Refused('cannot read ' . self::USERDATADOMAINS);
+        }
+        try {
+            $rows = (new AccountVhosts())->parseUserdataDomains($table['stdout']);
+        } catch (\InvalidArgumentException $error) {
+            throw new Refused(self::message($error));
+        }
+        if ($this->userdataMemo !== null) {
+            $this->userdataMemo = ['rows' => $rows];
+        }
+        return $rows;
+    }
+
+    /**
+     * The automatic mode's look for new accounts: every account with no entry, no package setting, not suspended and not
+     * looked at for DISCOVERY_INTERVAL is a candidate; the DISCOVERY_PER_PASS longest unseen ones are looked at (while the
+     * pass budget lasts) for a WordPress installation with the LiteSpeed Cache plugin directory. A hit gets an automatic
+     * entry with the default memory and becomes desired at once; a miss is remembered by its time. Records of accounts that
+     * are no longer candidates are dropped. Nothing is looked at while the suspension state is unknown.
+     * @param array<string,string> $plans
+     * @param array<string,true>|null $suspended
+     * @param array<string,int> $desired
+     * @return bool whether the state changed
+     */
+    private function discover(ObjectCacheState $state, array $plans, ?array $suspended, array $homes, array &$desired, int $deadline): bool
+    {
+        if ($suspended === null) {
+            return false;
+        }
+        $dirty = false;
+        $now = $this->now();
+        $due = [];
+        foreach (array_keys($state->discovery) as $user) {
+            if (!isset($plans[$user]) || !$state->automatic || isset($state->accounts[$user]) || $state->packageMemory($plans[$user]) !== null) {
+                unset($state->discovery[$user]);
+                $dirty = true;
+            }
+        }
+        if (!$state->automatic) {
+            return $dirty;
+        }
+        foreach ($plans as $user => $plan) {
+            $user = (string) $user;
+            if (!ValkeyConfig::validUser($user) || isset($state->accounts[$user]) || $state->packageMemory($plan) !== null || isset($suspended[$user])) {
+                continue;
+            }
+            $last = $state->discovery[$user] ?? null;
+            if ($last === null || $now < $last || $now - $last >= self::DISCOVERY_INTERVAL) {
+                $due[] = [$last ?? -1, $user];
+            }
+        }
+        sort($due);  // never looked at first, then the longest unseen; the name breaks ties
+        foreach (array_slice($due, 0, self::DISCOVERY_PER_PASS) as [, $user]) {
+            if ($this->now() >= $deadline) {
+                break;
+            }
+            $state->discovery[$user] = $this->now();
+            $dirty = true;
+            $home = self::usableHome($homes, $user);
+            try {
+                if ($home === null || !$this->hasLiteSpeedSite($user, $home)) {
+                    continue;
+                }
+            } catch (\Throwable) {
+                continue;  // looked at again after the interval
+            }
+            unset($state->discovery[$user]);
+            $state->accounts[$user] = ['enabled' => true, 'memory_mb' => $state->defaultMemory, 'origin' => ObjectCacheState::AUTOMATIC];
+            $desired[$user] = $state->defaultMemory;
+        }
+        return $dirty;
+    }
+
+    /** Whether one of the account's WordPress installations has the LiteSpeed Cache plugin directory (as the account). */
+    private function hasLiteSpeedSite(string $user, string $home): bool
+    {
+        foreach (array_keys($this->findWordPress($user, $home)) as $path) {
+            if ($this->asUser($user, [self::TEST, '-d', "$path/" . self::PLUGIN_DIR], 10)['exit_code'] === 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether an automatic account still has WordPress with LiteSpeed Cache, from the site records of this pass (no extra
+     * command): a found installation that was not looked at yet, or whose look failed, counts as yes; one whose markers lack
+     * the plugin directory counts as no.
+     * @param array<string,?string> $found
+     */
+    private static function keepsAutomatic(ObjectCacheState $state, string $user, array $found): bool
+    {
+        foreach (array_keys($found) as $path) {
+            $row = $state->wordpress[$user][$path] ?? null;
+            if ($row === null || !isset($row['fingerprint']) || in_array(self::PLUGIN_DIR, explode(',', $row['fingerprint']), true)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The account's home when an instance can live there: a regular account, /<home mount>/<user>, a socket path that fits. */
+    private static function usableHome(array $homes, string $user): ?string
+    {
+        $home = $homes[$user]['home'] ?? null;
+        return $home !== null && ($homes[$user]['uid'] ?? 0) >= self::MIN_UID && HomePath::homeOf($home, $user) === $home
+            && strlen(ValkeyConfig::socket($home)) <= ValkeyConfig::MAX_SOCKET_PATH ? $home : null;
     }
 
     /** A plain absolute directory path inside the account's own home (no dot components, no trailing slash). */
@@ -870,7 +1099,8 @@ final class ObjectCacheManager
                 return null;
             }
             if ($host !== $socket && $host !== $previousSocket) {
-                return ['owner'];
+                // The plugin's own defaults (localhost:6379) are nobody's choice: wp-cli then points the site at the socket.
+                return self::pluginDefault($host, (string) ($settings['object-port'] ?? '')) ? null : ['owner'];
             }
             // object-kind true is Redis in LiteSpeed Cache; port 0 for a Unix socket.
             return $host === $socket && ($settings['object-kind'] ?? null) === true && (int) ($settings['object-port'] ?? -1) === 0
@@ -915,7 +1145,7 @@ final class ObjectCacheManager
         }
         if ($on) {
             $host = $get('object-host');
-            if ($host !== $socket && $host !== $previousSocket) {
+            if ($host !== $socket && $host !== $previousSocket && !self::pluginDefault($host, $get('object-port'))) {
                 return ['owner', false];  // the site owner's own object cache: never overridden
             }
             if ($host === $socket && $get('object-kind') === '1' && $get('object-port') === '0') {
@@ -932,6 +1162,16 @@ final class ObjectCacheManager
             }
         }
         return ['automatic', true];
+    }
+
+    /**
+     * Whether an object cache host and port are LiteSpeed Cache's defaults (host localhost, 127.0.0.1 or empty; port 6379 or
+     * empty): what a customer gets by only switching the object cache on. There is no shared Redis on a product server, so
+     * they never work and are never the owner's choice; another host, or another port, is.
+     */
+    private static function pluginDefault(string $host, string $port): bool
+    {
+        return in_array(strtolower(trim($host)), self::DEFAULT_HOSTS, true) && in_array(trim($port), self::DEFAULT_PORTS, true);
     }
 
     private static function flag(string $text): ?bool
@@ -1141,10 +1381,10 @@ final class ObjectCacheManager
         return $done['exit_code'] === 0 && str_starts_with($done['stdout'], 'PLAN=') ? rtrim(substr($done['stdout'], 5), "\n") : null;
     }
 
+    /** The memory of the account's package, or null when the package has none (or is switched off). */
     private function planMemory(ObjectCacheState $state, string $user): ?int
     {
-        $plan = $this->planOf($user);
-        return $plan !== null ? ($state->packages[$plan]['memory_mb'] ?? null) : null;
+        return $state->packageMemory($this->planOf($user)) ?: null;
     }
 
     /**

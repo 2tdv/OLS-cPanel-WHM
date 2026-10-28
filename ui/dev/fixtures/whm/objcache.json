@@ -1,0 +1,32 @@
+{
+  "observed_at": 1792630000,
+  "source": "ols-cpanel objcache status --format=json",
+  "exit_code": 0,
+  "output": {
+    "result": "status",
+    "engine": { "binary": "/usr/bin/valkey-server", "present": true },
+    "automatic": true,
+    "defaults": { "memory_mb": 64 },
+    "packages": { "gold": { "memory_mb": 128 }, "starter": { "memory_mb": 0 } },
+    "accounts": [
+      { "account": "legacy", "enabled": true, "memory_mb": 64, "origin": "automatic", "state": "active",
+        "socket": "/home/legacy/.ols-objcache/valkey.sock",
+        "connection": { "host": "/home/legacy/.ols-objcache/valkey.sock", "port": 0, "password": null },
+        "wordpress": [
+          { "path": "/home/legacy/public_html", "state": "automatic", "configured_by_product": true, "checked_at": 1792629000, "php": "ea-php83", "error": null }
+        ] },
+      { "account": "shopowner", "enabled": true, "memory_mb": 256, "origin": "administrator", "state": "active",
+        "socket": "/home/shopowner/.ols-objcache/valkey.sock",
+        "connection": { "host": "/home/shopowner/.ols-objcache/valkey.sock", "port": 0, "password": null },
+        "wordpress": [] },
+      { "account": "goldsite", "enabled": null, "memory_mb": null, "origin": "package", "state": "active",
+        "socket": "/home/goldsite/.ols-objcache/valkey.sock",
+        "connection": { "host": "/home/goldsite/.ols-objcache/valkey.sock", "port": 0, "password": null },
+        "wordpress": [] },
+      { "account": "quietblog", "enabled": false, "memory_mb": 64, "origin": "disabled", "state": "inactive",
+        "socket": "/home/quietblog/.ols-objcache/valkey.sock",
+        "connection": { "host": "/home/quietblog/.ols-objcache/valkey.sock", "port": 0, "password": null },
+        "wordpress": [] }
+    ]
+  }
+}

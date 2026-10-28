@@ -424,6 +424,7 @@ fn dispatch(state: &State, socket: Socket, peer: &Peer, req: Request) -> Value {
         (Socket::Admin, "cache.stats") => state.panel.cache_stats(req.args),
         (Socket::Admin, "admin.cache_limits") => state.panel.cache_limits(req.args),
         (Socket::Admin, "php.status") if empty_args => state.panel.php_status(),
+        (Socket::Admin, "admin.objcache") => state.panel.objcache(req.args),
         (Socket::Admin, "admin.audit") => state.panel.audit(req.args),
         (Socket::Admin, "admin.notify") if empty_args => state.panel.notify(),
         (Socket::Admin, "admin.notify_set") => state.panel.notify_set(req.args),
@@ -850,9 +851,9 @@ mod tests {
         reply["error"]["code"].as_str().unwrap_or("")
     }
 
-    const ADMIN_OPS: [&str; 26] = ["server.status", "server.metrics", "admin.metrics", "inventory.accounts", "compat.findings", "plan.latest",
+    const ADMIN_OPS: [&str; 27] = ["server.status", "server.metrics", "admin.metrics", "inventory.accounts", "compat.findings", "plan.latest",
                                    "generation.list", "doctor.report", "job.list", "job.status", "cap.issue", "cap.execute", "cache.stats",
-                                   "admin.cache_limits", "php.status", "admin.requests", "admin.request_status", "admin.audit", "admin.notify", "admin.notify_set", "admin.notify_test",
+                                   "admin.cache_limits", "admin.objcache", "php.status", "admin.requests", "admin.request_status", "admin.audit", "admin.notify", "admin.notify_set", "admin.notify_test",
                                    "admin.schedule", "admin.schedule_add", "admin.schedule_cancel", "admin.update", "admin.bundle"];
 
     #[test]

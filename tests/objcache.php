@@ -455,7 +455,8 @@ $server->units['olscpa'] = 'active';
 $result = $manager->disable('olscpb');
 check($result === ['result' => 'disabled', 'account' => 'olscpb'] && !isset($server->units['olscpb']) && !file_exists("$dir/conf/olscpb")
     && !file_exists("$dir/units/ols-cpanel-objcache@olscpb.service.d") && !isset($server->sockets['/home2/olscpb/.ols-objcache'])
-    && !isset(json_decode(file_get_contents("$dir/objcache.json"), true)['accounts']['olscpb']), 'disable stops, removes files, socket directory and state');
+    && json_decode(file_get_contents("$dir/objcache.json"), true)['accounts']['olscpb'] === ['enabled' => false, 'memory_mb' => 32],
+    'disable stops, removes files and socket directory, and records the durable "off" (memory kept for a later enable)');
 $rm = array_values(array_filter($server->calls, static fn(array $c): bool => in_array('/usr/bin/rm', $c[1], true)))[0][1];
 check($rm === ['/usr/sbin/runuser', '-u', 'olscpb', '--', '/usr/bin/rm', '-rf', '--', '/home2/olscpb/.ols-objcache'], 'socket directory removed as the account');
 check($manager->disable('olscpb')['result'] === 'unchanged', 'disable twice is unchanged');
@@ -659,6 +660,9 @@ $wpSetup = static function (string $name) use ($fresh, $userdata): array {
         '/home/olscpa/public_html/a/b/wp-config.php', '/home/olscpa/public_html/we ird/wp-config.php', '/home/olscpa/blog/wp-config.php',
         '/home/olscpa/public_html/wp/wp-config.php'];
     $server->wpFiles['olscpb'] = ['/home2/olscpb/public_html/wp-config.php'];
+    // These cases are about explicitly enabled accounts: the automatic mode (which would also take olscpb, a WordPress
+    // with LiteSpeed Cache) has its own cases below.
+    $manager->automatic(false);
     return [$server, $manager, $dir];
 };
 $sitesOf = static fn(array $result): array => array_column($result['wordpress'], 'state', 'path');
@@ -804,6 +808,185 @@ check($result['result'] === 'reconciled' && $server->wpOptions['/home/olscpa/pub
     && $server->wpOptions['/home/olscpa/blog']['object'] === 'true' && !isset(json_decode(file_get_contents("$dir/objcache.json"), true)['wordpress']),
     'the next pass turns them off (a removed installation is only forgotten)');
 
+// --- Automatic mode: every account with WordPress and LiteSpeed Cache gets its own cache, nobody enables it ------------------
+$siteA = '/home/olscpa/public_html';
+$autoSetup = static function (string $name) use ($fresh): array {
+    [$server, $manager, $dir] = $fresh($name);
+    $server->userdata = "a.test: olscpa==root==main==a.test==/home/olscpa/public_html==1.2.3.4:80==1.2.3.4:443====0==ea-php83\n"
+        . "b.test: olscpb==root==main==b.test==/home2/olscpb/public_html==1.2.3.4:80==1.2.3.4:443====0==ea-php82\n";
+    $server->wpFiles['olscpa'] = ['/home/olscpa/public_html/wp-config.php'];
+    return [$server, $manager, $dir];
+};
+$entryOf = static fn(string $dir, string $user): ?array => json_decode(file_get_contents("$dir/objcache.json"), true)['accounts'][$user] ?? null;
+
+// A customer switched LiteSpeed Cache's object cache on with its defaults (Redis, localhost:6379): the pass gives the account
+// its own instance and points the site at the private socket. olscpb has no WordPress: no instance.
+[$server, $manager, $dir] = $autoSetup('auto-enable');
+$server->wpOptions[$siteA] = ['object' => 'true', 'object-kind' => '1', 'object-host' => 'localhost', 'object-port' => '6379'];
+$result = $manager->reconcile();
+check($result['result'] === 'reconciled' && in_array(['account' => 'olscpa', 'action' => 'started'], $result['actions'], true)
+    && ($server->units['olscpa'] ?? '') === 'active' && !isset($server->units['olscpb']), 'automatic: an account with WordPress and LiteSpeed Cache is started, one without is not');
+check($entryOf($dir, 'olscpa') === ['enabled' => true, 'memory_mb' => 64, 'origin' => 'automatic'], 'automatic: the entry records its origin and the default memory');
+check(($server->wpOptions[$siteA] ?? []) === ['object' => 'true', 'object-kind' => '1', 'object-host' => $socketA, 'object-port' => '0'],
+    'automatic: the plugin default host localhost:6379 is replaced with the account socket');
+check(ObjectCacheState::load("$dir/objcache.json")->wordpress['olscpa'][$siteA]['product_set'] === true, 'automatic: the site is recorded as set by the product');
+check(!is_dir("$dir/conf/olscpb") && isset(ObjectCacheState::load("$dir/objcache.json")->discovery['olscpb']), 'automatic: an account without WordPress is only remembered as looked at');
+$one = $manager->status('olscpa');
+check($one['origin'] === 'automatic' && $one['enabled'] === true && $one['automatic'] === true, 'automatic: the account status shows the origin');
+check(array_column($manager->status(null)['accounts'], 'origin', 'account') === ['olscpa' => 'automatic'], 'automatic: the status list shows the origin');
+// The look itself never ran wp-cli for an account that does not get an instance.
+check(array_filter($server->argvs('/usr/local/bin/wp'), static fn(array $a): bool => in_array('olscpb', $a, true)) === [], 'automatic: no wp-cli to discover');
+
+// Within the interval nothing is looked at again; after it the account without WordPress is looked at once more.
+$server->calls = [];
+$clock->t += 60;
+$manager->reconcile();
+check(array_filter($server->argvs('/usr/bin/find'), static fn(array $a): bool => in_array('olscpb', $a, true)) === [], 'automatic: no second look within the interval');
+check(count(array_filter($server->calls, static fn(array $c): bool => $c[1] === ['/usr/bin/cat', '/etc/userdatadomains'])) <= 2,
+    'automatic: the domain table is read once for the WordPress search of the pass (plus the leftover check)');
+$clock->t += ObjectCacheManager::DISCOVERY_INTERVAL;
+$server->calls = [];
+$manager->reconcile();
+check(count(array_filter($server->argvs('/usr/bin/find'), static fn(array $a): bool => in_array('olscpb', $a, true))) === 1, 'automatic: looked at again after the interval');
+
+// An owner's own Redis server (another host) is left alone; the account still gets its instance for other applications.
+[$server, $manager, $dir] = $autoSetup('auto-owner');
+$server->wpOptions[$siteA] = ['object' => 'true', 'object-kind' => '1', 'object-host' => 'redis.example.net', 'object-port' => '6379'];
+$result = $manager->reconcile();
+check(($server->units['olscpa'] ?? '') === 'active' && $server->wpOptions[$siteA]['object-host'] === 'redis.example.net'
+    && ObjectCacheState::load("$dir/objcache.json")->wordpress['olscpa'][$siteA]['state'] === 'owner', 'automatic: an owner-chosen host is never overridden');
+// The cheap look (LiteSpeed Cache's runtime files) also treats the plugin default as nobody's choice.
+[$server, $manager, $dir] = $autoSetup('auto-quick');
+$server->siteFiles[$siteA] = ['wp-content/object-cache.php' => "<?php // https://www.litespeedtech.com object cache\n",
+    'wp-content/.litespeed_conf.php' => '<?php exit; ?>{"object-host":"127.0.0.1","object-port":6379,"object-kind":true}'];
+$server->wpOptions[$siteA] = ['object' => 'true', 'object-kind' => '1', 'object-host' => '127.0.0.1', 'object-port' => '6379'];
+$manager->reconcile();
+check($server->wpOptions[$siteA]['object-host'] === $socketA && $server->wpOptions[$siteA]['object-port'] === '0',
+    'automatic: 127.0.0.1:6379 in the runtime file is replaced too');
+$server->siteFiles[$siteA]['wp-content/.litespeed_conf.php'] = '<?php exit; ?>{"object-host":"localhost","object-port":6380,"object-kind":true}';
+$server->wpOptions[$siteA] = ['object' => 'true', 'object-kind' => '1', 'object-host' => 'localhost', 'object-port' => '6380'];
+$clock->t += ObjectCacheManager::RECHECK_OK;
+$manager->reconcile();
+check($server->wpOptions[$siteA]['object-port'] === '6380' && ObjectCacheState::load("$dir/objcache.json")->wordpress['olscpa'][$siteA]['state'] === 'owner',
+    'automatic: another port on localhost is the owner\'s choice');
+
+// WordPress without the LiteSpeed Cache plugin: no instance, and no wp-cli.
+[$server, $manager, $dir] = $autoSetup('auto-no-plugin');
+$server->lscwpInstalled = false;
+$result = $manager->reconcile();
+check($result['actions'] === [] && $server->units === [] && $entryOf($dir, 'olscpa') === null && $server->argvs('/usr/local/bin/wp') === [],
+    'automatic: WordPress without LiteSpeed Cache gets no instance');
+
+// A suspended account is never started by the automatic mode.
+[$server, $manager, $dir] = $autoSetup('auto-suspended');
+$server->suspended['olscpa'] = true;
+$manager->reconcile();
+check($server->units === [] && $entryOf($dir, 'olscpa') === null && !is_dir("$dir/conf/olscpa")
+    && array_filter($server->argvs('/usr/bin/find'), static fn(array $a): bool => in_array('olscpa', $a, true)) === [],
+    'automatic: a suspended account is not looked at and not started');
+unset($server->suspended['olscpa']);
+$manager->reconcile();
+check(($server->units['olscpa'] ?? '') === 'active', 'automatic: after the unsuspension it is');
+
+// A package switched off (memory 0) is off for its accounts; an automatic account in it is removed.
+[$server, $manager, $dir] = $autoSetup('auto-package');
+$manager->package('gold', '0', false);
+$manager->reconcile();
+check($server->units === [] && $entryOf($dir, 'olscpa') === null, 'automatic: a package with memory 0 keeps its accounts off');
+$manager->package('gold', null, true);
+$manager->reconcile();
+check(($server->units['olscpa'] ?? '') === 'active' && $entryOf($dir, 'olscpa')['origin'] === 'automatic', 'automatic: the package setting removed, the account is taken');
+$manager->package('gold', null, false, true);
+$result = $manager->reconcile();
+check(!isset($server->units['olscpa']) && $entryOf($dir, 'olscpa') === null && in_array(['account' => 'olscpa', 'action' => 'removed (disabled)'], $result['actions'], true)
+    && $server->wpOptions[$siteA]['object'] === 'false', 'automatic: switching the package off removes the automatic instance and turns the product\'s site off');
+check($manager->status('olscpa')['origin'] === 'package_off', 'automatic: the status says the package is off');
+refused(static fn() => $manager->package('gold', '15', false), 'memory must be 0 (off)', 'package memory below the minimum is refused');
+
+// The administrator's "off" is durable; enable clears it.
+[$server, $manager, $dir] = $autoSetup('auto-disable');
+$manager->reconcile();
+check(($server->units['olscpa'] ?? '') === 'active', 'automatic: running');
+$off = $manager->disable('olscpa');
+check($off['result'] === 'disabled' && $entryOf($dir, 'olscpa') === ['enabled' => false, 'memory_mb' => 64] && !isset($server->units['olscpa'])
+    && $server->wpOptions[$siteA]['object'] === 'false', 'disable of an automatic account records the administrator\'s off');
+$clock->t += ObjectCacheManager::DISCOVERY_INTERVAL + ObjectCacheManager::RECHECK_OK;
+$manager->reconcile();
+check(!isset($server->units['olscpa']) && $entryOf($dir, 'olscpa')['enabled'] === false && $manager->status('olscpa')['origin'] === 'disabled',
+    'the explicit off survives the automatic pass');
+check($manager->disable('olscpa')['result'] === 'unchanged', 'disable of an account that is off already is unchanged');
+$manager->enable('olscpa', null);
+check($entryOf($dir, 'olscpa') === ['enabled' => true, 'memory_mb' => 64] && $manager->status('olscpa')['origin'] === 'administrator'
+    && ($server->units['olscpa'] ?? '') === 'active', 'enable clears the off and makes the account the administrator\'s');
+$server->wpFiles['olscpa'] = [];
+$clock->t += ObjectCacheManager::RECHECK_OK;
+$manager->reconcile();
+check(($server->units['olscpa'] ?? '') === 'active', 'an account the administrator enabled keeps its instance without WordPress');
+
+// The global switch: off removes only automatic accounts, on brings them back.
+[$server, $manager, $dir] = $autoSetup('auto-global');
+$manager->enable('olscpb', '32');
+$manager->reconcile();
+check(($server->units['olscpa'] ?? '') === 'active' && ($server->units['olscpb'] ?? '') === 'active', 'one automatic, one explicit account');
+$switched = $manager->automatic(false);
+check($switched['result'] === 'automatic_off' && $server->systemctl('start') !== [], 'auto --off is stored and starts a pass without waiting');
+$result = $manager->reconcile();
+check(!isset($server->units['olscpa']) && ($server->units['olscpb'] ?? '') === 'active' && $entryOf($dir, 'olscpa') === null
+    && $entryOf($dir, 'olscpb') === ['enabled' => true, 'memory_mb' => 32] && $server->wpOptions[$siteA]['object'] === 'false',
+    'auto --off removes only the automatic account and turns its site off');
+check(!array_key_exists('discovery', json_decode(file_get_contents("$dir/objcache.json"), true)), 'nothing is looked at while the mode is off');
+$clock->t += ObjectCacheManager::DISCOVERY_INTERVAL;
+$manager->reconcile();
+check(!isset($server->units['olscpa']) && $manager->status('olscpa')['origin'] === null && $manager->status(null)['automatic'] === false, 'the mode stays off');
+check($manager->automatic(false)['result'] === 'unchanged', 'auto --off twice is unchanged');
+$manager->automatic(true);
+$manager->reconcile();
+check(($server->units['olscpa'] ?? '') === 'active' && $entryOf($dir, 'olscpa')['origin'] === 'automatic', 'auto --on takes the account again');
+
+// An automatic account whose last WordPress with LiteSpeed Cache disappears is disabled and its instance removed.
+[$server, $manager, $dir] = $autoSetup('auto-lapse');
+$manager->reconcile();
+$server->lscwpInstalled = false;  // the plugin was deleted
+$clock->t += 60;
+$manager->reconcile();
+check(($server->units['olscpa'] ?? '') === 'active', 'automatic: kept while the site record is not due');
+$clock->t += ObjectCacheManager::RECHECK_OK;
+$result = $manager->reconcile();
+check(in_array(['account' => 'olscpa', 'action' => 'removed (no WordPress with LiteSpeed Cache left)'], $result['actions'], true)
+    && !isset($server->units['olscpa']) && !is_dir("$dir/conf/olscpa") && $entryOf($dir, 'olscpa') === null
+    && isset(ObjectCacheState::load("$dir/objcache.json")->discovery['olscpa']), 'automatic: the plugin removed, the instance is removed');
+$server->lscwpInstalled = true;
+$clock->t += ObjectCacheManager::DISCOVERY_INTERVAL;
+$manager->reconcile();
+check(($server->units['olscpa'] ?? '') === 'active', 'automatic: the plugin back, the account is taken again');
+$server->wpFiles['olscpa'] = [];  // the WordPress installation was deleted
+$result = $manager->reconcile();
+check(in_array(['account' => 'olscpa', 'action' => 'removed (no WordPress with LiteSpeed Cache left)'], $result['actions'], true)
+    && !isset($server->units['olscpa']) && !isset(ObjectCacheState::load("$dir/objcache.json")->wordpress['olscpa']),
+    'automatic: the last WordPress deleted, the instance is removed at once');
+
+// Bounded: one pass looks at DISCOVERY_PER_PASS accounts at most; the rest are looked at by the next passes.
+[$server, $manager, $dir] = $autoSetup('auto-bounded');
+for ($i = 0; $i < 30; $i++) {
+    $server->add(sprintf('zbulk%02d', $i), 2000 + $i);  // sorted after olscpa: the never-looked-at come by name
+}
+$manager->reconcile();
+$seen = ObjectCacheState::load("$dir/objcache.json")->discovery;
+check(count($seen) === ObjectCacheManager::DISCOVERY_PER_PASS - 1 && ($server->units['olscpa'] ?? '') === 'active',
+    'automatic: the first pass looks at DISCOVERY_PER_PASS accounts (one of them got its instance)');
+$clock->t += 60;
+$manager->reconcile();
+$manager->reconcile();
+check(count(ObjectCacheState::load("$dir/objcache.json")->discovery) === 32, 'automatic: the next pass looks at the rest, then nothing is due');
+
+// The state keeps the new keys strictly.
+$base = ['schema_version' => 1, 'defaults' => ['memory_mb' => 64], 'packages' => new stdClass(), 'accounts' => new stdClass()];
+foreach ([['automatic' => 'no'], ['discovery' => ['olscpa' => 'x']], ['accounts' => ['olscpa' => ['enabled' => true, 'memory_mb' => 64, 'origin' => 'robot']]],
+          ['packages' => ['gold' => ['memory_mb' => 5]]]] as $bad) {
+    file_put_contents("$dir/bad.json", json_encode($bad + $base));
+    refused(static fn() => ObjectCacheState::load("$dir/bad.json"), 'invalid', 'malformed automatic-mode state refused: ' . json_encode($bad));
+}
+
 // The state file stays valid for older readers: no wordpress key without sites, malformed entries are refused.
 (new ObjectCacheState())->save("$dir/empty.json");
 check(!array_key_exists('wordpress', json_decode(file_get_contents("$dir/empty.json"), true)), 'no wordpress key without sites');
@@ -856,7 +1039,23 @@ check($code === 0 && $json['result'] === 'disabled', 'CLI disable');
 $user = new EngineContext(1001, 'olscpa');
 $denied = new Application([new ObjectCacheCommand($user, 'status', static fn() => $manager)]);
 check($denied->run(['objcache', 'status', '--format=json'], new Output(true, fopen('php://memory', 'w+'), fopen('php://memory', 'w+'))) === 1, 'non-root caller refused');
-check(count(array_filter(Application::defaultCommands(), static fn($c): bool => $c->words()[0] === 'objcache')) === 7, 'seven objcache commands registered');
+[$code, $json] = $run(['objcache', 'auto', '--off', '--format=json']);
+check($code === 0 && $json['result'] === 'automatic_off' && $json['automatic'] === false
+    && json_decode(file_get_contents("$dir/objcache.json"), true)['automatic'] === false, 'CLI auto --off is stored');
+[$code, $json] = $run(['objcache', 'status', '--format=json']);
+check($code === 0 && $json['automatic'] === false, 'the status shows the automatic mode');
+[$code, $json] = $run(['objcache', 'auto', '--on', '--format=json']);
+check($code === 0 && $json['result'] === 'automatic_on' && !array_key_exists('automatic', json_decode(file_get_contents("$dir/objcache.json"), true)),
+    'CLI auto --on (the default, not written)');
+foreach ([['objcache', 'auto'], ['objcache', 'auto', '--on', '--off'], ['objcache', 'auto', '--on=1']] as $bad) {
+    [$code] = $run([...$bad, '--format=json']);
+    check($code === 64, 'auto usage error: ' . implode(' ', $bad));
+}
+[$code, $json] = $run(['objcache', 'package', '--name=gold', '--off', '--format=json']);
+check($code === 0 && $json['result'] === 'package_off' && $json['memory_mb'] === 0, 'CLI package --off');
+[$code] = $run(['objcache', 'package', '--name=gold', '--off', '--memory=32', '--format=json']);
+check($code === 64, 'package: --off and --memory exclude each other');
+check(count(array_filter(Application::defaultCommands(), static fn($c): bool => $c->words()[0] === 'objcache')) === 8, 'eight objcache commands registered');
 
 // --- Hook trigger ---------------------------------------------------------------------------------------------
 $spool = "$root/spool";

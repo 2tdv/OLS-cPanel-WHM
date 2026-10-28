@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.2
+
+- Object cache works out of the box: every account with WordPress and LiteSpeed Cache automatically gets its own
+  private object cache (Valkey), and the plugin's default settings are switched to it by themselves. WHM shows which
+  accounts use it and can turn the automatic mode off; an administrator's decision for an account always wins.
+- Uninstalling leaves nothing behind.
+- Guide: what to enter in LiteSpeed Cache by hand, for anyone who prefers to (docs/object-cache.md).
+
 ## 0.2.1
 
 - Fix: on a fresh installation the cPanel plugin was disabled for every account (cPanel's plugin registration files

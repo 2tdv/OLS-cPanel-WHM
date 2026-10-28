@@ -30,6 +30,7 @@ const API = [
     'job' => ['job.status', ['job!']],
     'cache' => ['cache.stats', ['account', 'domain']],
     'cache_limits' => ['admin.cache_limits', []],
+    'objcache' => ['admin.objcache', []],
     'php' => ['php.status', []],
     'history' => ['admin.metrics', ['resolution', 'vhost']],
     'requests' => ['admin.requests', []],
@@ -71,7 +72,7 @@ const DIGEST = '/^[0-9a-f]{64}$/D';
 const CACHE_LIMITS = ['per_site_mb' => [16, 102400], 'server_percent' => [1, 50], 'server_max_gb' => [1, 2048]];
 /** POST ?action=<name> settings changes and small operations (no job, no digest): the broker operation each relays to. */
 const SETTINGS = ['cache_limits' => 'admin.cache_limits', 'request_status' => 'admin.request_status', 'notify_settings' => 'admin.notify_set', 'notify_test' => 'admin.notify_test',
-    'schedule_add' => 'admin.schedule_add', 'schedule_cancel' => 'admin.schedule_cancel'];
+    'schedule_add' => 'admin.schedule_add', 'schedule_cancel' => 'admin.schedule_cancel', 'objcache_automatic' => 'admin.objcache'];
 const EMAIL = '/^[A-Za-z0-9][A-Za-z0-9._%+-]{0,63}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/D';
 const WEBHOOK = '/^https:\/\/[A-Za-z0-9._~:\/?#@!$&()*+,;=%-]{1,500}$/D';
 const NOTIFY_EVENTS = ['job', 'held', 'php_env', 'upgrade', 'cache_emergency', 'disk', 'objcache', 'schedule'];
@@ -114,6 +115,10 @@ function settings_body_valid(string $name, mixed $body): bool
     }
     if ($name === 'notify_test') {
         return $body === [];
+    }
+    if ($name === 'objcache_automatic') {
+        // {automatic: true|false}: the object cache's automatic mode for accounts with WordPress and LiteSpeed Cache.
+        return is_array($body) && !array_is_list($body) && array_keys($body) === ['automatic'] && is_bool($body['automatic']);
     }
     if (!is_array($body) || $body === [] || array_is_list($body)) {
         return false;

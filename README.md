@@ -6,7 +6,7 @@
 
 [![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
 ![Platform](https://img.shields.io/badge/platform-AlmaLinux%209%20%7C%20cPanel%20%26%20WHM-orange)
-![Release](https://img.shields.io/badge/release-0.2.1-brightgreen)
+![Release](https://img.shields.io/badge/release-0.2.2-brightgreen)
 
 </div>
 
@@ -38,7 +38,7 @@ bandwidth. Administrators get a WHM plugin, every hosting account gets a cPanel 
 Run as root on the server:
 
 ```sh
-d=$(mktemp -d) && curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.1/install.sh" && echo "310e12b40095f17efd8d65d785875489fc382c1d8bf637e133da23e3fed018b7  $d/install.sh" | sha256sum -c - && sh "$d/install.sh"; rm -rf "$d"
+d=$(mktemp -d) && curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.2/install.sh" && echo "56bc36def0036d003f4822a69a7eddc2f2d25c5b26ee3cab6ead56a4f6f6bcf2  $d/install.sh" | sha256sum -c - && sh "$d/install.sh"; rm -rf "$d"
 ```
 
 The installer verifies the signed release before it changes anything, installs the packages and prepares the
@@ -49,7 +49,7 @@ later from **WHM → Plugins → OLS-cPanel → Switch center**.
 <summary>Stricter: verify the installer's signature first</summary>
 
 ```sh
-d=$(mktemp -d) && mkdir -m 700 "$d/g" && export GNUPGHOME="$d/g" && curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.1/install.sh" && curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh.asc" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.1/install.sh.asc" && gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys 118DFA42F66A585D176C0B5148E26833CB82EAD1 && gpg --verify "$d/install.sh.asc" "$d/install.sh" && sh "$d/install.sh"; unset GNUPGHOME; rm -rf "$d"
+d=$(mktemp -d) && mkdir -m 700 "$d/g" && export GNUPGHOME="$d/g" && curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.2/install.sh" && curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh.asc" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.2/install.sh.asc" && gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys 118DFA42F66A585D176C0B5148E26833CB82EAD1 && gpg --verify "$d/install.sh.asc" "$d/install.sh" && sh "$d/install.sh"; unset GNUPGHOME; rm -rf "$d"
 ```
 
 Release signing key: `118DFA42F66A585D176C0B5148E26833CB82EAD1` ([public key](build/release/ols-cpanel-release-key.asc)).

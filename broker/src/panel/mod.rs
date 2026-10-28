@@ -292,6 +292,10 @@ impl Panel {
         php::status(&self.config.cli)
     }
 
+    pub fn objcache(&self, args: Value) -> Reply {
+        objcache::admin_objcache(&self.config, args)
+    }
+
     pub fn tenant_objcache(&self, user: &str) -> Reply {
         objcache::tenant_objcache(&self.config, user)
     }
