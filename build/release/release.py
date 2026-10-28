@@ -148,12 +148,12 @@ def build(version, base, rpms, key_dir, out):
         f"&& echo \"{digest}  $d/install.sh\" | sha256sum -c - && sh \"$d/install.sh\"; rm -rf \"$d\"\n```\n\n"
         f"Installer SHA-256: `{digest}`\n\nRelease signing key fingerprint: `{fpr}`\n"
         "(the same key as `build/release/ols-cpanel-release-key.asc` in the repository).\n\n"
-        "Stricter: verify the installer's own signature with the release key fetched from keys.openpgp.org by its\n"
+        "Stricter: verify the installer's own signature with the release key fetched from keyserver.ubuntu.com by its\n"
         "fingerprint (independent of this page) before running it:\n\n```sh\n"
         f"d=$(mktemp -d) && mkdir -m 700 \"$d/g\" && export GNUPGHOME=\"$d/g\" && "
         f"curl --proto '=https' --tlsv1.2 -fsSL -o \"$d/install.sh\" \"{base}/{version}/install.sh\" && "
         f"curl --proto '=https' --tlsv1.2 -fsSL -o \"$d/install.sh.asc\" \"{base}/{version}/install.sh.asc\" && "
-        f"gpg --keyserver hkps://keys.openpgp.org --recv-keys {fpr} && gpg --verify \"$d/install.sh.asc\" \"$d/install.sh\" && "
+        f"gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys {fpr} && gpg --verify \"$d/install.sh.asc\" \"$d/install.sh\" && "
         "sh \"$d/install.sh\"; unset GNUPGHOME; rm -rf \"$d\"\n```\n")
     return {"version": version, "directory": str(out), "fingerprint": fpr, "installer_sha256": digest,
             "platforms": sorted(rows), "files": sorted(p.name for p in out.iterdir())}

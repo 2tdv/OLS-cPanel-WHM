@@ -49,7 +49,7 @@ later from **WHM → Plugins → OLS-cPanel → Switch center**.
 <summary>Stricter: verify the installer's signature first</summary>
 
 ```sh
-d=$(mktemp -d) && mkdir -m 700 "$d/g" && export GNUPGHOME="$d/g" && curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.0/install.sh" && curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh.asc" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.0/install.sh.asc" && gpg --keyserver hkps://keys.openpgp.org --recv-keys 118DFA42F66A585D176C0B5148E26833CB82EAD1 && gpg --verify "$d/install.sh.asc" "$d/install.sh" && sh "$d/install.sh"; unset GNUPGHOME; rm -rf "$d"
+d=$(mktemp -d) && mkdir -m 700 "$d/g" && export GNUPGHOME="$d/g" && curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.0/install.sh" && curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh.asc" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.0/install.sh.asc" && gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys 118DFA42F66A585D176C0B5148E26833CB82EAD1 && gpg --verify "$d/install.sh.asc" "$d/install.sh" && sh "$d/install.sh"; unset GNUPGHOME; rm -rf "$d"
 ```
 
 Release signing key: `118DFA42F66A585D176C0B5148E26833CB82EAD1` ([public key](build/release/ols-cpanel-release-key.asc)).

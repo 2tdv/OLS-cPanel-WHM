@@ -23,9 +23,9 @@ the tool; the owner attaches the files to the GitHub release.
 
 ## One-time: publish the public key on a key server
 
-The stricter install command in every release's notes fetches the key from keys.openpgp.org by its fingerprint,
+The stricter install command in every release's notes fetches the key from keyserver.ubuntu.com by its fingerprint,
 independently of GitHub. Upload it once (and again after extending its expiry):
-`gpg --export 118DFA42F66A585D176C0B5148E26833CB82EAD1 | curl -T - https://keys.openpgp.org`
+`gpg --keyserver hkps://keyserver.ubuntu.com --send-keys 118DFA42F66A585D176C0B5148E26833CB82EAD1`, or paste the public key at https://keyserver.ubuntu.com ("Submit Key")
 (with the key directory's `gnupg/` as `GNUPGHOME`).
 
 ## Steps

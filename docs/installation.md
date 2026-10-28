@@ -60,7 +60,7 @@ The release signing key of this project has the fingerprint
 `build/release/ols-cpanel-release-key.asc`. A release signed by any other key is refused by the installer.
 
 The installer is also signed (`install.sh.asc`). Each release's notes give a stricter variant of the command below
-that fetches the release key from keys.openpgp.org by this fingerprint and verifies the installer's signature before
+that fetches the release key from keyserver.ubuntu.com by this fingerprint and verifies the installer's signature before
 running it, so it does not depend on the digest shown on the release page.
 
 ## The one command
