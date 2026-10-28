@@ -66,6 +66,13 @@ EOF
 
 log() { printf 'ols-cpanel installer: %s\n' "$*" >&2; }
 die() { code=$1; shift; log "ERROR: $*"; exit "$code"; }
+# Stage headings: blue on a terminal, plain in a log, so the owner sees what is happening and why it takes time.
+step() {
+    if [ -t 2 ]; then printf '\n\033[1;34m==> %s\033[0m\n' "$*" >&2; else printf '\n==> %s\n' "$*" >&2; fi
+}
+done_ok() {
+    if [ -t 2 ]; then printf '\033[1;32m    ✓ %s\033[0m\n' "$*" >&2; else printf '    ✓ %s\n' "$*" >&2; fi
+}
 
 cleanup() {
     status=$?
@@ -107,6 +114,7 @@ release_key | grep -q '^-----BEGIN PGP PUBLIC KEY BLOCK-----$' \
     || die 69 "this installer has no release key (placeholder block not filled in)"
 
 # --- Platform detection (read-only) ----------------------------------------------------------------------------
+step "Checking this server (operating system, cPanel, required tools)"
 # /etc/os-release is parsed, never sourced (plan 18.6: no editable state as shell code).
 os_field() {
     sed -n "s/^$1=//p" /etc/os-release | head -n 1 | tr -d '"'"'"
@@ -156,6 +164,7 @@ PLATFORM="el$OS_MAJOR.x86_64"
 RELEASE_URL="$RELEASE_BASE_URL/$RELEASE_VERSION"
 MANIFEST_NAME="ols-cpanel-$RELEASE_VERSION.$PLATFORM.manifest"
 MANIFEST="$WORK/download/$MANIFEST_NAME"
+step "Downloading release $RELEASE_VERSION and checking its signature"
 fetch "$RELEASE_URL/$MANIFEST_NAME" "$MANIFEST"
 fetch "$RELEASE_URL/$MANIFEST_NAME.asc" "$MANIFEST.asc"
 
@@ -202,6 +211,7 @@ PRODUCT_RPM=$(grep -E "^ols-cpanel-$(printf '%s' "$RELEASE_VERSION" | sed 's/\./
 [ "$(sort -u "$WORK/artifacts" | wc -l)" = "$(wc -l < "$WORK/artifacts")" ] || die 65 "duplicate manifest entries"
 
 # --- Download every artifact and verify its SHA-256 from the signed manifest --------------------------------------
+step "Downloading the packages (OpenLiteSpeed, PHP redis extension, OLS-cPanel) and verifying each one"
 mkdir -m 0700 "$WORK/verified"
 while read -r _ digest name; do
     fetch "$RELEASE_URL/$name" "$WORK/download/$name"
@@ -235,10 +245,12 @@ for package in "$WORK"/verified/*.rpm; do
         UPGRADE=1
     fi
 done
+step "Installing the packages: OpenLiteSpeed, the PHP redis extension, the Valkey object cache engine, OLS-cPanel"
 log "installing the verified packages (files only; no service is started)"
 /usr/bin/dnf --assumeyes --setopt=install_weak_deps=False install "$WORK"/verified/*.rpm \
     || die 70 "package installation failed; Apache is unaffected. Re-run the same command to retry"
 [ -x "$CLI" ] || die 70 "$CLI is missing after installation"
+done_ok "packages installed (nothing is started yet; Apache keeps serving)"
 
 if [ "$UPGRADE" = 1 ]; then
     cat <<EOF
@@ -249,15 +261,19 @@ EOF
     exit 0
 fi
 
-log "running: $CLI install --prepare"
+step "Preparing the server: checks, backup, OpenLiteSpeed configuration, PHP (lsphp, OPcache, redis), WHM and cPanel plugins"
+log "running: $CLI install --prepare (Apache keeps serving your sites meanwhile)"
 PREPARED=$("$CLI" install --prepare --format=json) || {
     printf '%s\n' "$PREPARED"
     die 70 "preparation did not complete; Apache keeps serving. See the output above"
 }
-printf '%s\n' "$PREPARED"
+# The full report stays available for support; the screen gets a short summary.
+printf '%s\n' "$PREPARED" > /root/ols-cpanel-prepare.json 2>/dev/null && chmod 0600 /root/ols-cpanel-prepare.json 2>/dev/null || :
 # The plan id the cutover approves (grammar of Deployment\CutoverPlan).
 PLAN=$(printf '%s\n' "$PREPARED" | sed -n 's/^ *"plan": "\(p[0-9]\{14\}-[0-9a-f]\{6\}\)",\{0,1\}$/\1/p' | head -n 1)
 [ -n "$PLAN" ] || die 70 "the preparation did not report a plan id; Apache keeps serving"
+SITES=$(printf '%s\n' "$PREPARED" | sed -n 's/^    "vhost_count": \([0-9]*\),\{0,1\}$/\1/p' | head -n 1)
+done_ok "server prepared: ${SITES:-?} sites ready for OpenLiteSpeed (full report: /root/ols-cpanel-prepare.json)"
 
 if [ "$PREPARE_ONLY" = 1 ] || [ ! -t 0 ] || [ ! -t 1 ]; then
     cat <<EOF
@@ -270,5 +286,6 @@ To discard the preparation and keep Apache only:
 EOF
     exit 0
 fi
-log "continuing to the cutover; the CLI shows the plan and asks for your approval"
+step "Switching your sites from Apache to OpenLiteSpeed (you approve the plan first)"
 "$CLI" install --cutover --plan="$PLAN" || die 70 "cutover not completed; see the output above for the serving state"
+done_ok "OpenLiteSpeed is serving your sites. Manage it in WHM: Plugins -> OLS-cPanel."

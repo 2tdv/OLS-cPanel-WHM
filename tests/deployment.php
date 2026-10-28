@@ -615,6 +615,8 @@ function plugin_fixture(): string
         file_put_contents("$dir/$tree/manifest.json", '{}');
         file_put_contents("$dir/$tree/" . ($tree === 'whm' ? 'index.cgi' : 'index.live.php'), 'entry');
     }
+    // Removed when the run ends (runs had left thousands of these behind in /tmp).
+    register_shutdown_function(static fn() => remove_tree($dir));
     return $dir;
 }
 
@@ -833,9 +835,14 @@ check($code === 1 && $out['result'] === 'refused' && str_contains($out['error'],
 [$code, $out] = cli($w, ['install', '--cutover', "--plan=$id"], true, "wrong\n");
 check($code === 1 && str_contains($out['error'], 'not approved') && $w['host']->calls === [] && str_contains($GLOBALS['stderr'], $id),
     'a wrong typed plan id cancels; the summary names the plan');
-[$code, $out] = cli($w, ['install', '--cutover', "--plan=$id"], true, "$id\n");
+foreach (["y\n", "yes please\n", "no\n"] as $typed) {
+    [$code] = cli($w, ['install', '--cutover', "--plan=$id"], true, $typed);
+    check($code === 1 && $w['host']->calls === [], 'only "yes" (or the plan id) approves: ' . trim($typed) . ' cancels');
+}
+check(str_contains($GLOBALS['stderr'], 'Type yes and press Enter to approve the cutover'), 'the question asks for "yes"');
+[$code, $out] = cli($w, ['install', '--cutover', "--plan=$id"], true, "Yes\n");
 $h = $w['host'];
-check($code === 0 && $out['result'] === 'cut_over', 'cutover (native) approved by the typed plan id');
+check($code === 0 && $out['result'] === 'cut_over', 'cutover (native) approved by typing yes');
 check($w['activator']->profileSeen && $w['activator']->olsStoppedBefore, 'profile written before the activation, OLS started by the activation');
 $order = ['arm-recovery', 'hook-add', 'disable-httpd', 'apache-released', 'start-ols', 'ols-listeners', 'enablefileprotect',
     'ols-http', 'enable-units', 'enable-reconciler', 'disarm-recovery'];
@@ -1863,12 +1870,15 @@ check($code === 1 && str_contains($out['error'], 'writable by no one else'), 'a 
     // Runs everything for real except cPanel's registration tools, which can be made to fail.
     $runner = new class implements CommandRunner {
         public array $fail = [];
+        /** @var array<string,int> the umask cPanel's registration tools ran with */
+        public array $umasks = [];
         public function run(string $name, array $argv, int $timeout): array
         {
             if (in_array($name, $this->fail, true)) {
                 return ['exit_code' => 1, 'stdout' => '', 'stderr' => "injected $name"];
             }
             if (in_array($name, ['plugin-whm-register', 'plugin-cpanel-register'], true)) {
+                $this->umasks[$name] = umask();
                 return ['exit_code' => 0, 'stdout' => '', 'stderr' => ''];
             }
             return (new LocalCommandRunner())->run($name, $argv, $timeout);
@@ -1887,8 +1897,14 @@ check($code === 1 && str_contains($out['error'], 'writable by no one else'), 'a 
     $leftovers = static fn(): array => glob("$root/live/*/*.ols-*") ?: [];
     $snapshot = static fn(): array => [$tree($dest['whm']), $tree($dest['cpanel']), file_get_contents($dest['icon'])];
 
-    // First deployment: complete trees, entry mode, icon, nothing staged left behind.
+    // First deployment: complete trees, entry mode, icon, nothing staged left behind. It runs under the installer's
+    // umask 077, yet cPanel's registration tools get 022 (their files are read by every account), and the caller's
+    // umask is restored afterwards.
+    $callerUmask = umask(0077);
     $plugins()->deploy();
+    check($runner->umasks === ['plugin-whm-register' => 0022, 'plugin-cpanel-register' => 0022] && umask() === 0077,
+        'plugin registration runs with umask 022 whatever the caller\'s umask, which is restored');
+    umask($callerUmask);
     check(is_file("{$dest['whm']}/manifest.json") && is_file("{$dest['cpanel']}/index.live.php") && is_file($dest['icon'])
         && (fileperms("{$dest['whm']}/index.cgi") & 0777) === 0755 && $leftovers() === [], 'plugin deploy: complete trees in place, no staging leftovers');
 

@@ -23,6 +23,10 @@ Requires:       ols-cpanel-openlitespeed
 # the product activates them itself, without a download or a manual step.
 Requires:       ols-cpanel-php-redis
 Requires:       systemd
+# The per-account object cache engine (AlmaLinux 9 AppStream). Installed with the product so enabling an account's
+# object cache in WHM needs nothing else (fresh install 2026-10-28: the engine was missing); its service only runs
+# per account when enabled.
+Requires:       valkey
 # ea-nginx takes 80/443 (cPanel moves Apache behind it): it cannot run beside OLS. EasyApache refuses the
 # profile with this conflict instead of starting a second server on the same ports.
 Conflicts:      ea-nginx

@@ -384,6 +384,11 @@ function world(ScriptHost $host): Environment
     }
     $state = sys_get_temp_dir() . '/ols-upgrade-state-' . bin2hex(random_bytes(4));
     @mkdir($state, 0700, true);
+    // Every world is removed when the run ends (runs had left thousands of these behind in /tmp).
+    register_shutdown_function(static function () use ($plugins, $state): void {
+        tree_remove($plugins);
+        tree_remove($state);
+    });
     return new Environment($host, $state, null, null, true, null, static function (float $s): void {
     }, pluginSource: $plugins, ea4Root: "$plugins/ea4");
 }

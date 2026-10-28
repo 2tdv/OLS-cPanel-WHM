@@ -60,7 +60,7 @@ for word in ("systemctl", "%systemd_", "%sysusers_create", "useradd", "groupadd"
     assert word not in spec, f"the spec must not run {word}"
 assert "AutoReqProv:    no" in spec and "Requires:       ols-cpanel-openlitespeed" in spec
 # The PHP redis extension (prebuilt builds and pinned source) is a package of its own that the product requires.
-assert "Requires:       ols-cpanel-php-redis" in spec
+assert "Requires:       ols-cpanel-php-redis" in spec and "Requires:       valkey" in spec
 assert "ols-cpanel-php.path" in spec and "ols-cpanel-php-ext" not in spec
 assert "Release:        %{product_release}%{?dist}" in spec
 

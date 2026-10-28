@@ -135,7 +135,8 @@ final class HtaccessTranslator
                     continue;
                 }
                 // Validate what the tenant wrote; the translation below only adds "[^/]*" around it.
-                if (!preg_match('/^[A-Za-z0-9._\\\\^$|()?*+\[\]-]+$/D', $pattern) || str_contains($pattern, '/')) {
+                // "@" is a literal in a regex (WordPress plugin files such as Akismet's logo@2x.png, lab 2026-10-28).
+                if (!preg_match('/^[A-Za-z0-9._@\\\\^$|()?*+\[\]-]+$/D', $pattern) || str_contains($pattern, '/')) {
                     $blockers[] = "$uri: unsupported <$kind> pattern " . $this->pyRepr($pattern);
                     continue;
                 }
@@ -637,7 +638,7 @@ final class HtaccessTranslator
     private function grantRegex(string $kind, string $pattern): ?string
     {
         if (strtolower($kind) === 'files') {
-            if (!preg_match('/^[A-Za-z0-9._*?-]+$/D', $pattern)) {
+            if (!preg_match('/^[A-Za-z0-9._@*?-]+$/D', $pattern)) {
                 return null;
             }
             $regex = '';
@@ -646,7 +647,7 @@ final class HtaccessTranslator
             }
             return $regex;
         }
-        if (!preg_match('/^[A-Za-z0-9._\\\\^$|()?*+\[\]-]+$/D', $pattern) || str_contains($pattern, '/')
+        if (!preg_match('/^[A-Za-z0-9._@\\\\^$|()?*+\[\]-]+$/D', $pattern) || str_contains($pattern, '/')
             || !$this->regexSupported($pattern)) {
             return null;
         }

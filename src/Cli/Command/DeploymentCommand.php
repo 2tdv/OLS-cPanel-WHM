@@ -47,8 +47,9 @@ abstract class DeploymentCommand implements Command
     }
 
     /**
-     * Approval: --yes, or on a terminal the exact $expected text typed after the summary. Without a terminal
-     * and without --yes nothing is approved (refused, exit 1).
+     * Approval: --yes, or on a terminal "yes" typed after the summary (the summary names the plan being approved;
+     * the plan itself is bound by the command's --plan argument, so the owner does not retype its id). The plan id
+     * is still accepted. Without a terminal and without --yes nothing is approved (refused, exit 1).
      * @param list<string> $summary
      */
     protected function approve(Output $out, bool $yes, string $expected, array $summary, string $what): bool
@@ -60,9 +61,13 @@ abstract class DeploymentCommand implements Command
             throw DeploymentError::refused("$what needs approval: run it on a terminal, or pass --yes");
         }
         $out->error(implode("\n", $summary));
-        $out->error("To approve, type $expected and press Enter (anything else cancels):");
+        $out->error('');
+        // The question stands out (bold yellow on a terminal): the installer is waiting, and the answer decides.
+        $question = "Type yes and press Enter to approve $what (anything else cancels and changes nothing):";
+        $out->error(stream_isatty($out->stderr()) ? "\033[1;33m>>> $question\033[0m" : ">>> $question");
         $line = fgets($this->input, 256);
-        return $line !== false && trim($line) === $expected;
+        $answer = $line === false ? '' : trim($line);
+        return strtolower($answer) === 'yes' || $answer === $expected;
     }
 
     /** Prints a refusal and returns its exit code. */

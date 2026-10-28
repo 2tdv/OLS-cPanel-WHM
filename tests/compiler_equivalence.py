@@ -339,6 +339,14 @@ for offset, (name, case) in enumerate(PLUGIN_CASES):
     else:
         assert any(expected["blocker"] in b for b in blockers_), (name, expected["blocker"], blockers_)
         assert not re.search(r"RemoveHandler|auto_prepend", "".join(blocks_)), name
+# Current Akismet (live): "@" in a granted file name is a literal; its images and scripts are served, its PHP stays denied.
+_live = PLUGIN_BASE + [n for n, _ in PLUGIN_CASES].index("akismet-live/wp-content/plugins/akismet/.htaccess")
+_, live_blocks, live_blockers = python["htaccess"][_live]
+assert live_blockers == [] and len(live_blocks) == 1, live_blockers
+live_regex = live_blocks[0].split()[1][4:]
+for path, denied in [("akismet-refresh-logo@2x.png", False), ("_inc/img/logo-a-2x.png", False), ("form.js", False), ("copy.svg", False),
+                     ("akismet.php", True), ("logo@2x.png.php", True), ("akismet-refresh-logo@2x.png/x.php", True)]:
+    assert (re.match(live_regex, "/wp-content/plugins/akismet/" + path) is not None) == denied, (path, live_regex)
 # Akismet: one lookahead context, the plain directory denial is not emitted, and the regex keeps Apache's meaning.
 _, ak_blocks, ak_blockers = python["htaccess"][EDGE_BASE]
 assert ak_blockers == [] and len(ak_blocks) == 1 and ak_blocks[0].startswith("context exp:^/wp/wp\\-content/plugins/akismet/(?!")

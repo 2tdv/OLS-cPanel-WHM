@@ -59,6 +59,7 @@ function fresh_state(): string
 {
     $state = sys_get_temp_dir() . '/ols-ops-' . bin2hex(random_bytes(6));
     mkdir($state, 0700, true);
+    register_shutdown_function(static fn() => tree_remove($state));
     return $state;
 }
 

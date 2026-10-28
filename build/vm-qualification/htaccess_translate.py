@@ -51,7 +51,7 @@ LITESPEED_OPEN = re.compile(r"^<IfModule\s+LiteSpeed\s*>$", re.I)
 AUTHZ_OPEN = re.compile(r"^<IfModule\s+(!?)" + ALWAYS_LOADED_MODULES + r"\s*>$", re.I)
 ANY_IFMODULE_OPEN = re.compile(r"^<IfModule\b[^>]*>$", re.I)
 IFMODULE_CLOSE = re.compile(r"^</IfModule\s*>$", re.I)
-GRANT_CHARS = r"[A-Za-z0-9._\\^$|()?*+\[\]-]+"
+GRANT_CHARS = r"[A-Za-z0-9._@\\^$|()?*+\[\]-]+"
 
 def _resolve_modules(text):
     """Apache evaluates <IfModule mod_X.c> at parse time; mod_authz_core, mod_expires and mod_headers are always
@@ -123,7 +123,7 @@ def _grant_regex(kind, pattern):
     the pattern is not understood well enough. It never matches a name containing "/". Whatever it accepts is a
     subset of what Apache accepts, because everything else stays denied."""
     if kind.lower() == "files":
-        if not re.fullmatch(r"[A-Za-z0-9._*?-]+", pattern):
+        if not re.fullmatch(r"[A-Za-z0-9._@*?-]+", pattern):
             return None
         return "".join("[^/]*" if c == "*" else "[^/]" if c == "?" else re.escape(c) for c in pattern)
     if not re.fullmatch(GRANT_CHARS, pattern) or "/" in pattern or not _regex_supported(pattern):
@@ -403,7 +403,7 @@ def translate(files, docroot):
                 blockers.append(f"{uri}: <{kind} {pattern}> with unsupported body")
                 continue
             # Validate what the tenant wrote; the translation below only adds "[^/]*" around it.
-            if not re.fullmatch(r"[A-Za-z0-9._\\^$|()?*+\[\]-]+", pattern) or "/" in pattern:
+            if not re.fullmatch(r"[A-Za-z0-9._@\\^$|()?*+\[\]-]+", pattern) or "/" in pattern:
                 blockers.append(f"{uri}: unsupported <{kind}> pattern {pattern!r}")
                 continue
             if kind.lower() == "files":

@@ -129,7 +129,43 @@ final class InstallCommand extends DeploymentCommand
         } catch (DeploymentError $error) {
             return $this->refused($out, $error, 'install --cutover');
         }
-        $out->result(['command' => 'install --cutover'] + $outcome);
+        if ($out->json()) {
+            $out->result(['command' => 'install --cutover'] + $outcome);
+        } else {
+            $this->readable($out, $outcome);
+        }
         return Cutover::exitCode($outcome);
+    }
+
+    /** Readable words for the cutover steps on a terminal (JSON keeps the step names). */
+    private const STEP_TEXT = [
+        'preflight' => 'Pre-checks passed', 'plan-current' => 'The approved plan is still current',
+        'apache-baseline' => 'Recorded how every site answers under Apache', 'plan-recheck' => 'Plan checked again',
+        'backup' => 'Backup and recovery script written', 'recovery-armed' => 'Safety timer armed (returns to Apache if anything goes wrong)',
+        'hooks' => 'cPanel hooks registered', 'hybrid-host' => 'Apache moved to standby behind OpenLiteSpeed',
+        'apache-released' => 'Apache released ports 80 and 443', 'profile' => 'Serving profile recorded',
+        'activate' => 'OpenLiteSpeed configuration activated', 'ols-serving' => 'OpenLiteSpeed is serving ports 80 and 443',
+        'http3-firewall' => 'HTTP/3 checked', 'fileprotect' => 'cPanel FileProtect kept',
+        'vhost-health' => 'Every site answers as it did under Apache', 'units-enabled' => 'Services enabled for every boot',
+        'recorded' => 'Result recorded', 'recovery-disarmed' => 'Safety timer disarmed',
+    ];
+
+    /** @param array<string,mixed> $outcome */
+    private function readable(Output $out, array $outcome): void
+    {
+        foreach (is_array($outcome['steps'] ?? null) ? $outcome['steps'] : [] as $step) {
+            $name = (string) ($step['step'] ?? '');
+            $text = self::STEP_TEXT[$name] ?? $name;
+            $out->error(($step['ok'] ?? false) === true ? "    ✓ $text" : "    ✗ $text: " . (is_string($step['detail'] ?? null) ? $step['detail'] : ''));
+        }
+        $result = (string) ($outcome['result'] ?? '');
+        if ($result === 'cut_over') {
+            $out->error('');
+            $out->error('Done: OpenLiteSpeed is serving your sites. Apache stays in standby for any site that needs it.');
+            $out->error('Backup: ' . (string) ($outcome['backup'] ?? ''));
+        } else {
+            $out->error('');
+            $out->error("Not switched ($result): " . (string) ($outcome['error'] ?? '') . ' Apache is serving your sites.');
+        }
     }
 }

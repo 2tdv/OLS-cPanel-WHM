@@ -49,6 +49,21 @@ final class Plugins
      */
     public function deploy(): array
     {
+        // cPanel's register_appconfig and install_plugin create files every account reads (the feature file under
+        // whostmgr/addonfeatures, dynamicui entries, icons) with the caller's umask. The installer runs with umask 077
+        // and the broker unit with UMask=0077, which left them root-only: cPanel's feature checks then failed for every
+        // account (lab 2026-10-28, fresh install: the cPanel plugin answered FEATURE_DISABLED). Register with 022.
+        $umask = umask(0022);
+        try {
+            return $this->deployWithUmask();
+        } finally {
+            umask($umask);
+        }
+    }
+
+    /** @return list<string> */
+    private function deployWithUmask(): array
+    {
         $trees = [['whm', 'index.cgi', $this->destinations['whm']], ['cpanel', 'index.live.php', $this->destinations['cpanel']]];
         foreach ($trees as [$tree, $entry]) {
             if (!is_file("{$this->source}/$tree/manifest.json") || !is_file("{$this->source}/$tree/$entry")) {
