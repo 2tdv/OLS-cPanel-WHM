@@ -840,7 +840,8 @@ foreach (["y\n", "yes please\n", "no\n"] as $typed) {
     check($code === 1 && $w['host']->calls === [], 'only "yes" (or the plan id) approves: ' . trim($typed) . ' cancels');
 }
 check(str_contains($GLOBALS['stderr'], 'Type yes and press Enter to approve the cutover'), 'the question asks for "yes"');
-[$code, $out] = cli($w, ['install', '--cutover', "--plan=$id"], true, "Yes\n");
+// An empty answer (an Enter pressed while waiting) asks again instead of cancelling.
+[$code, $out] = cli($w, ['install', '--cutover', "--plan=$id"], true, "\n\nYes\n");
 $h = $w['host'];
 check($code === 0 && $out['result'] === 'cut_over', 'cutover (native) approved by typing yes');
 check($w['activator']->profileSeen && $w['activator']->olsStoppedBefore, 'profile written before the activation, OLS started by the activation');

@@ -64,10 +64,33 @@ abstract class DeploymentCommand implements Command
         $out->error('');
         // The question stands out (bold yellow on a terminal): the installer is waiting, and the answer decides.
         $question = "Type yes and press Enter to approve $what (anything else cancels and changes nothing):";
-        $out->error(stream_isatty($out->stderr()) ? "\033[1;33m>>> $question\033[0m" : ">>> $question");
-        $line = fgets($this->input, 256);
-        $answer = $line === false ? '' : trim($line);
-        return strtolower($answer) === 'yes' || $answer === $expected;
+        // Keys pressed while the preparation ran (an Enter while waiting) are discarded first, and an empty answer asks
+        // again: on a second server such a pending Enter was read as the answer and cancelled an approval the owner then
+        // typed (2026-10-28).
+        $this->discardPendingInput();
+        for ($asked = 0; $asked < 3; ++$asked) {
+            $out->error(stream_isatty($out->stderr()) ? "\033[1;33m>>> $question\033[0m" : ">>> $question");
+            $line = fgets($this->input, 256);
+            if ($line === false) {
+                return false;
+            }
+            $answer = trim($line);
+            if ($answer !== '') {
+                return strtolower($answer) === 'yes' || $answer === $expected;
+            }
+        }
+        return false;
+    }
+
+    /** Drops whatever was typed on the terminal before the question (only a real terminal; never a pipe or a test stream). */
+    private function discardPendingInput(): void
+    {
+        if (!stream_isatty($this->input) || !stream_set_blocking($this->input, false)) {
+            return;
+        }
+        while (($pending = fgets($this->input, 256)) !== false && $pending !== '') {
+        }
+        stream_set_blocking($this->input, true);
     }
 
     /** Prints a refusal and returns its exit code. */

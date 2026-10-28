@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.8
+
+- Installer: an Enter pressed while the preparation runs no longer cancels the approval; keys typed before the question
+  are ignored, and an empty answer asks again.
+
 ## 0.2.7
 
 - Installer: when an earlier installation stopped before the switch (for example a refused preparation), running the
