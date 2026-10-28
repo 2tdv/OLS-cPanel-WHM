@@ -329,3 +329,23 @@ for section, left in python.items():
         assert canonical(a) == canonical(b), (section, index, list(CASES)[index] if section == "states" else "", a, b)
 print(f"FV-02 translators: lab reference checks and PHP byte-equivalence passed ({len(CHECKER)} rule-file sets, {len(CASES)} cPanel "
       f"ModSecurity states, {len(POLICY)} security inputs, {len(APPLY)} access lists, {len(AUDIT)} audit logs).")
+
+# OWASP Core Rule Set crs-setup.conf: commented examples whose lines end in a backslash are comments for Apache and
+# for libmodsecurity 3 alike (a server with CRS refused the preparation); only a comment continued into a directive
+# stays refused. The lab reference and the PHP translator split the same lines.
+import json as _json
+_CASES = [
+    "#SecAction \\\n#  \"id:900000,\\\n#   phase:1,\\\n#   pass,\\\n#   setvar:tx.paranoia_level=1\"\n\nSecRuleEngine On\n",
+    "# comment \\\n\nSecRuleEngine On\n",
+    "#SecAction \\\n#  \"id:1\"\n#SecAction \\\nSecRuleEngine Off\nSecRuleEngine On\n",
+    "SecRule ARGS \"@rx a\" \\\n  \"id:5,deny\"\n# trailing \\\n",
+]
+_expected = [[[7, "SecRuleEngine On"]], [[3, "SecRuleEngine On"]], [[3, None], [5, "SecRuleEngine On"]],
+             [[1, 'SecRule ARGS "@rx a"   "id:5,deny"']]]
+_py = [[list(x) for x in mt.logical_lines(c)] for c in _CASES]
+assert _py == _expected, _py
+_php = subprocess.run([PHP, "-n", "-r", 'require "' + str(ROOT / "src/bootstrap.php") + '"; echo json_encode(array_map('
+                       '[\\OlsCpanel\\Ols\\Compiler\\ModSecurityRules::class, "logicalLines"], json_decode(stream_get_contents(STDIN), true)));'],
+                      input=_json.dumps(_CASES), capture_output=True, text=True, check=True).stdout
+assert _json.loads(_php) == _expected, _php
+print("ModSecurity comment continuation: CRS commented examples accepted, a comment continued into a directive refused (Python and PHP equal).")

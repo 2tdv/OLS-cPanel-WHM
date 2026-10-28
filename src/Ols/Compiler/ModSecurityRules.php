@@ -69,7 +69,7 @@ final class ModSecurityRules
         . 'le lt pm pmf pmFromFile rbl rx rxGlobal streq strmatch unconditionalMatch validateByteRange validateUrlEncoding '
         . 'validateUtf8Encoding verifyCC verifyCPF verifySSN verifySVNR within';
     private const FILE_OPERATORS = ['ipmatchf', 'ipmatchfromfile', 'pmf', 'pmfromfile'];
-    private const OPERATORS_NOT_QUALIFIED = ['fuzzyhash', 'geolookup', 'inspectfile', 'validatedtd', 'validateschema', 'gsblookup',
+    private const OPERATORS_NOT_QUALIFIED = ['fuzzyhash', 'inspectfile', 'validatedtd', 'validateschema', 'gsblookup',
         'rsub', 'validatehash'];
     private const ACTIONS = 'accuracy allow auditlog block capture chain ctl deny drop expirevar id initcol log logdata maturity msg '
         . 'multiMatch noauditlog nolog pass phase redirect rev setenv setrsc setsid setuid setvar severity skip skipAfter status t tag '
@@ -129,14 +129,32 @@ final class ModSecurityRules
         $out = [];
         $pending = null;
         $start = 0;
+        // A comment ending in a backslash continues into the next line under Apache and not under libmodsecurity 3;
+        // both agree while that next line is a comment or blank (the commented examples of the OWASP Core Rule Set's
+        // crs-setup.conf, which refused the preparation on a server with CRS), so only a comment continued into a
+        // directive is ambiguous: null at the comment's line, the directive not used.
+        $comment = null;
         foreach (explode("\n", $text) as $index => $raw) {
             $number = $index + 1;
             $line = str_ends_with($raw, "\r") ? substr($raw, 0, -1) : $raw;
+            if ($comment !== null) {
+                $stripped = ltrim($line, " \t");
+                if (str_starts_with($stripped, '#') && str_ends_with($line, '\\')) {
+                    continue;
+                }
+                if (trim($stripped, " \t") === '' || str_starts_with($stripped, '#')) {
+                    $comment = null;
+                    continue;
+                }
+                $out[] = [$comment, null];
+                $comment = null;
+                continue;
+            }
             if ($pending === null) {
                 $start = $number;
                 if (str_starts_with(ltrim($line, " \t"), '#')) {
                     if (str_ends_with($line, '\\')) {
-                        $out[] = [$number, null];
+                        $comment = $number;
                     }
                     continue;
                 }
@@ -453,7 +471,11 @@ final class ModSecurityRules
         }
         $name = strtolower($match[1]);
         $argument = $match[2] ?? '';
-        if (in_array($name, self::OPERATORS_NOT_QUALIFIED, true)) {
+        if ($name === 'geolookup') {
+            // SecGeoLookupDb is refused, so no geolocation database exists: the lookup fails and the operator never
+            // matches, under Apache and under libmodsecurity 3 alike (the OWASP Core Rule Set's rule 910100).
+            $this->differ('geolookup-without-database', $where, '@geoLookup never matches: no geolocation database is configured');
+        } elseif (in_array($name, self::OPERATORS_NOT_QUALIFIED, true)) {
             $this->block($where, "operator @{$match[1]} is not qualified for libmodsecurity 3 in the product");
         } elseif (!in_array($name, self::lowered(self::OPERATORS), true)) {
             $this->block($where, "unknown operator @{$match[1]}");

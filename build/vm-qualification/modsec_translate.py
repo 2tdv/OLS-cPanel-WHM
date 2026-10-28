@@ -106,7 +106,7 @@ OPERATORS = {o.lower() for o in (
     "pmFromFile rbl rx rxGlobal streq strmatch unconditionalMatch validateByteRange validateUrlEncoding validateUtf8Encoding "
     "verifyCC verifyCPF verifySSN verifySVNR within").split()}
 FILE_OPERATORS = {"ipmatchf", "ipmatchfromfile", "pmf", "pmfromfile"}
-OPERATORS_NOT_QUALIFIED = {"fuzzyhash", "geolookup", "inspectfile", "validatedtd", "validateschema", "gsblookup", "rsub",
+OPERATORS_NOT_QUALIFIED = {"fuzzyhash", "inspectfile", "validatedtd", "validateschema", "gsblookup", "rsub",
                            "validatehash"}
 ACTIONS = {a.lower() for a in (
     "accuracy allow auditlog block capture chain ctl deny drop expirevar id initcol log logdata maturity msg multiMatch "
@@ -152,17 +152,29 @@ class Blocked(ValueError):
 
 def logical_lines(text):
     """(line number, text) of every directive line: backslash continuations joined (the backslash removed, the
-    next line appended as is), blank and comment lines dropped. A comment ending in a backslash is ambiguous
-    (Apache continues it, libmodsecurity 3 does not) and is returned as None."""
-    out, pending, start = [], None, 0
+    next line appended as is), blank and comment lines dropped. A comment ending in a backslash continues into the
+    next line under Apache and not under libmodsecurity 3; both agree while that next line is a comment or blank (the
+    commented examples of the OWASP Core Rule Set's crs-setup.conf), so only a comment continued into a directive is
+    ambiguous, returned as None at the comment's line (the directive is not used)."""
+    out, pending, start, comment = [], None, 0, None
     for number, raw in enumerate(text.split("\n"), 1):
         line = raw[:-1] if raw.endswith("\r") else raw
+        if comment is not None:
+            stripped = line.lstrip(" \t")
+            if stripped.startswith("#") and line.endswith("\\"):
+                continue
+            if not stripped.strip(" \t") or stripped.startswith("#"):
+                comment = None
+                continue
+            out.append((comment, None))
+            comment = None
+            continue
         if pending is None:
             start = number
             stripped = line.lstrip(" \t")
             if stripped.startswith("#"):
                 if line.endswith("\\"):
-                    out.append((number, None))
+                    comment = number
                 continue
             pending = ""
         if line.endswith("\\"):
@@ -386,7 +398,11 @@ class RuleChecker:
             self.block(where, "unreadable operator")
             return
         name, argument = match.group(1).lower(), match.group(2) or ""
-        if name in OPERATORS_NOT_QUALIFIED:
+        if name == "geolookup":
+            # SecGeoLookupDb is refused, so no geolocation database exists: the lookup fails and the operator never
+            # matches, under Apache and under libmodsecurity 3 alike (the OWASP Core Rule Set's rule 910100).
+            self.differ("geolookup-without-database", where, "@geoLookup never matches: no geolocation database is configured")
+        elif name in OPERATORS_NOT_QUALIFIED:
             self.block(where, f"operator @{match.group(1)} is not qualified for libmodsecurity 3 in the product")
         elif name not in OPERATORS:
             self.block(where, f"unknown operator @{match.group(1)}")

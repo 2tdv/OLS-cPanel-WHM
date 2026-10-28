@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.6
+
+- ModSecurity: servers using cPanel's OWASP Core Rule Set (WHM, ModSecurity Vendors) can now be switched; the rule set
+  runs on OpenLiteSpeed and blocks the same attacks as under Apache. Its commented examples and its optional
+  country rule (which needs a geolocation database that is not configured) no longer stop the preparation.
+
 ## 0.2.5
 
 - Security: the firewall that closes Apache's standby ports (behind OpenLiteSpeed) is restored at every boot, before
