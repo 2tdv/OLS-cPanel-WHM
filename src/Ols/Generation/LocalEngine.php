@@ -318,7 +318,10 @@ final class LocalEngine implements Engine
     {
         if (($validation['valid'] ?? false) !== true) {
             $report = trim((string) ($validation['report'] ?? '') . "\n" . (string) ($validation['stderr'] ?? ''));
-            return ['generation' => $generation, 'valid' => false, 'result' => 'invalid', 'reason' => substr($report, -1000) ?: null];
+            // The validator's findings name the cause; the report's tail usually has only the harmless last lines.
+            $findings = array_values(array_filter((array) ($validation['findings'] ?? []), 'is_string'));
+            $reason = $findings !== [] ? 'validation findings: ' . implode(' | ', array_slice($findings, 0, 10)) : substr($report, -1000);
+            return ['generation' => $generation, 'valid' => false, 'result' => 'invalid', 'reason' => $reason ?: null];
         }
         $outcome = $activate();
         return ['generation' => $generation, 'valid' => true, 'result' => (string) ($outcome['result'] ?? 'unknown'),
@@ -344,7 +347,7 @@ final class LocalEngine implements Engine
         return $decoded;
     }
 
-    private static function remove(string $path): void
+    public static function remove(string $path): void
     {
         if (is_link($path) || is_file($path)) {
             @unlink($path);

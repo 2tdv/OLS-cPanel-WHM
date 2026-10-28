@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.9
+
+- ModSecurity: the current OWASP Core Rule Set (3.3.x, as cPanel installs it today) loads in OpenLiteSpeed. Its rule
+  901181 was refused by the ModSecurity library, and the switch returned to Apache; the library fix from the
+  ModSecurity project is included until it is released upstream.
+- Preparation runs OpenLiteSpeed's own configuration test on a private copy before anything is changed, so a
+  configuration OpenLiteSpeed cannot load is reported there, with the file and line, instead of at the switch.
+- A refused switch names the actual cause; only the last, harmless lines of the check were shown before.
+
 ## 0.2.8
 
 - Installer: an Enter pressed while the preparation runs no longer cancels the approval; keys typed before the question

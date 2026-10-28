@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "name": "ols-cpanel",
-  "version": "0.2.8",
-  "product_release": 51,
-  "release_inputs_sha256": "e339fc3be9fb700f5aebba514f8bc678f86629db3c1cef5484950d09b2c537cb"
+  "version": "0.2.9",
+  "product_release": 52,
+  "release_inputs_sha256": "45ec1b9e053f97a17e7279c1fd2f6631651f3846f8089cfc6786e05e60042ac1"
 }

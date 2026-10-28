@@ -8,6 +8,8 @@ use OlsCpanel\Events\SourceDigest;
 use OlsCpanel\Ols\Compiler\CompilationRefused;
 use OlsCpanel\Ols\Compiler\CpanelSurface;
 use OlsCpanel\Ols\Compiler\ServerCompiler;
+use OlsCpanel\Ols\Generation\GenerationTree;
+use OlsCpanel\Ols\Generation\LocalEngine;
 
 /**
  * `install --prepare`: preflight, a full compile with production listeners (lint included, nothing staged),
@@ -76,6 +78,7 @@ final class CutoverPlan
             $olsVersion = $this->preflight($checks);
             [$compiled, $hybridVhosts] = $this->compileProfile($native);
             $checks[] = ['name' => 'compile', 'ok' => true, 'detail' => count($compiled['plan']) . ' vhosts, lint passed'];
+            $this->olsTest($compiled, $checks);
             // HR-D14: the hybrid profile is the default; only --native plans without Apache's standby.
             $ports = $native ? null : CpanelSurface::HYBRID_PORTS;
             if ($ports !== null) {
@@ -109,6 +112,42 @@ final class CutoverPlan
         } finally {
             fclose($lock);
         }
+    }
+
+    /**
+     * OpenLiteSpeed's own configuration test of the compiled tree, as the activation will run it (the activator's
+     * stage-validate: a private copy in its own namespace; the live configuration and the sites are not touched).
+     * Without it, what only the server refuses (a ModSecurity rule libmodsecurity cannot load, on a second server
+     * 2026-10-28) surfaced at the switch itself, after Apache had been stopped.
+     * @param list<array<string,mixed>> $checks
+     */
+    private function olsTest(array $compiled, array &$checks): void
+    {
+        $root = $this->env->state . '/prepare-check';
+        Environment::ensureDir($root, 0700);
+        $dir = "$root/candidate";
+        LocalEngine::remove($dir);
+        try {
+            $tree = (new GenerationTree($root))->build($compiled, 'candidate');
+            LocalEngine::writeTree($dir, $tree['files'], $tree['health'], 0, str_repeat('0', 64));
+            $run = $this->env->host->run('ols-config-test', [LocalEngine::ACTIVATOR, 'stage-validate', $dir], 900);
+        } catch (\InvalidArgumentException | \OlsCpanel\Ols\Generation\EngineError $error) {
+            throw DeploymentError::refused('the compiled configuration could not be staged for the OpenLiteSpeed test: ' . $error->getMessage());
+        } finally {
+            LocalEngine::remove($dir);
+        }
+        $report = json_decode($run['stdout'], true);
+        if (!is_array($report)) {
+            throw DeploymentError::refused('the OpenLiteSpeed configuration test did not run: ' . Host::tail($run['stderr'] . $run['stdout']));
+        }
+        if (($report['valid'] ?? false) !== true || $run['exit_code'] !== 0) {
+            $findings = array_values(array_filter((array) ($report['findings'] ?? []), 'is_string'))
+                ?: array_values(array_filter((array) ($report['output_tail'] ?? []), 'is_string'));
+            throw DeploymentError::refused('OpenLiteSpeed refuses the compiled configuration (nothing was changed; the sites stay on '
+                . 'Apache): ' . substr(preg_replace('/[^\x20-\x7e]+/', ' ', implode(' | ', array_slice($findings, 0, 10))) ?? '', 0, 1500),
+                ['findings' => array_slice($findings, 0, 50)]);
+        }
+        $checks[] = ['name' => 'ols-config-test', 'ok' => true];
     }
 
     /**

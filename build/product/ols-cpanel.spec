@@ -18,7 +18,7 @@ BuildArch:      x86_64
 AutoReqProv:    no
 # The OLS server is a separate, equally scriptlet-free package; its directory /usr/local/lsws/conf must
 # exist for the broker unit's ReadWritePaths.
-Requires:       ols-cpanel-openlitespeed
+Requires:       ols-cpanel-openlitespeed >= 1.9.3-1.olscp12
 # The prebuilt phpredis builds and the pinned source for the object cache's PHP extension (also scriptlet-free);
 # the product activates them itself, without a download or a manual step.
 Requires:       ols-cpanel-php-redis

@@ -1154,4 +1154,14 @@ foreach ([['--lines=0'], ['--lines=20001'], ['--lines=x'], ['--lines'], ['extra'
 }
 [$code, $stdout] = $run(new Application([new Command\Http3StatusCommand($stranger, $h3Input, $h3Logs, $h3Firewall)]), ['http3', 'status', '--format=json']);
 check($code === 1 && json_decode($stdout, true)['result'] === 'refused', 'http3 status: root only');
+// A refused validation names its findings, which the report's tail (only the last output lines) loses.
+$tailOnly = str_repeat('2026-10-28 [WARN] Uid of /home/u is 0, smaller than minimum requirement 100, use server uid!' . "\n", 30);
+$invalid = LocalEngine::outcome('g9', ['valid' => false, 'report' => $tailOnly, 'stderr' => '',
+    'findings' => ['[WARN] [config:server:vhosts:vhost:x] path of SSL key file is invalid', 7]], fn(): array => []);
+check($invalid['result'] === 'invalid' && $invalid['reason'] === 'validation findings: [WARN] [config:server:vhosts:vhost:x] path of SSL key file is invalid',
+    'a refused validation reports its findings, not the report tail');
+$reason = \OlsCpanel\Deployment\Cutover::activationReason(['result' => 'invalid', 'reason' => $invalid['reason']]);
+check($reason === $invalid['reason'], 'cutover names a warning finding whole');
+$old = LocalEngine::outcome('g9', ['valid' => false, 'report' => 'x', 'stderr' => 'y'], fn(): array => []);
+check($old['reason'] === "x\ny", 'without findings the report tail is kept');
 echo "$count engine runtime checks passed.\n";

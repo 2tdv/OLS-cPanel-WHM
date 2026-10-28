@@ -35,6 +35,7 @@ use OlsCpanel\Events\ReconcileBusy;
 use OlsCpanel\Events\ReconcileRefused;
 use OlsCpanel\Events\Reconciler;
 use OlsCpanel\Ols\Generation\Engine;
+use OlsCpanel\Ols\Generation\LocalEngine;
 use OlsCpanel\Infrastructure\Process\CommandRunner;
 use OlsCpanel\Infrastructure\Process\LocalCommandRunner;
 use OlsCpanel\Ols\Compiler\CompilationRefused;
@@ -106,6 +107,8 @@ final class FakeHost implements CommandRunner
     public ?string $nftRuleset = null;
     /** @var array<string,string> account => home (getent passwd) */
     public array $passwd = [];
+    /** @var list<string>|null findings of OpenLiteSpeed's configuration test (null: it passes) */
+    public ?array $olsTest = null;
     /** @var array<string,array{active:bool, options:array<string,string>, fail_set?:bool}> WordPress installation path => LiteSpeed Cache */
     public array $wp = [];
 
@@ -173,6 +176,12 @@ final class FakeHost implements CommandRunner
         $cmd = $argv[0];
         $args = array_slice($argv, 1);
         switch ($cmd) {
+            case LocalEngine::ACTIVATOR:
+                if (($args[0] ?? '') !== 'stage-validate' || !is_file($args[1] . '/httpd_config.conf')) {
+                    return $no(2);
+                }
+                return ['exit_code' => $this->olsTest === null ? 0 : 1, 'stderr' => '', 'stdout' => json_encode(['exit_code' => 0,
+                    'findings' => $this->olsTest ?? [], 'valid' => $this->olsTest === null, 'output_tail' => [], 'live_conf_unchanged' => true])];
             case '/usr/local/cpanel/bin/whmapi1':
                 $call = $args[1];
                 $kv = [];
@@ -749,6 +758,18 @@ $nginx['host']->eaNginx = true;
 [$code, $out] = cli($nginx, ['install', '--prepare']);
 check($code === 1 && str_contains((string) ($out['error'] ?? ''), 'ea-nginx') && !is_dir($nginx['state'] . '/plans/x'),
     'prepare refuses while ea-nginx is installed');
+check(in_array('ols-config-test', array_column($plan['checks'], 'name'), true) && !is_dir($w['state'] . '/prepare-check/candidate'),
+    "prepare runs OpenLiteSpeed's configuration test of the compiled tree and removes the copy");
+$tested = array_values(array_filter($w['host']->calls, static fn(array $c): bool => $c[0] === 'ols-config-test'));
+check(count($tested) === 1 && $tested[0][1] === [LocalEngine::ACTIVATOR, 'stage-validate', $w['state'] . '/prepare-check/candidate'],
+    'the configuration test is the activator\'s stage-validate');
+$refusedTest = world();
+$refusedTest['host']->olsTest = ['[ERROR] [Module:mod_security] rules.conf failed, Line: 289. Expecting an action, got: @*'];
+[$code, $out] = cli($refusedTest, ['install', '--prepare']);
+check($code === 1 && str_contains((string) ($out['error'] ?? ''), 'OpenLiteSpeed refuses the compiled configuration')
+    && str_contains((string) ($out['error'] ?? ''), 'Line: 289') && glob($refusedTest['state'] . '/plans/*.json') === []
+    && !changed_host($refusedTest['host']) && !is_dir($refusedTest['state'] . '/prepare-check/candidate'),
+    'prepare refuses with the finding when OpenLiteSpeed refuses the configuration; no plan, nothing changed');
 check($w['host']->index('plugin-whm-register') >= 0 && $w['host']->index('plugin-cpanel-register') >= 0
     && $w['host']->index('plugin-whm-validate') < $w['host']->index('plugin-whm-switch')
     && $w['host']->index('plugin-cpanel-validate') < $w['host']->index('plugin-whm-aside')

@@ -1,0 +1,41 @@
+From be21fe2d9127954aa3ed1dacaed02698180a0038 Mon Sep 17 00:00:00 2001
+From: OLS-cPanel-WHM <2tdv@users.noreply.github.com>
+Date: Wed, 28 Oct 2026 23:50:00 +0000
+Subject: [PATCH] Pin lmdb and zlib to the locked commits
+
+build_lmdb.sh and build_zlib.sh build the tip of moving branches; the
+build then differs from third-party.lock.json and is refused. Check out
+the locked commits so a rebuild uses the same sources.
+---
+ script/build_lmdb.sh | 2 +-
+ script/build_zlib.sh | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/script/build_lmdb.sh b/script/build_lmdb.sh
+index 7054f05..c7413f7 100755
+--- a/script/build_lmdb.sh
++++ b/script/build_lmdb.sh
+@@ -23,7 +23,7 @@ fi
+ cd lmdb
+ git checkout master
+ git pull
+-#git checkout LMDB_0.9.27B
++git checkout e1726e30fd0f102c1d5347de31c464e86a5541f2
+     
+     cd libraries/liblmdb/
+     XCFLAGS=-fPIC make
+diff --git a/script/build_zlib.sh b/script/build_zlib.sh
+index 93930a7..80440c6 100755
+--- a/script/build_zlib.sh
++++ b/script/build_zlib.sh
+@@ -10,6 +10,7 @@ if [ ! -d "zlib" ]  ; then
+ fi
+     
+ cd zlib
++git checkout 767c4c947852e143f582c85f14cf573411df1b35
+ CFLAGS="-fPIC -O3" ./configure --prefix=$PREFIX --static
+ 
+ make install
+-- 
+2.56.0
+

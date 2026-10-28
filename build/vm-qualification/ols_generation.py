@@ -357,7 +357,15 @@ def validate(gen):
               "validator_sha256": file_sha256(VALIDATOR), "health_targets": len(health_targets(gen) or []),
               "time": time.time()}
     write_durable(f"{VALIDATIONS}/{gen}.json", json.dumps(record, sort_keys=True))
-    return {**record, "report": result.stdout[-2000:], "stderr": result.stderr[-1000:]}
+    out = {**record, "report": result.stdout[-2000:], "stderr": result.stderr[-1000:]}
+    # The findings come before the output tail, so the report's tail alone loses the cause: carried whole.
+    try:
+        report = json.loads(result.stdout)
+    except ValueError:
+        report = None
+    if isinstance(report, dict) and isinstance(report.get("findings"), list):
+        out["findings"] = report["findings"]
+    return out
 
 def validation_problem(gen):
     """Why this generation may not be activated, or None (review RV-02)."""

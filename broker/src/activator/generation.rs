@@ -803,6 +803,13 @@ impl<R: Runtime> Activator<R> {
         let stdout = pystr::universal_newlines(&String::from_utf8_lossy(&output.stdout));
         let stderr = pystr::universal_newlines(&String::from_utf8_lossy(&output.stderr));
         out.insert("report".into(), json!(pystr::tail(&stdout, 2000)));
+        // The validator's findings come before its output tail, so the report's tail alone loses the cause of a
+        // refusal (a second server, 2026-10-28): they are carried whole.
+        if let Ok(Value::Object(report)) = serde_json::from_str::<Value>(&stdout) {
+            if let Some(Value::Array(found)) = report.get("findings") {
+                out.insert("findings".into(), json!(found));
+            }
+        }
         out.insert("stderr".into(), json!(pystr::tail(&stderr, 1000)));
         Ok(Value::Object(out))
     }

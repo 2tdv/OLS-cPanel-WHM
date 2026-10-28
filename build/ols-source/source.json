@@ -21,8 +21,10 @@
     "0011-Use-a-configured-shared-memory-directory-alone.patch"
   ],
   "third_party_patches": [
-    "0001-Link-curl-configure-checks-with-libstdc.patch"
+    "0001-Link-curl-configure-checks-with-libstdc.patch",
+    "0002-Apply-ModSecurity-ctl-remove-value-fix.patch",
+    "0003-Pin-lmdb-and-zlib-to-the-locked-commits.patch"
   ],
-  "product_release": 11,
-  "release_inputs_sha256": "6377f4d988cb1ffc5379044e4df8b8493d3aaa2a5532b5b0e3c7503d82904bec"
+  "product_release": 12,
+  "release_inputs_sha256": "3e9abf4f9cde587c509cc59c0fb076451eeac8e881be52fa28e90c69bd677a8c"
 }

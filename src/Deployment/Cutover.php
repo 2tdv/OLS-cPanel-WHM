@@ -220,7 +220,7 @@ final class Cutover
             throw DeploymentError::step('activate', get_class($error) . ': ' . Host::tail($error->getMessage()));
         }
         if (($activation['action'] ?? null) !== 'committed') {
-            throw DeploymentError::step('activate', 'activation not committed: ' . Host::tail(json_encode($activation) ?: ''));
+            throw DeploymentError::step('activate', 'activation not committed: ' . self::activationReason($activation));
         }
         if (array_key_exists('hybrid_vhosts', $activation) && $activation['hybrid_vhosts'] != array_column($plan['hybrid_vhosts'], 'vhost')) {
             throw DeploymentError::step('activate', 'the activated generation has other hybrid vhosts than the plan');
@@ -347,6 +347,27 @@ final class Cutover
     }
 
     /** Exit code of an outcome. */
+    /**
+     * Why an activation did not commit, errors first: OpenLiteSpeed's [ERROR]/[CRIT]/[ALERT] lines and "configuration failed"
+     * from the validation output, then the reason; harmless warnings (the docroot "Uid ... is 0" notices) never hide them.
+     * A second server's cutover showed only the tail of the record, which was such warnings (2026-10-28).
+     * @param array<string,mixed> $activation
+     */
+    public static function activationReason(array $activation): string
+    {
+        $text = stripcslashes(json_encode($activation, JSON_UNESCAPED_SLASHES) ?: '');
+        preg_match_all('/\[(?:ERROR|CRIT|ALERT)\][^"\n]{0,260}|[^"\n]{0,120}configuration failed[^"\n]{0,120}/', $text, $found);
+        $errors = array_values(array_unique(array_map('trim', $found[0])));
+        if ($errors !== []) {
+            return substr(preg_replace('/[^\x20-\x7e]+/', ' ', implode(' | ', array_slice($errors, 0, 6))) ?? '', 0, 1200);
+        }
+        $reason = $activation['reason'] ?? null;
+        if (is_string($reason) && str_starts_with($reason, 'validation findings: ')) {
+            return substr(preg_replace('/[^\x20-\x7e]+/', ' ', $reason) ?? '', 0, 1200);
+        }
+        return is_string($reason) && $reason !== '' ? Host::tail($reason) : Host::tail(json_encode($activation) ?: '');
+    }
+
     public static function exitCode(array $outcome): int
     {
         return ($outcome['result'] ?? null) === 'cut_over' ? Application::EXIT_OK : Application::EXIT_REFUSED;
