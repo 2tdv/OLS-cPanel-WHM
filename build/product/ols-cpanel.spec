@@ -81,6 +81,7 @@ cp -a payload/. %{buildroot}/
 %attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-php.path
 %attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-php.service
 %attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-php.timer
+%attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-hybrid-firewall.service
 %attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-hybrid-trust.service
 %attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-hybrid-trust.timer
 %attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-upgrade.service

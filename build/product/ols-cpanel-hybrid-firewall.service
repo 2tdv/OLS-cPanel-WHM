@@ -1,0 +1,36 @@
+# Product unit: loads the hybrid profile's firewall table at boot (docs/product-interfaces.md, "Hybrid firewall"). In the
+# hybrid profile Apache listens on 0.0.0.0:81/444 behind OpenLiteSpeed and the nftables table `inet ols_cpanel_hybrid`
+# is the only thing that closes those ports to the outside. nftables rules live in memory only, so the same ruleset is
+# kept in /var/lib/ols-cpanel/hybrid.nft (written at cutover and by the upgrade; root 0600; idempotent: it declares,
+# deletes and defines the table) and loaded here, before the network is configured and before Apache or OLS start, so the
+# ports are never reachable in between. Ordered like the distribution's nftables.service (DefaultDependencies=no,
+# Before=network-pre.target, Wants=network-pre.target, WantedBy=multi-user.target): multi-user.target pulls it into
+# every normal boot and the ordering runs it ahead of the network and Apache; sysinit.target would also work but the
+# state directory only needs local-fs.target and the unit has no reason to hold up early boot for anything else. Without
+# the file (native profile, or after the return to Apache) the condition skips the unit. Enabled at cutover and by
+# the upgrade; the hybrid trust pass restores the table at run time if it is ever missing.
+[Unit]
+Description=OLS-cPanel hybrid firewall (closes Apache's backend ports to the outside)
+DefaultDependencies=no
+After=local-fs.target
+Before=network-pre.target httpd.service ols-cpanel.service
+Wants=network-pre.target
+ConditionPathExists=/var/lib/ols-cpanel/hybrid.nft
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /var/lib/ols-cpanel/hybrid.nft
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_NETLINK AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

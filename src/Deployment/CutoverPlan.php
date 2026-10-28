@@ -184,7 +184,7 @@ final class CutoverPlan
     /** @param list<array<string,mixed>> $checks */
     public function requireSuexec(array &$checks): void
     {
-        if (!(new HybridHost($this->env->host))->suexec()) {
+        if (!(new HybridHost($this->env->host, $this->env->state))->suexec()) {
             throw DeploymentError::refused("hybrid vhosts need Apache to run each account's CGI as that account (suexec_module, "
                 . 'ruid2_module or mpm_itk_module; without one CGI runs as OLS\'s user, which may reach the backend ports)');
         }

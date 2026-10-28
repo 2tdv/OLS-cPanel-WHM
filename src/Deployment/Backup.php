@@ -44,7 +44,7 @@ final class Backup
         }
         $hybrid = $plan['profile']['hybrid_ports'] !== null;
         $ports = $hybrid ? $plan['profile']['hybrid_ports'] : null;
-        $host = new HybridHost($this->env->host);
+        $host = new HybridHost($this->env->host, $this->env->state);
         $originals = [];
         if ($hybrid) {
             $collisions = $host->collisions();

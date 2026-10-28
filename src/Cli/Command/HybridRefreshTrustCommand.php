@@ -33,7 +33,7 @@ final class HybridRefreshTrustCommand extends DeploymentCommand
             $env->requireRoot();
             $lock = $env->lock(120);
             try {
-                $outcome = (new HybridHost($env->host))->refreshTrust($env->state . '/staging');
+                $outcome = (new HybridHost($env->host, $env->state))->refreshTrust($env->state . '/staging');
             } finally {
                 flock($lock, LOCK_UN);
                 fclose($lock);

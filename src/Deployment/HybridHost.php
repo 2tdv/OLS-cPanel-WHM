@@ -9,7 +9,9 @@ namespace OlsCpanel\Deployment;
  * tweaks, trusts only X-OLS-Client-IP from OLS's local addresses (mod_remoteip include), and an nftables table
  * admits the backend ports only over loopback and only from root and OLS's user. Texts are byte-identical to
  * the lab functions (tests/deployment_texts.py). Every step is checked; removal keeps the firewall until
- * Apache owns 80/443 again (review RV-28).
+ * Apache owns 80/443 again (review RV-28). nftables rules live in memory only, so the same ruleset is persisted
+ * (state/hybrid.nft, root 0600) and loaded at every boot by ols-cpanel-hybrid-firewall.service before the network
+ * and Apache start; the trust pass puts the table back when it is missing (RV-40).
  */
 final class HybridHost
 {
@@ -20,11 +22,102 @@ final class HybridHost
     public const HTTPD_CONF = '/etc/apache2/conf/httpd.conf';
     public const HTTPD = '/usr/sbin/httpd';
     public const NFT = '/usr/sbin/nft';
+    /** The persisted ruleset in the state directory (the boot unit's ConditionPathExists and ExecStart name the same path). */
+    public const FIREWALL_FILE = 'hybrid.nft';
+    public const FIREWALL_UNIT = 'ols-cpanel-hybrid-firewall.service';
     public const IP = '/usr/sbin/ip';
     public const RELOAD = '/usr/local/cpanel/scripts/restartsrv_httpd';
 
-    public function __construct(private Host $host)
+    public function __construct(private Host $host, private string $state = Environment::STATE)
     {
+    }
+
+    /**
+     * The ruleset as `nft -f` input that can be loaded any number of times: the table is declared (a no-op when it
+     * exists), deleted and defined again, so a second load never fails with "File exists" and never duplicates rules.
+     */
+    public static function persistedRuleset(array $ports): string
+    {
+        return 'table inet ' . self::NFT_TABLE . " {}\ndelete table inet " . self::NFT_TABLE . "\n" . self::nftRuleset($ports);
+    }
+
+    public function firewallPath(): string
+    {
+        return $this->state . '/' . self::FIREWALL_FILE;
+    }
+
+    /** Writes the persisted ruleset atomically (temporary file in the same directory, root-only, then rename). */
+    private function persist(array $ports): void
+    {
+        $path = $this->firewallPath();
+        $tmp = $path . '.tmp-' . bin2hex(random_bytes(6));
+        $text = self::persistedRuleset($ports);
+        if (!is_dir($this->state) || @file_put_contents($tmp, $text) !== strlen($text) || !@chmod($tmp, 0600) || !@rename($tmp, $path)) {
+            @unlink($tmp);
+            throw DeploymentError::step('nft-persist', "cannot write $path");
+        }
+    }
+
+    private function firewallPresent(): bool
+    {
+        return $this->host->run('nft-present', [self::NFT, 'list', 'table', 'inet', self::NFT_TABLE])['exit_code'] === 0;
+    }
+
+    /**
+     * Makes the firewall table exist while the hybrid profile is in effect: 'present' when it does, 'restored' when it was
+     * missing (after a reboot of an earlier build, or an operator's `nft flush ruleset`) and is loaded again from the persisted
+     * file, which is written first from the profile's ports when it is absent. 'failed' (with the reason) when it cannot be.
+     * @return array{0:string,1:?string} state and error
+     */
+    public function ensureFirewall(): array
+    {
+        if ($this->firewallPresent()) {
+            return ['present', null];
+        }
+        try {
+            if (!is_file($this->firewallPath())) {
+                $profile = Profile::load($this->state . '/profile.json');
+                if ($profile === null || $profile->hybridPorts === null) {
+                    return ['failed', 'the hybrid ports are unknown (no profile with hybrid ports)'];
+                }
+                $this->persist($profile->hybridPorts);
+            }
+            $this->host->must('nft-restore', [self::NFT, '-f', $this->firewallPath()]);
+            $this->host->must('nft-present', [self::NFT, 'list', 'table', 'inet', self::NFT_TABLE]);
+        } catch (DeploymentError | \RuntimeException $error) {
+            return ['failed', $error->getMessage()];
+        }
+        return ['restored', null];
+    }
+
+    /**
+     * Writes the persisted ruleset when it is missing on a host whose hybrid profile is in effect (the upgrade pass: a host
+     * prepared by an earlier build has none). @return bool whether the file exists afterwards
+     */
+    public function ensurePersisted(): bool
+    {
+        if (is_file($this->firewallPath())) {
+            return true;
+        }
+        try {
+            $profile = Profile::load($this->state . '/profile.json');
+            if ($profile === null || $profile->hybridPorts === null) {
+                return false;
+            }
+            $this->persist($profile->hybridPorts);
+        } catch (DeploymentError | \RuntimeException) {
+            return false;
+        }
+        return true;
+    }
+
+    /** 'present', 'missing' or 'not-hybrid' (no include, so the hybrid profile is not in effect). */
+    public function firewallState(): string
+    {
+        if ($this->host->run('remoteip-current', ['/usr/bin/cat', '--', self::REMOTEIP_CONF])['exit_code'] !== 0) {
+            return 'not-hybrid';
+        }
+        return $this->firewallPresent() ? 'present' : 'missing';
     }
 
     /** The hybrid firewall table: the backend ports only over loopback, and only from root and OLS's user. */
@@ -116,6 +209,23 @@ final class HybridHost
         if ($current['exit_code'] !== 0) {
             return ['result' => 'not-hybrid'];
         }
+        // The backend ports are open to the world without the table, so it is checked first and whatever else fails.
+        [$firewall, $firewallError] = $this->ensureFirewall();
+        $outcome = $this->refreshInclude($stageDir, $current);
+        $outcome['firewall'] = $firewall;
+        if ($firewall === 'failed') {
+            $outcome['result'] = 'failed';
+            $outcome['error'] = trim('the firewall table is missing and could not be restored (' . $firewallError . ') ' . ($outcome['error'] ?? ''));
+        }
+        return $outcome;
+    }
+
+    /**
+     * @param array{exit_code:int,stdout:string} $current the include as read
+     * @return array{result:string, trusted?:list<string>, error?:string}
+     */
+    private function refreshInclude(string $stageDir, array $current): array
+    {
         $trusted = self::localAddresses($this->host->must('local-addresses', [self::IP, '-o', 'addr', 'show']));
         $conf = self::remoteipConf($trusted);
         if ($current['stdout'] === $conf) {
@@ -193,7 +303,9 @@ final class HybridHost
     {
         $conf = self::remoteipConf($proxies);
         $this->install($stageDir, $conf);
-        $this->host->must('nft-hybrid', [self::NFT, '-f', $this->stage($stageDir, 'hybrid.nft', self::nftRuleset($ports))]);
+        // The same idempotent text that boot loads: persisted first, then loaded from the persisted file.
+        $this->persist($ports);
+        $this->host->must('nft-hybrid', [self::NFT, '-f', $this->firewallPath()]);
         $this->host->must('nft-present', [self::NFT, 'list', 'table', 'inet', self::NFT_TABLE]);
         foreach (['apache_port' => $ports[0], 'apache_ssl_port' => $ports[1]] as $key => $port) {
             $this->host->api("tweak-set-$key", 'set_tweaksetting', ["key=$key", "value=0.0.0.0:$port"]);
@@ -229,7 +341,11 @@ final class HybridHost
         if (!$this->host->waitFor(fn(): bool => $this->host->ownedBy([80, 443], ['httpd']), 30, 2)) {
             throw DeploymentError::step('listeners', 'Apache does not own 80/443 again; the firewall table stays');
         }
-        if ($this->host->run('nft-present', [self::NFT, 'list', 'table', 'inet', self::NFT_TABLE])['exit_code'] === 0) {
+        // The persisted file goes with the table, or the next boot would close the ports of an Apache that owns 80/443 again.
+        if (file_exists($this->firewallPath()) && !@unlink($this->firewallPath())) {
+            throw DeploymentError::step('nft-unpersist', 'cannot delete ' . $this->firewallPath());
+        }
+        if ($this->firewallPresent()) {
             $this->host->must('nft-delete', [self::NFT, 'delete', 'table', 'inet', self::NFT_TABLE]);
         }
     }

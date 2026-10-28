@@ -114,6 +114,17 @@ final class Upgrade
         // refresh does nothing without the hybrid profile). Best effort, like the PHP units.
         $prepared = trim($host->run('enabled-broker', [Host::SYSTEMCTL, 'is-enabled', CutoverPlan::BROKER_UNIT])['stdout']) === 'enabled';
         $trust = $prepared && $host->run('hybrid-trust-enable', [Host::SYSTEMCTL, 'enable', '--now', 'ols-cpanel-hybrid-trust.timer'])['exit_code'] === 0;
+        // RV-40: the boot unit that loads the persisted hybrid firewall. Only where the hybrid profile is in effect (the profile
+        // has hybrid ports): the ruleset is written when an earlier build left none, then the unit is enabled (--now loads it).
+        $hybridHost = new HybridHost($host, $this->env->state);
+        $hybridProfile = null;
+        try {
+            $hybridProfile = Profile::load($this->env->profilePath())?->hybridPorts;
+        } catch (\RuntimeException) {
+        }
+        $firewall = $hybridProfile === null ? 'not-hybrid'
+            : ($hybridHost->ensurePersisted() && $host->run('hybrid-firewall-enable', [Host::SYSTEMCTL, 'enable', '--now', HybridHost::FIREWALL_UNIT])['exit_code'] === 0
+                ? 'enabled' : 'failed');
         // FV-01: the hourly LSCache cleanup, also on hosts prepared before it existed.
         $cacheClean = CacheCleanTimer::ensure($host);
         $accountState = AccountStateTimer::ensure($host);
@@ -150,6 +161,7 @@ final class Upgrade
             'hooks' => str_starts_with($hookResult, 'failed'),
             'php_environment_units' => !$phpUnits,
             'hybrid_trust_timer' => $prepared && !$trust,
+            'hybrid_firewall' => $firewall === 'failed',
             'cache_clean_timer' => !$cacheClean,
             'account_state_timer' => !$accountState,
             'operations_timers' => in_array(false, $operationsTimers, true),
@@ -158,7 +170,7 @@ final class Upgrade
         if (!$failed) {
             $this->record(array_combine(array_column($packages, 'package'), array_column($packages, 'version')));
         }
-        return ['result' => $failed ? 'failed' : 'upgraded', 'incomplete' => $incomplete, 'ols' => $ols, 'packages' => $packages, 'plugins' => $plugins, 'ea4_profile' => $profile, 'php_environment_units' => $phpUnits, 'hybrid_trust_timer' => $trust, 'cache_clean_timer' => $cacheClean, 'account_state_timer' => $accountState, 'operations_timers' => $operationsTimers, 'hooks' => $hookResult, 'units' => $units,
+        return ['result' => $failed ? 'failed' : 'upgraded', 'incomplete' => $incomplete, 'ols' => $ols, 'packages' => $packages, 'plugins' => $plugins, 'ea4_profile' => $profile, 'php_environment_units' => $phpUnits, 'hybrid_trust_timer' => $trust, 'hybrid_firewall' => $firewall, 'cache_clean_timer' => $cacheClean, 'account_state_timer' => $accountState, 'operations_timers' => $operationsTimers, 'hooks' => $hookResult, 'units' => $units,
             'note' => 'The active generation was not touched.'];
     }
 

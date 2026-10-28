@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.5
+
+- Security: the firewall that closes Apache's standby ports (behind OpenLiteSpeed) is restored at every boot, before
+  Apache and OpenLiteSpeed start, and checked every 15 minutes; it was lost after a reboot. Updating repairs existing
+  installations by itself.
+
 ## 0.2.4
 
 - Installer: running the install command again for the release that is already installed and serving says so and

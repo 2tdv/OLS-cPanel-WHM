@@ -880,6 +880,9 @@ check($code === 0 && $out['result'] === 'cut_over' && $out['hybrid_vhosts'] === 
 check($h->tweaks === ['apache_port' => '0.0.0.0:81', 'apache_ssl_port' => '0.0.0.0:444'] && $h->nft && $h->apacheEnabled
     && $h->files[HybridHost::REMOTEIP_CONF]['content'] === HybridHost::remoteipConf(['127.0.0.1', '::1', '10.0.0.5', 'fd00::5']),
     'hybrid host changes: tweaks, firewall, include with the local addresses');
+check(($h->enabled['ols-cpanel-hybrid-firewall.service'] ?? false) === true && $h->index('nft-hybrid') < $h->index('hybrid-firewall-enable')
+    && is_file($w['state'] . '/hybrid.nft') && str_contains(file_get_contents($w['state'] . '/hybrid.nft'), 'delete table inet ols_cpanel_hybrid'),
+    'cutover persists the hybrid ruleset and enables the boot firewall unit');
 check($h->index('remoteip-conf') < $h->index('nft-hybrid') && $h->index('nft-hybrid') < $h->index('tweak-set-apache_port')
     && $h->index('httpd-conf-listen') < $h->index('restart-httpd') && $h->index('restart-httpd') < $h->index('apache-released'),
     'hybrid order: include, firewall, tweaks, Listen lines, explicit Apache restart');
@@ -2023,8 +2026,11 @@ check(HybridHost::trustedIn(HybridHost::remoteipConf(['127.0.0.1', '::1', '10.0.
 $h = new FakeHost('/nonexistent/profile.json');
 $h->ipOutput = $ipText;
 $stage = sys_get_temp_dir() . '/ols-deploy-test-trust-' . bin2hex(random_bytes(4));
+$trustState = sys_get_temp_dir() . '/ols-deploy-test-trust-state-' . bin2hex(random_bytes(4));
+mkdir($trustState, 0700);
 $trust = new HybridHost(new Host($h, static function (float $s): void {
-}));
+}), $trustState);
+$h->nft = true;
 check($trust->refreshTrust($stage) === ['result' => 'not-hybrid'] && $h->index('local-addresses') < 0, 'refresh-trust without the include does nothing');
 $old = HybridHost::remoteipConf(['127.0.0.1', '::1', '10.0.0.5']);
 $h->files[HybridHost::REMOTEIP_CONF] = ['owner' => 'root:root:644', 'content' => $old];
@@ -2044,7 +2050,65 @@ $h->calls = [];
 $out = $trust->refreshTrust($stage);
 check($out['result'] === 'failed' && str_contains($out['error'], 'restored') && $h->files[HybridHost::REMOTEIP_CONF]['content'] === $old
     && $h->index('reload-httpd') < 0, 'a failed configuration test restores the previous include and reloads nothing');
+
+// RV-40: the table is restored by the trust pass when it is gone (the reboot case), from the persisted file or the profile's ports.
+$h->files[HybridHost::REMOTEIP_CONF]['content'] = $want;
+$h->nft = true;
+$h->calls = [];
+$out = $trust->refreshTrust($stage);
+check($out['result'] === 'unchanged' && $out['firewall'] === 'present' && $h->index('nft-restore') < 0 && !file_exists("$trustState/hybrid.nft"),
+    'refresh-trust leaves a present firewall table alone');
+$h->nft = false;
+check($trust->firewallState() === 'missing', 'firewall state: missing when the include exists and the table does not');
+file_put_contents("$trustState/profile.json", (new Profile(true, [81, 444]))->toJson());
+$out = $trust->refreshTrust($stage);
+check($out['firewall'] === 'restored' && $out['result'] === 'unchanged' && $h->nft === true
+    && file_get_contents("$trustState/hybrid.nft") === HybridHost::persistedRuleset([81, 444])
+    && decoct(fileperms("$trustState/hybrid.nft") & 0777) === '600',
+    'refresh-trust restores a missing table from the profile ports, persisting the 0600 file first');
+$h->nft = false;
+file_put_contents("$trustState/hybrid.nft", HybridHost::persistedRuleset([8081, 8444]));
+$h->calls = [];
+$out = $trust->refreshTrust($stage);
+check($out['firewall'] === 'restored' && $h->nft === true && in_array(['nft-restore', [HybridHost::NFT, '-f', "$trustState/hybrid.nft"]], $h->calls, true),
+    'refresh-trust restores a missing table from the persisted file when there is one');
+check($trust->firewallState() === 'present', 'firewall state: present once restored');
+$h->nft = false;
+unlink("$trustState/hybrid.nft");
+unlink("$trustState/profile.json");
+$out = $trust->refreshTrust($stage);
+check($out['result'] === 'failed' && $out['firewall'] === 'failed' && str_contains($out['error'], 'hybrid ports are unknown'),
+    'refresh-trust reports a missing table it cannot restore as failed');
+unset($h->files[HybridHost::REMOTEIP_CONF]);
+check($trust->firewallState() === 'not-hybrid' && $trust->refreshTrust($stage) === ['result' => 'not-hybrid'],
+    'without the include the firewall is not the hybrid profile\'s business');
 remove_tree($stage);
+remove_tree($trustState);
+
+// RV-40: the persisted ruleset is idempotent for `nft -f`, written by apply and deleted by remove.
+$text = HybridHost::persistedRuleset([81, 444]);
+check(str_starts_with($text, "table inet ols_cpanel_hybrid {}\ndelete table inet ols_cpanel_hybrid\n")
+    && str_ends_with($text, HybridHost::nftRuleset([81, 444])) && substr_count($text, 'table inet ols_cpanel_hybrid') === 3,
+    'persisted ruleset: declare, delete, then the full definition');
+$state = sys_get_temp_dir() . '/ols-deploy-test-fw-' . bin2hex(random_bytes(4));
+mkdir($state, 0700);
+$h = new FakeHost('/nonexistent/profile.json');
+$hybrid = new HybridHost(new Host($h, static function (float $s): void {
+}), $state);
+$h->apacheRunning = true;
+$hybrid->apply(['127.0.0.1', '::1'], [81, 444], "$state/staging");
+check(file_get_contents("$state/hybrid.nft") === $text && decoct(fileperms("$state/hybrid.nft") & 0777) === '600'
+    && glob("$state/hybrid.nft.tmp-*") === [] && in_array(['nft-hybrid', [HybridHost::NFT, '-f', "$state/hybrid.nft"]], $h->calls, true)
+    && $h->index('nft-hybrid') < $h->index('tweak-set-apache_port'),
+    'apply persists the idempotent ruleset (root-only, atomically) and loads it from the persisted file before the tweaks');
+$hybrid->remove(['apache_port' => '0.0.0.0:80', 'apache_ssl_port' => '0.0.0.0:443']);
+check(!file_exists("$state/hybrid.nft") && $h->nft === false, 'remove deletes the persisted ruleset and the table');
+$recover = RecoveryScript::render('/b', ['apache_port' => '0.0.0.0:80', 'apache_ssl_port' => '0.0.0.0:443'], [], [], true, product: true);
+check(str_contains($recover, "rm -f /var/lib/ols-cpanel/hybrid.nft") && str_contains($recover, 'systemctl disable ols-cpanel-hybrid-firewall.service')
+    && strpos($recover, 'nft delete table') < strpos($recover, "rm -f /var/lib/ols-cpanel/hybrid.nft")
+    && !str_contains(RecoveryScript::render('/b', ['apache_port' => '0.0.0.0:80', 'apache_ssl_port' => '0.0.0.0:443'], [], [], true), 'hybrid.nft'),
+    'recover.sh removes the persisted ruleset only after the table went (product script only)');
+remove_tree($state);
 
 remove_tree(sys_get_temp_dir() . '/ols-deploy-test-none');
 foreach (glob(sys_get_temp_dir() . '/ols-deploy-test-*') ?: [] as $dir) {

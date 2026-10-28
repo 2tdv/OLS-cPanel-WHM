@@ -8,7 +8,10 @@ use OlsCpanel\Cli\Arguments;
 use OlsCpanel\Cli\Command;
 use OlsCpanel\Cli\EngineContext;
 use OlsCpanel\Cli\Output;
+use OlsCpanel\Deployment\Host;
+use OlsCpanel\Deployment\HybridHost;
 use OlsCpanel\Deployment\Profile;
+use OlsCpanel\Infrastructure\Process\LocalCommandRunner;
 
 /** Owner of 80/443, deployment profile, active generation, epoch, pending events and hybrid vhosts. */
 final class StatusCommand implements Command
@@ -48,7 +51,24 @@ final class StatusCommand implements Command
             'activator' => $activator,
             'pending_events' => count($engine->pendingEvents()),
             'hybrid_vhosts' => $this->context->store()->activeHybridVhosts(),
+            'hybrid_firewall' => $this->firewall(),
         ]);
         return Application::EXIT_OK;
+    }
+
+    /**
+     * Whether the hybrid firewall table is loaded: 'present', 'missing', 'not-hybrid' (no include, no hybrid profile) or
+     * 'unknown' (not root: nft cannot be asked, so it is never reported as missing).
+     */
+    private function firewall(): string
+    {
+        if ($this->context->role() !== 'root') {
+            return 'unknown';
+        }
+        try {
+            return (new HybridHost(new Host(new LocalCommandRunner()), dirname($this->context->profilePath())))->firewallState();
+        } catch (\Throwable) {
+            return 'unknown';
+        }
     }
 }

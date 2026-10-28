@@ -29,7 +29,7 @@ final class Uninstall
         'ols-cpanel-cache-clean.timer', 'ols-cpanel-cache-clean.service', 'ols-cpanel-notify.timer', 'ols-cpanel-notify.service',
         'ols-cpanel-schedule.timer', 'ols-cpanel-schedule.service',
         'ols-cpanel-php.path', 'ols-cpanel-php.timer', 'ols-cpanel-php.service', 'ols-cpanel-upgrade.service', 'ols-cpanel-hybrid-trust.timer',
-        'ols-cpanel-hybrid-trust.service', Cutover::RECONCILER, 'ols-cpanel.service',
+        'ols-cpanel-hybrid-trust.service', HybridHost::FIREWALL_UNIT, Cutover::RECONCILER, 'ols-cpanel.service',
         'ols-cpanel-logs.service', CutoverPlan::BROKER_UNIT];
     /** Every per-account object cache instance (FV-09), stopped by pattern. */
     public const OBJCACHE_INSTANCES = 'ols-cpanel-objcache@*.service';

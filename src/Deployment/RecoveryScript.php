@@ -150,6 +150,11 @@ final class RecoveryScript
             $table = HybridHost::NFT_TABLE;
             array_push($lines, "        nft list table inet $table >/dev/null 2>&1 && \$T nft delete table inet $table",
                 "        if nft list table inet $table >/dev/null 2>&1; then sleep 15; continue; fi");
+            if ($product) {
+                // The persisted copy goes with the table, or the next boot would close the ports of an Apache that owns 80/443 again.
+                array_push($lines, '        rm -f ' . self::quote(Environment::STATE . '/' . HybridHost::FIREWALL_FILE),
+                    '        $T systemctl disable ' . HybridHost::FIREWALL_UNIT . ' 2>/dev/null');
+            }
         }
         array_push($lines, '        $T /usr/local/cpanel/scripts/enablefileprotect >/dev/null 2>&1', '        echo recovered',
             '        exit 0', '    fi', '    sleep 15', 'done', "echo 'recovery incomplete' >&2", 'exit 1', '');

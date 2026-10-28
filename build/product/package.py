@@ -23,6 +23,7 @@ Payload layout:
   /usr/lib/systemd/system/ols-cpanel-{broker,reconciler}.service, ols-cpanel-objcache@.service (per-account
                                                  object cache template), ols-cpanel-objcache.{service,timer},
                                                  ols-cpanel-php.{path,service,timer} (PHP environment: lsphp, OPcache, redis),
+                                                 ols-cpanel-hybrid-firewall.service (boot-time hybrid firewall),
                                                  ols-cpanel-hybrid-trust.{service,timer} (hybrid Apache trust of local addresses),
                                                  /usr/lib/sysusers.d/ols-cpanel.conf
 """
@@ -58,7 +59,7 @@ RELEASE_INPUTS = ["src", "bin/ols-cpanel", "plugins/whm", "plugins/cpanel", *BRO
                   "build/product/ols-cpanel-schedule.timer", "build/product/ols-cpanel-php.path",
                   "build/product/ols-cpanel-php.service",
                   "build/product/ols-cpanel-php.timer",
-                  "build/product/ols-cpanel-hybrid-trust.service", "build/product/ols-cpanel-hybrid-trust.timer",
+                  "build/product/ols-cpanel-hybrid-firewall.service", "build/product/ols-cpanel-hybrid-trust.service", "build/product/ols-cpanel-hybrid-trust.timer",
                   "build/product/ols-cpanel-upgrade.service",
                   "build/product/ols-cpanel.sysusers",
                   "build/release/ols-cpanel-release-key.asc", "build/release/ols-cpanel-release-key.fingerprint"]
@@ -66,7 +67,7 @@ UNITS = ["ols-cpanel-broker.service", "ols-cpanel-reconciler.service", "ols-cpan
          "ols-cpanel-objcache.service", "ols-cpanel-objcache.timer", "ols-cpanel-cache-clean.service",
          "ols-cpanel-cache-clean.timer", "ols-cpanel-notify.service", "ols-cpanel-notify.timer",
          "ols-cpanel-schedule.service", "ols-cpanel-schedule.timer", "ols-cpanel-php.path", "ols-cpanel-php.service", "ols-cpanel-php.timer",
-         "ols-cpanel-hybrid-trust.service", "ols-cpanel-hybrid-trust.timer",
+         "ols-cpanel-hybrid-firewall.service", "ols-cpanel-hybrid-trust.service", "ols-cpanel-hybrid-trust.timer",
          "ols-cpanel-upgrade.service"]
 # The packaged CLI lives in libexec/ and finds the engine in lib/ instead of the checkout's src/.
 CLI_BOOTSTRAP = "require dirname(__DIR__) . '/src/bootstrap.php';"

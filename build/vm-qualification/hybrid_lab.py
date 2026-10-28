@@ -184,6 +184,10 @@ def recovery_script(backup, originals, tenant_files, created_dirs, hybrid, tenan
         # Only now, with Apache back on its own ports, may the backend-port firewall go.
         lines += [f"        nft list table inet {NFT_TABLE} >/dev/null 2>&1 && $T nft delete table inet {NFT_TABLE}",
                   f"        if nft list table inet {NFT_TABLE} >/dev/null 2>&1; then sleep 15; continue; fi"]
+        if product:
+            # The persisted copy goes with the table, or the next boot would close the ports of an Apache that owns 80/443 again.
+            lines += ["        rm -f /var/lib/ols-cpanel/hybrid.nft",
+                      "        $T systemctl disable ols-cpanel-hybrid-firewall.service 2>/dev/null"]
     lines += ["        $T /usr/local/cpanel/scripts/enablefileprotect >/dev/null 2>&1", "        echo recovered", "        exit 0",
               "    fi", "    sleep 15", "done", "echo 'recovery incomplete' >&2", "exit 1", ""]
     return "\n".join(lines)

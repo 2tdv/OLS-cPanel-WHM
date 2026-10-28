@@ -20,7 +20,7 @@ UNITS = ["ols-cpanel-broker.service", "ols-cpanel-reconciler.service", "ols-cpan
          "ols-cpanel-objcache.service", "ols-cpanel-objcache.timer", "ols-cpanel-cache-clean.service",
          "ols-cpanel-cache-clean.timer", "ols-cpanel-notify.service", "ols-cpanel-notify.timer",
          "ols-cpanel-schedule.service", "ols-cpanel-schedule.timer", "ols-cpanel-php.path", "ols-cpanel-php.service", "ols-cpanel-php.timer",
-         "ols-cpanel-hybrid-trust.service", "ols-cpanel-hybrid-trust.timer",
+         "ols-cpanel-hybrid-firewall.service", "ols-cpanel-hybrid-trust.service", "ols-cpanel-hybrid-trust.timer",
          "ols-cpanel-upgrade.service"]
 
 
@@ -83,6 +83,14 @@ assert "NoNewPrivileges=yes" in reconciler and "ProtectSystem=strict" in reconci
 assert not [d for d in reconciler if d.startswith("ReadWritePaths=")]
 for unit in (broker, reconciler):
     assert "WantedBy=multi-user.target" in unit
+# RV-40 hybrid firewall: loaded at boot, before the network and Apache; only with the persisted ruleset.
+firewall = directives(HERE / "ols-cpanel-hybrid-firewall.service")
+for needle in ("Type=oneshot", "RemainAfterExit=yes", "DefaultDependencies=no", "After=local-fs.target",
+               "Before=network-pre.target httpd.service ols-cpanel.service", "Wants=network-pre.target",
+               "ConditionPathExists=/var/lib/ols-cpanel/hybrid.nft", "ExecStart=/usr/sbin/nft -f /var/lib/ols-cpanel/hybrid.nft",
+               "WantedBy=multi-user.target", "NoNewPrivileges=yes", "ProtectSystem=strict"):
+    assert needle in firewall, needle
+assert "ols-cpanel-hybrid-firewall.service" in spec, "the spec ships the firewall unit"
 # FV-09 object cache: template instance per account, run as that account, Unix socket only, hardened.
 objcache = directives(HERE / "ols-cpanel-objcache@.service")
 assert "User=%i" in objcache and "Group=%i" in objcache and "RestrictAddressFamilies=AF_UNIX" in objcache

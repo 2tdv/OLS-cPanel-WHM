@@ -199,7 +199,9 @@ final class Cutover
         $ports = $plan['profile']['hybrid_ports'];
         $this->record('hooks', true, $this->env->hooks()->install());
         if ($ports !== null) {
-            (new HybridHost($host))->apply(HybridHost::proxies($compiled['plan']), $ports, $manifest['dir'] . '/staged');
+            (new HybridHost($host, $this->env->state))->apply(HybridHost::proxies($compiled['plan']), $ports, $manifest['dir'] . '/staged');
+            // The table is in memory only: the boot unit loads the persisted ruleset before the network and Apache start.
+            $host->must('hybrid-firewall-enable', [Host::SYSTEMCTL, 'enable', HybridHost::FIREWALL_UNIT]);
             $this->record('hybrid-host', true, "Apache on {$ports[0]}/{$ports[1]}");
         } else {
             $host->api('disable-httpd', 'configureservice', ['service=httpd', 'enabled=0', 'monitored=0']);

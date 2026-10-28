@@ -426,6 +426,25 @@ check($result['operations_timers'] === ['ols-cpanel-notify.timer' => true, 'ols-
 check($result['account_state_timer'] === true && ($host->enabled['ols-cpanel-objcache.timer'] ?? false),
     'upgrade enables account-state cleanup even without explicit object cache accounts');
 
+// RV-40: the boot firewall unit follows the hybrid profile; a host prepared by an earlier build gets its ruleset written here.
+check($result['hybrid_firewall'] === 'not-hybrid' && !($host->enabled['ols-cpanel-hybrid-firewall.service'] ?? false),
+    'upgrade leaves the boot firewall unit alone without the hybrid profile');
+$host = new ScriptHost();
+$env = world($host);
+file_put_contents($env->state . '/profile.json', (new OlsCpanel\Deployment\Profile(true, [81, 444]))->toJson());
+$app = new Application([new Command\UpgradeCommand(static fn(): Environment => $env)]);
+[$code, $result] = run_cli($app, ['upgrade']);
+$ruleset = @file_get_contents($env->state . '/hybrid.nft');
+check($code === 0 && $result['result'] === 'upgraded' && $result['hybrid_firewall'] === 'enabled'
+    && $ruleset === OlsCpanel\Deployment\HybridHost::persistedRuleset([81, 444]) && decoct(fileperms($env->state . '/hybrid.nft') & 0777) === '600'
+    && ($host->enabled['ols-cpanel-hybrid-firewall.service'] ?? false), 'upgrade on a hybrid host without the file writes the ruleset and enables the firewall unit');
+file_put_contents($env->state . '/hybrid.nft', "kept\n");
+[$code, $result] = run_cli($app, ['upgrade']);
+check($result['hybrid_firewall'] === 'enabled' && file_get_contents($env->state . '/hybrid.nft') === "kept\n", 'an existing persisted ruleset is not rewritten by the upgrade');
+$host->enableFails['ols-cpanel-hybrid-firewall.service'] = true;
+[$code, $result] = run_cli($app, ['upgrade']);
+check($result['result'] === 'failed' && in_array('hybrid_firewall', $result['incomplete'], true), 'a firewall unit that cannot be enabled leaves the upgrade pending');
+
 // Automatic upgrade after a package transaction: pending until an upgrade recorded the installed versions.
 $host = new ScriptHost();
 $env = world($host);
