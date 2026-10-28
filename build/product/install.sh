@@ -297,7 +297,11 @@ log "installing the verified packages (files only; no service is started; rpm si
 [ -x "$CLI" ] || die 70 "$CLI is missing after installation"
 done_ok "packages installed (nothing is started yet; Apache keeps serving)"
 
-if [ "$UPGRADE" = 1 ]; then
+# An upgrade of a server that is already served by OpenLiteSpeed ends here: the product applies it by itself. A server whose
+# earlier installation stopped before the cutover (a refused preparation, a declined approval) continues with the
+# preparation and the cutover below (second lab server 2026-10-28: 0.2.6 over a 0.2.5 whose preparation had been refused
+# stopped after the packages, without preparing).
+if [ "$UPGRADE" = 1 ] && [ -f "$PROFILE" ]; then
     record_release
     cat <<EOF
 

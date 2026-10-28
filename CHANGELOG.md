@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.7
+
+- Installer: when an earlier installation stopped before the switch (for example a refused preparation), running the
+  install command of a newer release continues with the preparation and the switch instead of stopping after the
+  packages.
+
 ## 0.2.6
 
 - ModSecurity: servers using cPanel's OWASP Core Rule Set (WHM, ModSecurity Vendors) can now be switched; the rule set

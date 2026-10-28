@@ -314,7 +314,11 @@ else:
         (t / "profile.json").unlink()
         assert any(c.startswith("dnf --assumeyes") for c in recorded), recorded
         (t / "installed").write_text("name-0.9-1.x86_64\n")
-        run("an older build installed: upgraded, the product applies it by itself", 0, forbidden=("cli",))
+        (t / "profile.json").write_text("{}")
+        run("an older build installed and serving: upgraded, the product applies it by itself", 0, forbidden=("cli",))
+        (t / "profile.json").unlink()
+        recorded, _ = run("an older build installed but never cut over: upgraded, then prepared", 0, forbidden=())
+        assert any(l.startswith("cli install --prepare") for l in recorded), recorded
         (t / "installed").write_text("name-9.9-1.x86_64\n")
         assert (t / "state/installed-release.json").is_file(), "an upgrade records the verified release"
         (t / "state/installed-release.json").unlink()
