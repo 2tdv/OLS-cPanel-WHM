@@ -1,0 +1,12 @@
+# Product unit: periodic hybrid trust refresh (the fallback for address changes the reconciler does not see, such as a
+# server IP added outside cPanel). Enabled by `ols-cpanel install --prepare`, never by the package.
+[Unit]
+Description=OLS-cPanel hybrid trust timer
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=15min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,74 @@
+{
+  "roots": 2,
+  "files": [
+    {
+      "path": "~/public_html/.htaccess",
+      "docroot": "~/public_html",
+      "blockers": [
+        "/: unsupported conditional Header 'Header set X-Frame-Options DENY env=!embed'",
+        {
+          "message": "/: unsupported directive 'AddHandler application/x-httpd-ea-php56 .php'",
+          "line": 41
+        }
+      ],
+      "outcome": "kept_on_apache",
+      "reasons": [
+        {
+          "directive": "/: unsupported conditional Header 'Header set X-Frame-Options DENY env=!embed'",
+          "reason_key": "conditional_header",
+          "reason": "Apache preserves the conditions for sending this header."
+        },
+        {
+          "directive": {
+            "message": "/: unsupported directive 'AddHandler application/x-httpd-ea-php56 .php'",
+            "line": 41
+          },
+          "reason_key": "directive",
+          "reason": "Apache preserves a setting that OpenLiteSpeed cannot match exactly."
+        }
+      ],
+      "digest": null,
+      "fixes": []
+    },
+    {
+      "path": "~/public_html/admin/.htaccess",
+      "docroot": "~/public_html",
+      "blockers": [
+        "/admin: unsupported access rule combination ['Order deny,allow', 'Deny from all', 'Satisfy any']"
+      ],
+      "outcome": "kept_on_apache",
+      "reasons": [
+        {
+          "directive": "/admin: unsupported access rule combination ['Order deny,allow', 'Deny from all', 'Satisfy any']",
+          "reason_key": "access_rules",
+          "reason": "Apache preserves who can access this folder."
+        }
+      ],
+      "digest": null,
+      "fixes": []
+    },
+    {
+      "path": "~/public_html/dev/.htaccess",
+      "docroot": "~/public_html/dev",
+      "blockers": [],
+      "outcome": "translated",
+      "reasons": [],
+      "digest": null,
+      "fixes": []
+    },
+    {
+      "path": "~/store.fixture-domain.test/.htaccess",
+      "docroot": "~/store.fixture-domain.test",
+      "blockers": [],
+      "outcome": "translated",
+      "reasons": [],
+      "digest": "abababababababababababababababababababababababababababababababab",
+      "fixes": [
+        "bom"
+      ]
+    }
+  ],
+  "truncated": false,
+  "stopped": null,
+  "limit": 200
+}

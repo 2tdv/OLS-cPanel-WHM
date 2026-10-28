@@ -1,0 +1,35 @@
+{
+  "user": "legacy",
+  "domain": "store.fixture-domain.test",
+  "observed_at": 0,
+  "sources": [
+    "vhost_error_log",
+    "docroot_error_log"
+  ],
+  "scanned_lines": 900,
+  "php_lines": 33,
+  "groups_total": 2,
+  "groups_dropped_lines": 0,
+  "groups": [
+    {
+      "level": "Warning",
+      "message": "Undefined variable $total in /home/legacy/public_html/cart.php on line 88",
+      "count": 31,
+      "first_seen": "2026-10-27 08:01:12",
+      "last_seen": "2026-10-28 09:58:40",
+      "sources": [
+        "vhost_error_log"
+      ]
+    },
+    {
+      "level": "Fatal error",
+      "message": "Uncaught Error: Call to undefined function old_helper()",
+      "count": 2,
+      "first_seen": "2026-10-28 07:00:01",
+      "last_seen": "2026-10-28 07:00:09",
+      "sources": [
+        "docroot_error_log"
+      ]
+    }
+  ]
+}

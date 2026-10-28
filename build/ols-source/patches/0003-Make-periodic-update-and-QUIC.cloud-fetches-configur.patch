@@ -1,0 +1,71 @@
+From 800baa0902502eeab2bd66c5f1dbcd838388220c Mon Sep 17 00:00:00 2001
+From: OLS-cPanel-WHM <2tdv@users.noreply.github.com>
+Date: Wed, 21 Oct 2026 23:05:07 +0000
+Subject: [PATCH 3/4] Make periodic update and QUIC.cloud fetches configurable
+
+Add enableUpdateCheck (default 1) and honor autoDetectCdn bit 0 for the
+periodic QUIC.cloud IP download, so operators can disable outbound
+requests and the restart triggered by a changed IP list.
+---
+ src/main/httpserver.cpp | 13 +++++++++++--
+ src/main/plainconf.cpp  |  1 +
+ 2 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/src/main/httpserver.cpp b/src/main/httpserver.cpp
+index 882dcec..f4cd29a 100644
+--- a/src/main/httpserver.cpp
++++ b/src/main/httpserver.cpp
+@@ -244,6 +244,8 @@ private:
+     pid_t               m_pid;
+     gid_t               m_pri_gid;
+     HttpFetch          *m_pAutoUpdFetch[3];
++    int                 m_iAutoDetectCdn;
++    int                 m_iEnableUpdateCheck;
+     QuicEngine         *m_pQuicEngine;
+ 
+     HttpServerImpl(const HttpServerImpl &rhs);
+@@ -254,6 +256,8 @@ private:
+         : m_sSwapDirectory(DEFAULT_SWAP_DIR)
+         , m_pri_gid(0)
+         , m_pQuicEngine(NULL)
++        , m_iAutoDetectCdn(3)
++        , m_iEnableUpdateCheck(1)
+     {
+         ClientCache::initObjPool();
+         ExtAppRegistry::init();
+@@ -1559,8 +1563,10 @@ void HttpServerImpl::onTimer60Secs()
+     {
+         if (1 == HttpServerConfig::getInstance().getProcNo())
+         {
+-            checkOLSUpdate();
+-            asyncDownloadQuicCloudTrustIp();
++            if (m_iEnableUpdateCheck)
++                checkOLSUpdate();
++            if (m_iAutoDetectCdn & 1)
++                asyncDownloadQuicCloudTrustIp();
+         }
+         s_count = 30;    //Check it every 30 minutes
+     }
+@@ -3534,7 +3540,10 @@ int HttpServerImpl::configServerBasic2(const XmlNode *pRoot,
+ 
+         configSecurity(pRoot);
+ 
++        m_iEnableUpdateCheck = currentCtx.getLongValue(pRoot,
++                               "enableUpdateCheck", 0, 1, 1);
+         sv = currentCtx.getLongValue(pRoot, "autoDetectCdn", 0, 3, 3);
++        m_iAutoDetectCdn = sv;
+         if (sv & 1)
+         {   //quic.cloud
+             maybeDownloadQuicCloudTrustIp();
+diff --git a/src/main/plainconf.cpp b/src/main/plainconf.cpp
+index 8802f4c..3239cba 100644
+--- a/src/main/plainconf.cpp
++++ b/src/main/plainconf.cpp
+@@ -133,6 +133,7 @@ plainconfKeywords plainconf::sKeywords[] =
+     {"enablechroot",                             NULL},
+     {"enablecoredump",                           NULL},
+     {"enabled",                                  NULL},
++    {"enableupdatecheck",                        NULL},
+     {"enabledhe",                                NULL},
+     {"enabledyngzipcompress",                    NULL},
+     {"enableecdhe",                              NULL},

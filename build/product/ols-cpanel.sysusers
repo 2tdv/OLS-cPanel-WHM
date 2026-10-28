@@ -1,0 +1,4 @@
+# OLS-cPanel: identity of ols-cpanel-reconciler.service (plan 5.2). System account, no home, no login shell.
+# Installed as /usr/lib/sysusers.d/ols-cpanel.conf; applied by systemd-sysusers (at boot, or explicitly by
+# `ols-cpanel install --prepare`), never by a package scriptlet.
+u olscpanel - "OLS-cPanel reconciler"

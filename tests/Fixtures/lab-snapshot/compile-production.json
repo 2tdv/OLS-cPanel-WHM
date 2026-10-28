@@ -1,0 +1,1676 @@
+{
+ "calls": [
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/etc/userdatadomains"
+   ],
+   "exit_code": 0,
+   "name": "userdatadomains",
+   "stdout": "olscp-alias.test: olscpa==root==parked==olstest1.example.test==/home/olscpa/public_html==172.16.0.4:80==172.16.0.4:444====0==ea-php83\nsecure.olstest1.example.test: olscpa==root==sub==olstest1.example.test==/home/olscpa/public_html/secure==172.16.0.4:80==172.16.0.4:444====0==ea-php83\nolscpc.olstest1.example.test: olscpa==root==sub==olstest1.example.test==/home/olscpa/public_html/olscp-c.test==172.16.0.4:80==172.16.0.4:444====0==ea-php83\nblog.olstest1.example.test: olscpa==root==sub==olstest1.example.test==/home/olscpa/public_html/blog==172.16.0.4:80==172.16.0.4:444====0==ea-php83\nolstest1.example.test: olscpa==root==main==olstest1.example.test==/home/olscpa/public_html==172.16.0.4:80==172.16.0.4:444==fd00:6c73:6371:0000:0000:0000:0000:0000,1==0==ea-php83\nolscp-c.test: olscpa==root==addon==olscpc.olstest1.example.test==/home/olscpa/public_html/olscp-c.test==172.16.0.4:80==172.16.0.4:444====0==ea-php83\nolstest2.example.test: olscpb==root==main==olstest2.example.test==/home/olscpb/public_html==172.16.0.4:80==172.16.0.4:444====0==ea-php82\n"
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/var/cpanel/userdata/olscpa/secure.olstest1.example.test"
+   ],
+   "exit_code": 0,
+   "name": "userdata-secure.olstest1.example.test",
+   "stdout": "---\ndocumentroot: /home/olscpa/public_html/secure\ngroup: olscpa\nhascgi: '1'\nhomedir: /home/olscpa\nip: 172.16.0.4\nipv6:\n  fd00:6c73:6371:0000:0000:0000:0000:0000:\n    dedicated: 1\nno_cache_update: '0'\nowner: root\nphpopenbasedirprotect: 1\nphpversion: ea-php83\nport: '80'\nserveradmin: webmaster@secure.olstest1.example.test\nserveralias: www.secure.olstest1.example.test\nservername: secure.olstest1.example.test\nssl: '1'\nusecanonicalname: 'Off'\nuser: olscpa\nuserdirprotect: '-1'\n"
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/var/cpanel/userdata/olscpa/olscpc.olstest1.example.test"
+   ],
+   "exit_code": 0,
+   "name": "userdata-olscpc.olstest1.example.test",
+   "stdout": "---\ndocumentroot: /home/olscpa/public_html/olscp-c.test\ngroup: olscpa\nhascgi: '1'\nhomedir: /home/olscpa\nip: 172.16.0.4\nipv6:\n  fd00:6c73:6371:0000:0000:0000:0000:0000:\n    dedicated: 1\nis_addon: 1\nno_cache_update: '0'\nowner: root\nphpopenbasedirprotect: 1\nphpversion: ea-php83\nport: '80'\nserveradmin: webmaster@olscpc.olstest1.example.test\nserveralias: www.olscpc.olstest1.example.test mail.olscp-c.test www.olscp-c.test olscp-c.test\nservername: olscpc.olstest1.example.test\nssl: '1'\nusecanonicalname: 'Off'\nuser: olscpa\nuserdirprotect: '-1'\n"
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/var/cpanel/userdata/olscpa/blog.olstest1.example.test"
+   ],
+   "exit_code": 0,
+   "name": "userdata-blog.olstest1.example.test",
+   "stdout": "---\ndocumentroot: /home/olscpa/public_html/blog\ngroup: olscpa\nhascgi: '1'\nhomedir: /home/olscpa\nip: 172.16.0.4\nipv6:\n  fd00:6c73:6371:0000:0000:0000:0000:0000:\n    dedicated: 1\nno_cache_update: '0'\nowner: root\nphpopenbasedirprotect: 1\nphpversion: ea-php83\nport: '80'\nserveradmin: webmaster@blog.olstest1.example.test\nserveralias: www.blog.olstest1.example.test\nservername: blog.olstest1.example.test\nssl: '1'\nusecanonicalname: 'Off'\nuser: olscpa\nuserdirprotect: '-1'\n"
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/var/cpanel/userdata/olscpa/olstest1.example.test"
+   ],
+   "exit_code": 0,
+   "name": "userdata-olstest1.example.test",
+   "stdout": "---\ncustomlog:\n  -\n    format: combined\n    target: /etc/apache2/logs/domlogs/olstest1.example.test\n  -\n    format: \"\\\"%{%s}t %I .\\\\n%{%s}t %O .\\\"\"\n    target: /etc/apache2/logs/domlogs/olstest1.example.test-bytes_log\ndocumentroot: /home/olscpa/public_html\ngroup: olscpa\nhascgi: '1'\nhomedir: /home/olscpa\nip: 172.16.0.4\nipv6:\n  fd00:6c73:6371:0000:0000:0000:0000:0000:\n    dedicated: 1\nowner: root\nphpopenbasedirprotect: 1\nphpversion: ea-php83\nport: '80'\nscriptalias:\n  -\n    path: /home/olscpa/public_html/cgi-bin\n    url: /cgi-bin/\nserveradmin: webmaster@olstest1.example.test\nserveralias: www.olstest1.example.test ipv6.olstest1.example.test mail.olscp-alias.test mail.olstest1.example.test www.olscp-alias.test olscp-alias.test\nservername: olstest1.example.test\nssl: '1'\nusecanonicalname: 'Off'\nuser: olscpa\nuserdirprotect: ''\n"
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/var/cpanel/userdata/olscpb/olstest2.example.test"
+   ],
+   "exit_code": 0,
+   "name": "userdata-olstest2.example.test",
+   "stdout": "---\ncustomlog:\n  -\n    format: combined\n    target: /etc/apache2/logs/domlogs/olstest2.example.test\n  -\n    format: \"\\\"%{%s}t %I .\\\\n%{%s}t %O .\\\"\"\n    target: /etc/apache2/logs/domlogs/olstest2.example.test-bytes_log\ndocumentroot: /home/olscpb/public_html\ngroup: olscpb\nhascgi: '1'\nhomedir: /home/olscpb\nip: 172.16.0.4\nowner: root\nphpopenbasedirprotect: 1\nphpversion: ea-php82\nport: '80'\nscriptalias:\n  -\n    path: /home/olscpb/public_html/cgi-bin\n    url: /cgi-bin/\nserveradmin: webmaster@olstest2.example.test\nserveralias: www.olstest2.example.test mail.olstest2.example.test\nservername: olstest2.example.test\nssl: '1'\nusecanonicalname: 'Off'\nuser: olscpb\nuserdirprotect: ''\n"
+  },
+  {
+   "argv": [
+    "/usr/local/cpanel/bin/whmapi1",
+    "--output=json",
+    "php_get_vhost_versions"
+   ],
+   "exit_code": 0,
+   "name": "php-vhost-versions",
+   "stdout": "{\"data\":{\"versions\":[{\"version\":\"ea-php83\",\"main_domain\":1,\"account_owner\":\"root\",\"phpversion_source\":{\"domain\":\"olstest1.example.test\"},\"homedir\":\"/home/olscpa\",\"documentroot\":\"/home/olscpa/public_html\",\"php_fpm\":1,\"account\":\"olscpa\",\"vhost\":\"olstest1.example.test\",\"php_fpm_pool_parms\":{\"pm_max_requests\":20,\"pm_process_idle_timeout\":10,\"pm_max_children\":5},\"is_suspended\":0},{\"php_fpm_pool_parms\":{\"pm_max_requests\":20,\"pm_process_idle_timeout\":10,\"pm_max_children\":5},\"is_suspended\":0,\"php_fpm\":1,\"vhost\":\"secure.olstest1.example.test\",\"account\":\"olscpa\",\"account_owner\":\"root\",\"version\":\"ea-php83\",\"main_domain\":0,\"homedir\":\"/home/olscpa\",\"phpversion_source\":{\"domain\":\"secure.olstest1.example.test\"},\"documentroot\":\"/home/olscpa/public_html/secure\"},{\"documentroot\":\"/home/olscpa/public_html/blog\",\"version\":\"ea-php83\",\"account_owner\":\"root\",\"main_domain\":0,\"phpversion_source\":{\"domain\":\"blog.olstest1.example.test\"},\"homedir\":\"/home/olscpa\",\"vhost\":\"blog.olstest1.example.test\",\"account\":\"olscpa\",\"php_fpm\":1,\"is_suspended\":0,\"php_fpm_pool_parms\":{\"pm_process_idle_timeout\":10,\"pm_max_children\":5,\"pm_max_requests\":20}},{\"php_fpm_pool_parms\":{\"pm_max_children\":5,\"pm_process_idle_timeout\":10,\"pm_max_requests\":20},\"is_suspended\":0,\"php_fpm\":1,\"vhost\":\"olscp-c.test\",\"account\":\"olscpa\",\"account_owner\":\"root\",\"version\":\"ea-php83\",\"main_domain\":0,\"homedir\":\"/home/olscpa\",\"phpversion_source\":{\"domain\":\"olscp-c.test\"},\"documentroot\":\"/home/olscpa/public_html/olscp-c.test\"},{\"phpversion_source\":{\"domain\":\"olstest2.example.test\"},\"homedir\":\"/home/olscpb\",\"account_owner\":\"root\",\"version\":\"ea-php82\",\"main_domain\":1,\"documentroot\":\"/home/olscpb/public_html\",\"php_fpm\":0,\"vhost\":\"olstest2.example.test\",\"account\":\"olscpb\",\"php_fpm_pool_parms\":{},\"is_suspended\":0}]},\"metadata\":{\"command\":\"php_get_vhost_versions\",\"reason\":\"OK\",\"result\":1,\"version\":1}}"
+  },
+  {
+   "argv": [
+    "/usr/local/cpanel/bin/whmapi1",
+    "--output=json",
+    "php_get_handlers"
+   ],
+   "exit_code": 0,
+   "name": "php-handlers",
+   "stdout": "{\"metadata\":{\"command\":\"php_get_handlers\",\"reason\":\"OK\",\"result\":1,\"version\":1},\"data\":{\"version_handlers\":[{\"available_handlers\":[\"cgi\",\"none\"],\"version\":\"ea-php82\",\"current_handler\":\"cgi\"},{\"version\":\"ea-php83\",\"available_handlers\":[\"cgi\",\"none\"],\"current_handler\":\"cgi\"}]}}"
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-e",
+    "/var/cpanel/suspended/olscpa"
+   ],
+   "exit_code": 1,
+   "name": "suspended-olscpa",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-e",
+    "/var/cpanel/suspended/olscpb"
+   ],
+   "exit_code": 1,
+   "name": "suspended-olscpb",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/curl",
+    "--noproxy",
+    "*",
+    "-s",
+    "--max-time",
+    "15",
+    "--resolve",
+    "olstest1.example.test:80:172.16.0.4",
+    "http://olstest1.example.test/probe.php"
+   ],
+   "exit_code": 0,
+   "name": "apache-php-olscpa",
+   "stdout": "{\"user\":\"olscpa\",\"sapi\":\"fpm-fcgi\"}\n"
+  },
+  {
+   "argv": [
+    "/usr/bin/curl",
+    "--noproxy",
+    "*",
+    "-s",
+    "--max-time",
+    "15",
+    "--resolve",
+    "olstest2.example.test:80:172.16.0.4",
+    "http://olstest2.example.test/probe.php"
+   ],
+   "exit_code": 0,
+   "name": "apache-php-olscpb",
+   "stdout": "{\"user\":\"olscpb\",\"sapi\":\"cgi-fcgi\"}\n"
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/opt/cpanel/ea-php83/root/etc/php-fpm.d/blog.olstest1.example.test.conf"
+   ],
+   "exit_code": 0,
+   "name": "fpm-pool-blog.olstest1.example.test",
+   "stdout": ";;;;;;;;;;;;;;;;;;;;;;;;;;;;\n; cPanel FPM Configuration ;\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n; NOTICE This file is generated. Please use our WHM User Interface\n; to set these values.\n\n[blog_olstest1_example_test]\ncatch_workers_output = yes\nchdir = /home/olscpa\ngroup = \"olscpa\"\nlisten = /opt/cpanel/ea-php83/root/usr/var/run/php-fpm/89f965de59d69e8d879c6d1b36947e01389d5acd.sock\nlisten.group = \"nobody\"\nlisten.mode = 0660\nlisten.owner = \"olscpa\"\nphp_admin_flag[allow_url_fopen] = on\nphp_admin_flag[log_errors] = on\nphp_admin_value[disable_functions] = exec,passthru,shell_exec,system\nphp_admin_value[doc_root] = \"/home/olscpa/public_html/blog\"\nphp_admin_value[error_log] = /home/olscpa/logs/blog_olstest1_example_test.php.error.log\nphp_admin_value[short_open_tag] = on\nphp_value[error_reporting] = E_ALL & ~E_NOTICE\nping.path = /ping\npm = ondemand\npm.max_children = 5\npm.max_requests = 20\npm.max_spare_servers = 5\npm.min_spare_servers = 1\npm.process_idle_timeout = 10\npm.start_servers = 0\npm.status_path = /status\nsecurity.limit_extensions = .phtml .php .php3 .php4 .php5 .php6 .php7 .php8\nuser = \"olscpa\"\n"
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/opt/cpanel/ea-php83/root/etc/php-fpm.d/olscp-c.test.conf"
+   ],
+   "exit_code": 0,
+   "name": "fpm-pool-olscpc.olstest1.example.test",
+   "stdout": ";;;;;;;;;;;;;;;;;;;;;;;;;;;;\n; cPanel FPM Configuration ;\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n; NOTICE This file is generated. Please use our WHM User Interface\n; to set these values.\n\n[olscp-c_test]\ncatch_workers_output = yes\nchdir = /home/olscpa\ngroup = \"olscpa\"\nlisten = /opt/cpanel/ea-php83/root/usr/var/run/php-fpm/1d796f9a00dba82a0e42880e34f2a94412551fc4.sock\nlisten.group = \"nobody\"\nlisten.mode = 0660\nlisten.owner = \"olscpa\"\nphp_admin_flag[allow_url_fopen] = on\nphp_admin_flag[log_errors] = on\nphp_admin_value[disable_functions] = exec,passthru,shell_exec,system\nphp_admin_value[doc_root] = \"/home/olscpa/public_html/olscp-c.test\"\nphp_admin_value[error_log] = /home/olscpa/logs/olscp-c_test.php.error.log\nphp_admin_value[short_open_tag] = on\nphp_value[error_reporting] = E_ALL & ~E_NOTICE\nping.path = /ping\npm = ondemand\npm.max_children = 5\npm.max_requests = 20\npm.max_spare_servers = 5\npm.min_spare_servers = 1\npm.process_idle_timeout = 10\npm.start_servers = 0\npm.status_path = /status\nsecurity.limit_extensions = .phtml .php .php3 .php4 .php5 .php6 .php7 .php8\nuser = \"olscpa\"\n"
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/opt/cpanel/ea-php83/root/etc/php-fpm.d/olstest1.example.test.conf"
+   ],
+   "exit_code": 0,
+   "name": "fpm-pool-olstest1.example.test",
+   "stdout": ";;;;;;;;;;;;;;;;;;;;;;;;;;;;\n; cPanel FPM Configuration ;\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n; NOTICE This file is generated. Please use our WHM User Interface\n; to set these values.\n\n[olstest1_example_test]\ncatch_workers_output = yes\nchdir = /home/olscpa\ngroup = \"olscpa\"\nlisten = /opt/cpanel/ea-php83/root/usr/var/run/php-fpm/44a5b6e5e9c970a17254e9bd310b1679286832ae.sock\nlisten.group = \"nobody\"\nlisten.mode = 0660\nlisten.owner = \"olscpa\"\nphp_admin_flag[allow_url_fopen] = on\nphp_admin_flag[log_errors] = on\nphp_admin_value[disable_functions] = exec,passthru,shell_exec,system\nphp_admin_value[doc_root] = \"/home/olscpa/public_html\"\nphp_admin_value[error_log] = /home/olscpa/logs/olstest1_example_test.php.error.log\nphp_admin_value[short_open_tag] = on\nphp_value[error_reporting] = E_ALL & ~E_NOTICE\nping.path = /ping\npm = ondemand\npm.max_children = 5\npm.max_requests = 20\npm.max_spare_servers = 5\npm.min_spare_servers = 1\npm.process_idle_timeout = 10\npm.start_servers = 0\npm.status_path = /status\nsecurity.limit_extensions = .phtml .php .php3 .php4 .php5 .php6 .php7 .php8\nuser = \"olscpa\"\n"
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/opt/cpanel/ea-php83/root/etc/php-fpm.d/secure.olstest1.example.test.conf"
+   ],
+   "exit_code": 0,
+   "name": "fpm-pool-secure.olstest1.example.test",
+   "stdout": ";;;;;;;;;;;;;;;;;;;;;;;;;;;;\n; cPanel FPM Configuration ;\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n; NOTICE This file is generated. Please use our WHM User Interface\n; to set these values.\n\n[secure_olstest1_example_test]\ncatch_workers_output = yes\nchdir = /home/olscpa\ngroup = \"olscpa\"\nlisten = /opt/cpanel/ea-php83/root/usr/var/run/php-fpm/109649f11cc75196546735df8d88edd2c4198e5b.sock\nlisten.group = \"nobody\"\nlisten.mode = 0660\nlisten.owner = \"olscpa\"\nphp_admin_flag[allow_url_fopen] = on\nphp_admin_flag[log_errors] = on\nphp_admin_value[disable_functions] = exec,passthru,shell_exec,system\nphp_admin_value[doc_root] = \"/home/olscpa/public_html/secure\"\nphp_admin_value[error_log] = /home/olscpa/logs/secure_olstest1_example_test.php.error.log\nphp_admin_value[short_open_tag] = on\nphp_value[error_reporting] = E_ALL & ~E_NOTICE\nping.path = /ping\npm = ondemand\npm.max_children = 5\npm.max_requests = 20\npm.max_spare_servers = 5\npm.min_spare_servers = 1\npm.process_idle_timeout = 10\npm.start_servers = 0\npm.status_path = /status\nsecurity.limit_extensions = .phtml .php .php3 .php4 .php5 .php6 .php7 .php8\nuser = \"olscpa\"\n"
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/opt/cpanel/ea-php82/root/etc/php-fpm.d/olstest2.example.test.conf"
+   ],
+   "exit_code": 1,
+   "name": "fpm-pool-olstest2.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/opt/cpanel/ea-php82/root/usr/bin/php",
+    "-n",
+    "-r",
+    "echo json_encode(array_filter(get_defined_constants(true)[\"Core\"], fn($k) => str_starts_with($k, \"E_\"), ARRAY_FILTER_USE_KEY));"
+   ],
+   "exit_code": 0,
+   "name": "constants-ea-php82",
+   "stdout": "{\"E_ERROR\":1,\"E_WARNING\":2,\"E_PARSE\":4,\"E_NOTICE\":8,\"E_CORE_ERROR\":16,\"E_CORE_WARNING\":32,\"E_COMPILE_ERROR\":64,\"E_COMPILE_WARNING\":128,\"E_USER_ERROR\":256,\"E_USER_WARNING\":512,\"E_USER_NOTICE\":1024,\"E_STRICT\":2048,\"E_RECOVERABLE_ERROR\":4096,\"E_DEPRECATED\":8192,\"E_USER_DEPRECATED\":16384,\"E_ALL\":32767}"
+  },
+  {
+   "argv": [
+    "/opt/cpanel/ea-php83/root/usr/bin/php",
+    "-n",
+    "-r",
+    "echo json_encode(array_filter(get_defined_constants(true)[\"Core\"], fn($k) => str_starts_with($k, \"E_\"), ARRAY_FILTER_USE_KEY));"
+   ],
+   "exit_code": 0,
+   "name": "constants-ea-php83",
+   "stdout": "{\"E_ERROR\":1,\"E_WARNING\":2,\"E_PARSE\":4,\"E_NOTICE\":8,\"E_CORE_ERROR\":16,\"E_CORE_WARNING\":32,\"E_COMPILE_ERROR\":64,\"E_COMPILE_WARNING\":128,\"E_USER_ERROR\":256,\"E_USER_WARNING\":512,\"E_USER_NOTICE\":1024,\"E_STRICT\":2048,\"E_RECOVERABLE_ERROR\":4096,\"E_DEPRECATED\":8192,\"E_USER_DEPRECATED\":16384,\"E_ALL\":32767}"
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/find",
+    "-H",
+    "/home/olscpa/public_html/blog",
+    "-name",
+    ".htaccess",
+    "(",
+    "-type",
+    "f",
+    "-o",
+    "-type",
+    "l",
+    ")",
+    "-printf",
+    "%y%p\\0"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-list-blog.olstest1.example.test",
+   "stdout": "f/home/olscpa/public_html/blog/.htaccess\u0000"
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpa/public_html/blog/.htaccess"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-read-blog.olstest1.example.test",
+   "stdout": "\n# BEGIN cPanel-generated php ini directives, do not edit\n# Manual editing of this file may result in unexpected behavior.\n# To make changes to this file, use the cPanel MultiPHP INI Editor (Home >> Software >> MultiPHP INI Editor)\n# For more information, read our documentation (https://go.cpanel.net/EA4ModifyINI)\n<IfModule php8_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n</IfModule>\n<IfModule lsapi_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n</IfModule>\n# END cPanel-generated php ini directives, do not edit\n\n# php -- BEGIN cPanel-generated handler, do not edit\n# Set the \u201cea-php83\u201d package as the default \u201cPHP\u201d programming language.\n<IfModule mime_module>\n  AddHandler application/x-httpd-ea-php83 .php .php8 .phtml\n</IfModule>\n# php -- END cPanel-generated handler, do not edit\n"
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/.htaccess"
+   ],
+   "exit_code": 1,
+   "name": "htaccess-ancestor-blog.olstest1.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/home/.htaccess"
+   ],
+   "exit_code": 1,
+   "name": "htaccess-ancestor-blog.olstest1.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpa/.htaccess"
+   ],
+   "exit_code": 1,
+   "name": "htaccess-ancestor-blog.olstest1.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpa/public_html/.htaccess"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-ancestor-blog.olstest1.example.test",
+   "stdout": "\n\n# BEGIN cPanel-generated php ini directives, do not edit\n# Manual editing of this file may result in unexpected behavior.\n# To make changes to this file, use the cPanel MultiPHP INI Editor (Home >> Software >> MultiPHP INI Editor)\n# For more information, read our documentation (https://go.cpanel.net/EA4ModifyINI)\n<IfModule php8_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n   php_value memory_limit 321M\n</IfModule>\n<IfModule lsapi_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n   php_value memory_limit 321M\n</IfModule>\n# END cPanel-generated php ini directives, do not edit\n\n<Files \".env\">\n    Require all denied\n</Files>\n\nErrorDocument 404 /404.html\nHeader set X-Frame-Options \"SAMEORIGIN\"\n\n# php -- BEGIN cPanel-generated handler, do not edit\n# Set the \u201cea-php83\u201d package as the default \u201cPHP\u201d programming language.\n<IfModule mime_module>\n  AddHandler application/x-httpd-ea-php83 .php .php8 .phtml\n</IfModule>\n# php -- END cPanel-generated handler, do not edit\n"
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/find",
+    "-H",
+    "/home/olscpa/public_html/olscp-c.test",
+    "-name",
+    ".htaccess",
+    "(",
+    "-type",
+    "f",
+    "-o",
+    "-type",
+    "l",
+    ")",
+    "-printf",
+    "%y%p\\0"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-list-olscpc.olstest1.example.test",
+   "stdout": "f/home/olscpa/public_html/olscp-c.test/.htaccess\u0000"
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpa/public_html/olscp-c.test/.htaccess"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-read-olscpc.olstest1.example.test",
+   "stdout": "\n# BEGIN cPanel-generated php ini directives, do not edit\n# Manual editing of this file may result in unexpected behavior.\n# To make changes to this file, use the cPanel MultiPHP INI Editor (Home >> Software >> MultiPHP INI Editor)\n# For more information, read our documentation (https://go.cpanel.net/EA4ModifyINI)\n<IfModule php8_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n</IfModule>\n<IfModule lsapi_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n</IfModule>\n# END cPanel-generated php ini directives, do not edit\n\n# php -- BEGIN cPanel-generated handler, do not edit\n# Set the \u201cea-php83\u201d package as the default \u201cPHP\u201d programming language.\n<IfModule mime_module>\n  AddHandler application/x-httpd-ea-php83 .php .php8 .phtml\n</IfModule>\n# php -- END cPanel-generated handler, do not edit\n"
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/.htaccess"
+   ],
+   "exit_code": 1,
+   "name": "htaccess-ancestor-olscpc.olstest1.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/home/.htaccess"
+   ],
+   "exit_code": 1,
+   "name": "htaccess-ancestor-olscpc.olstest1.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpa/.htaccess"
+   ],
+   "exit_code": 1,
+   "name": "htaccess-ancestor-olscpc.olstest1.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpa/public_html/.htaccess"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-ancestor-olscpc.olstest1.example.test",
+   "stdout": "\n\n# BEGIN cPanel-generated php ini directives, do not edit\n# Manual editing of this file may result in unexpected behavior.\n# To make changes to this file, use the cPanel MultiPHP INI Editor (Home >> Software >> MultiPHP INI Editor)\n# For more information, read our documentation (https://go.cpanel.net/EA4ModifyINI)\n<IfModule php8_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n   php_value memory_limit 321M\n</IfModule>\n<IfModule lsapi_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n   php_value memory_limit 321M\n</IfModule>\n# END cPanel-generated php ini directives, do not edit\n\n<Files \".env\">\n    Require all denied\n</Files>\n\nErrorDocument 404 /404.html\nHeader set X-Frame-Options \"SAMEORIGIN\"\n\n# php -- BEGIN cPanel-generated handler, do not edit\n# Set the \u201cea-php83\u201d package as the default \u201cPHP\u201d programming language.\n<IfModule mime_module>\n  AddHandler application/x-httpd-ea-php83 .php .php8 .phtml\n</IfModule>\n# php -- END cPanel-generated handler, do not edit\n"
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/find",
+    "-H",
+    "/home/olscpa/public_html",
+    "-name",
+    ".htaccess",
+    "(",
+    "-type",
+    "f",
+    "-o",
+    "-type",
+    "l",
+    ")",
+    "-printf",
+    "%y%p\\0"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-list-olstest1.example.test",
+   "stdout": "f/home/olscpa/public_html/.htaccess\u0000f/home/olscpa/public_html/private/.htaccess\u0000f/home/olscpa/public_html/denied/.htaccess\u0000f/home/olscpa/public_html/uploads/.htaccess\u0000f/home/olscpa/public_html/legacy/.htaccess\u0000f/home/olscpa/public_html/noindex/.htaccess\u0000f/home/olscpa/public_html/blog/.htaccess\u0000f/home/olscpa/public_html/olscp-c.test/.htaccess\u0000f/home/olscpa/public_html/secure/.htaccess\u0000"
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpa/public_html/.htaccess"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-read-olstest1.example.test",
+   "stdout": "\n\n# BEGIN cPanel-generated php ini directives, do not edit\n# Manual editing of this file may result in unexpected behavior.\n# To make changes to this file, use the cPanel MultiPHP INI Editor (Home >> Software >> MultiPHP INI Editor)\n# For more information, read our documentation (https://go.cpanel.net/EA4ModifyINI)\n<IfModule php8_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n   php_value memory_limit 321M\n</IfModule>\n<IfModule lsapi_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n   php_value memory_limit 321M\n</IfModule>\n# END cPanel-generated php ini directives, do not edit\n\n<Files \".env\">\n    Require all denied\n</Files>\n\nErrorDocument 404 /404.html\nHeader set X-Frame-Options \"SAMEORIGIN\"\n\n# php -- BEGIN cPanel-generated handler, do not edit\n# Set the \u201cea-php83\u201d package as the default \u201cPHP\u201d programming language.\n<IfModule mime_module>\n  AddHandler application/x-httpd-ea-php83 .php .php8 .phtml\n</IfModule>\n# php -- END cPanel-generated handler, do not edit\n"
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpa/public_html/private/.htaccess"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-read-olstest1.example.test",
+   "stdout": "\n#----------------------------------------------------------------cp:ppd\n# Section managed by cPanel: Password Protected Directories     -cp:ppd\n# - Do not edit this section of the htaccess file!              -cp:ppd\n#----------------------------------------------------------------cp:ppd\nAuthType Basic\nAuthName \"Private\"\nAuthUserFile \"/home/olscpa/.htpasswds/public_html/private/passwd\"\nRequire valid-user\n#----------------------------------------------------------------cp:ppd\n# End section managed by cPanel: Password Protected Directories -cp:ppd\n#----------------------------------------------------------------cp:ppd"
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpa/public_html/denied/.htaccess"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-read-olstest1.example.test",
+   "stdout": "Require all denied\n"
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpa/public_html/uploads/.htaccess"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-read-olstest1.example.test",
+   "stdout": "<Files *.php>\nDeny from all\n</Files>\n"
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpa/public_html/legacy/.htaccess"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-read-olstest1.example.test",
+   "stdout": "Order deny,allow\nDeny from all\n"
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpa/public_html/noindex/.htaccess"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-read-olstest1.example.test",
+   "stdout": "Options -Indexes\n"
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpa/public_html/blog/.htaccess"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-read-olstest1.example.test",
+   "stdout": "\n# BEGIN cPanel-generated php ini directives, do not edit\n# Manual editing of this file may result in unexpected behavior.\n# To make changes to this file, use the cPanel MultiPHP INI Editor (Home >> Software >> MultiPHP INI Editor)\n# For more information, read our documentation (https://go.cpanel.net/EA4ModifyINI)\n<IfModule php8_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n</IfModule>\n<IfModule lsapi_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n</IfModule>\n# END cPanel-generated php ini directives, do not edit\n\n# php -- BEGIN cPanel-generated handler, do not edit\n# Set the \u201cea-php83\u201d package as the default \u201cPHP\u201d programming language.\n<IfModule mime_module>\n  AddHandler application/x-httpd-ea-php83 .php .php8 .phtml\n</IfModule>\n# php -- END cPanel-generated handler, do not edit\n"
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpa/public_html/olscp-c.test/.htaccess"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-read-olstest1.example.test",
+   "stdout": "\n# BEGIN cPanel-generated php ini directives, do not edit\n# Manual editing of this file may result in unexpected behavior.\n# To make changes to this file, use the cPanel MultiPHP INI Editor (Home >> Software >> MultiPHP INI Editor)\n# For more information, read our documentation (https://go.cpanel.net/EA4ModifyINI)\n<IfModule php8_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n</IfModule>\n<IfModule lsapi_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n</IfModule>\n# END cPanel-generated php ini directives, do not edit\n\n# php -- BEGIN cPanel-generated handler, do not edit\n# Set the \u201cea-php83\u201d package as the default \u201cPHP\u201d programming language.\n<IfModule mime_module>\n  AddHandler application/x-httpd-ea-php83 .php .php8 .phtml\n</IfModule>\n# php -- END cPanel-generated handler, do not edit\n"
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpa/public_html/secure/.htaccess"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-read-olstest1.example.test",
+   "stdout": "\n# BEGIN cPanel-generated php ini directives, do not edit\n# Manual editing of this file may result in unexpected behavior.\n# To make changes to this file, use the cPanel MultiPHP INI Editor (Home >> Software >> MultiPHP INI Editor)\n# For more information, read our documentation (https://go.cpanel.net/EA4ModifyINI)\n<IfModule php8_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n</IfModule>\n<IfModule lsapi_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n</IfModule>\n# END cPanel-generated php ini directives, do not edit\n\n#----------------------------------------------------------------cp:ppd\n# Section managed by cPanel: Password Protected Directories     -cp:ppd\n# - Do not edit this section of the htaccess file!              -cp:ppd\n#----------------------------------------------------------------cp:ppd\nAuthType Basic\nAuthName \"Secure\"\nAuthUserFile \"/home/olscpa/.htpasswds/public_html/secure/passwd\"\nRequire valid-user\n#----------------------------------------------------------------cp:ppd\n# End section managed by cPanel: Password Protected Directories -cp:ppd\n#----------------------------------------------------------------cp:ppd\nHeader set X-Frame-Options \"DENY\"\n\n# php -- BEGIN cPanel-generated handler, do not edit\n# Set the \u201cea-php83\u201d package as the default \u201cPHP\u201d programming language.\n<IfModule mime_module>\n  AddHandler application/x-httpd-ea-php83 .php .php8 .phtml\n</IfModule>\n# php -- END cPanel-generated handler, do not edit\n"
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/.htaccess"
+   ],
+   "exit_code": 1,
+   "name": "htaccess-ancestor-olstest1.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/home/.htaccess"
+   ],
+   "exit_code": 1,
+   "name": "htaccess-ancestor-olstest1.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpa/.htaccess"
+   ],
+   "exit_code": 1,
+   "name": "htaccess-ancestor-olstest1.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/find",
+    "-H",
+    "/home/olscpa/public_html/secure",
+    "-name",
+    ".htaccess",
+    "(",
+    "-type",
+    "f",
+    "-o",
+    "-type",
+    "l",
+    ")",
+    "-printf",
+    "%y%p\\0"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-list-secure.olstest1.example.test",
+   "stdout": "f/home/olscpa/public_html/secure/.htaccess\u0000"
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpa/public_html/secure/.htaccess"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-read-secure.olstest1.example.test",
+   "stdout": "\n# BEGIN cPanel-generated php ini directives, do not edit\n# Manual editing of this file may result in unexpected behavior.\n# To make changes to this file, use the cPanel MultiPHP INI Editor (Home >> Software >> MultiPHP INI Editor)\n# For more information, read our documentation (https://go.cpanel.net/EA4ModifyINI)\n<IfModule php8_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n</IfModule>\n<IfModule lsapi_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n</IfModule>\n# END cPanel-generated php ini directives, do not edit\n\n#----------------------------------------------------------------cp:ppd\n# Section managed by cPanel: Password Protected Directories     -cp:ppd\n# - Do not edit this section of the htaccess file!              -cp:ppd\n#----------------------------------------------------------------cp:ppd\nAuthType Basic\nAuthName \"Secure\"\nAuthUserFile \"/home/olscpa/.htpasswds/public_html/secure/passwd\"\nRequire valid-user\n#----------------------------------------------------------------cp:ppd\n# End section managed by cPanel: Password Protected Directories -cp:ppd\n#----------------------------------------------------------------cp:ppd\nHeader set X-Frame-Options \"DENY\"\n\n# php -- BEGIN cPanel-generated handler, do not edit\n# Set the \u201cea-php83\u201d package as the default \u201cPHP\u201d programming language.\n<IfModule mime_module>\n  AddHandler application/x-httpd-ea-php83 .php .php8 .phtml\n</IfModule>\n# php -- END cPanel-generated handler, do not edit\n"
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/.htaccess"
+   ],
+   "exit_code": 1,
+   "name": "htaccess-ancestor-secure.olstest1.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/home/.htaccess"
+   ],
+   "exit_code": 1,
+   "name": "htaccess-ancestor-secure.olstest1.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpa/.htaccess"
+   ],
+   "exit_code": 1,
+   "name": "htaccess-ancestor-secure.olstest1.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpa",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpa/public_html/.htaccess"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-ancestor-secure.olstest1.example.test",
+   "stdout": "\n\n# BEGIN cPanel-generated php ini directives, do not edit\n# Manual editing of this file may result in unexpected behavior.\n# To make changes to this file, use the cPanel MultiPHP INI Editor (Home >> Software >> MultiPHP INI Editor)\n# For more information, read our documentation (https://go.cpanel.net/EA4ModifyINI)\n<IfModule php8_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n   php_value memory_limit 321M\n</IfModule>\n<IfModule lsapi_module>\n   php_value error_log \"/home/olscpa/logs/php.error.log\"\n   php_flag log_errors On\n   php_value memory_limit 321M\n</IfModule>\n# END cPanel-generated php ini directives, do not edit\n\n<Files \".env\">\n    Require all denied\n</Files>\n\nErrorDocument 404 /404.html\nHeader set X-Frame-Options \"SAMEORIGIN\"\n\n# php -- BEGIN cPanel-generated handler, do not edit\n# Set the \u201cea-php83\u201d package as the default \u201cPHP\u201d programming language.\n<IfModule mime_module>\n  AddHandler application/x-httpd-ea-php83 .php .php8 .phtml\n</IfModule>\n# php -- END cPanel-generated handler, do not edit\n"
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpb",
+    "--",
+    "/usr/bin/find",
+    "-H",
+    "/home/olscpb/public_html",
+    "-name",
+    ".htaccess",
+    "(",
+    "-type",
+    "f",
+    "-o",
+    "-type",
+    "l",
+    ")",
+    "-printf",
+    "%y%p\\0"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-list-olstest2.example.test",
+   "stdout": "f/home/olscpb/public_html/.htaccess\u0000f/home/olscpb/public_html/sub-noindex/.htaccess\u0000f/home/olscpb/public_html/app/.htaccess\u0000"
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpb",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpb/public_html/.htaccess"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-read-olstest2.example.test",
+   "stdout": "\n\n# BEGIN WordPress\n<IfModule mod_rewrite.c>\nRewriteEngine On\nRewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]\nRewriteBase /\nRewriteRule ^old-page/?$ /new-page/ [R=301,L]\nRewriteRule ^index\\.php$ - [L]\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME} !-d\nRewriteRule . /index.php [L]\n</IfModule>\n# END WordPress\n\n# BEGIN cPanel-generated php ini directives, do not edit\n# Manual editing of this file may result in unexpected behavior.\n# To make changes to this file, use the cPanel MultiPHP INI Editor (Home >> Software >> MultiPHP INI Editor)\n# For more information, read our documentation (https://go.cpanel.net/EA4ModifyINI)\n<IfModule php8_module>\n   php_value error_log \"/home/olscpb/logs/php.error.log\"\n   php_flag log_errors On\n   php_value memory_limit 222M\n</IfModule>\n<IfModule lsapi_module>\n   php_value error_log \"/home/olscpb/logs/php.error.log\"\n   php_flag log_errors On\n   php_value memory_limit 222M\n</IfModule>\n# END cPanel-generated php ini directives, do not edit\n\n# php -- BEGIN cPanel-generated handler, do not edit\n# Set the \u201cea-php82\u201d package as the default \u201cPHP\u201d programming language.\n<IfModule mime_module>\n  AddHandler application/x-httpd-ea-php82 .php .php8 .phtml\n</IfModule>\n# php -- END cPanel-generated handler, do not edit\n"
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpb",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpb/public_html/sub-noindex/.htaccess"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-read-olstest2.example.test",
+   "stdout": "Options -Indexes\n"
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpb",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpb/public_html/app/.htaccess"
+   ],
+   "exit_code": 0,
+   "name": "htaccess-read-olstest2.example.test",
+   "stdout": "RewriteEngine On\nRewriteRule ^go$ target.txt [L]\n"
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/.htaccess"
+   ],
+   "exit_code": 1,
+   "name": "htaccess-ancestor-olstest2.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/home/.htaccess"
+   ],
+   "exit_code": 1,
+   "name": "htaccess-ancestor-olstest2.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/sbin/runuser",
+    "-u",
+    "olscpb",
+    "--",
+    "/usr/bin/cat",
+    "/home/olscpb/.htaccess"
+   ],
+   "exit_code": 1,
+   "name": "htaccess-ancestor-olstest2.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-f",
+    "/var/cpanel/ssl/apache_tls/blog.olstest1.example.test/combined"
+   ],
+   "exit_code": 0,
+   "name": "tls-present-blog.olstest1.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-f",
+    "/var/cpanel/ssl/apache_tls/olscpc.olstest1.example.test/combined"
+   ],
+   "exit_code": 0,
+   "name": "tls-present-olscpc.olstest1.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-f",
+    "/var/cpanel/ssl/apache_tls/olstest1.example.test/combined"
+   ],
+   "exit_code": 0,
+   "name": "tls-present-olstest1.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-f",
+    "/var/cpanel/ssl/apache_tls/secure.olstest1.example.test/combined"
+   ],
+   "exit_code": 0,
+   "name": "tls-present-secure.olstest1.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-f",
+    "/var/cpanel/ssl/apache_tls/olstest2.example.test/combined"
+   ],
+   "exit_code": 0,
+   "name": "tls-present-olstest2.example.test",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/hostname",
+    "-f"
+   ],
+   "exit_code": 0,
+   "name": "hostname",
+   "stdout": "server.example.test\n"
+  },
+  {
+   "argv": [
+    "/usr/bin/cat",
+    "/etc/apache2/conf/httpd.conf"
+   ],
+   "exit_code": 0,
+   "name": "apache-conf",
+   "stdout": "\n# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #\n#\n#   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n#   DO NOT EDIT. AUTOMATICALLY GENERATED.  USE INCLUDE FILES IF YOU NEED TO MAKE A CHANGE\n#   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n#\n#   Direct modifications to the Apache configuration file WILL be lost upon subsequent\n#   regeneration of this configuration file, or an Apache update.\n#\n#   To have your modifications retained, you should create/edit administrator-specific\n#   include files:\n#\n#       /etc/apache2/conf.d/includes/pre_main_global.conf\n#       /etc/apache2/conf.d/includes/pre_virtualhost_global.conf\n#       /etc/apache2/conf.d/includes/post_virtualhost_global.conf\n#\n# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #\n\n##################################################\n##################################################\n#\n# cPanel & WHM controlled Apache configuration\n#\n##################################################\n##################################################\n\nInclude \"/etc/apache2/conf.modules.d/*.conf\"\n\n# Administrator locations for safely altering httpd.conf\nInclude \"/etc/apache2/conf.d/includes/pre_main_global.conf\"\n\n# Major Version Specific\nInclude \"/etc/apache2/conf.d/includes/pre_main_2.conf\"\n\n# These are hard-coded values that are required by cPanel & WHM\nPidFile /run/apache2/httpd.pid\nUser nobody\nGroup nobody\nExtendedStatus On\nLogLevel warn\nSymlinkProtect Off\nSymlinkProtectRoot /var/www/html\n\n# You can change this by using WHM, and navigating to the 'Basic WebHost Manager\u00ae Setup' -> 'Contact Information' interface.\nServerAdmin root@server.example.test\n\n# You can change this by using WHM, and navigating to the 'Networking Setup' => 'Change Hostname' interface.\nServerName server.example.test\n\n# You can change this by using WHM, and navigating to the 'Apache Configuration' -> 'Global Configuration' interface.\nTraceEnable Off\nServerSignature Off\nServerTokens ProductOnly\nFileETag None\n\n<Directory \"/\">\n    \n      AllowOverride All\n    \n    Options ExecCGI FollowSymLinks IncludesNOEXEC Indexes\n</Directory>\n\nStartServers 5\n<IfModule prefork.c>\n    MinSpareServers 5\n    MaxSpareServers 10\n</IfModule>\n\nServerLimit 256\nMaxRequestWorkers 150\nMaxConnectionsPerChild 10000\nKeepAlive On\nKeepAliveTimeout 5\nMaxKeepAliveRequests 100\nTimeout 300\n\n\n<IfModule rewrite_module>\n# Global DCV Exclude - Rewrites\nRewriteEngine on\nRewriteCond %{REQUEST_URI} ^/\\.well-known/acme-challenge/[0-9a-zA-Z_-]+$ [OR]\nRewriteCond %{REQUEST_URI} ^/\\.well-known/pki-validation/[A-F0-9]{32}\\.txt(?:\\ Sectigo\\ DCV)?$ [OR]\nRewriteCond %{REQUEST_URI} ^/\\.well-known/pki-validation/(?:\\ Ballot169)? [OR]\nRewriteCond %{REQUEST_URI} ^/\\.well-known/cpanel-dcv/[0-9a-zA-Z_-]+$ \n\n# Exclude proxy subdomains as we need rewrites to capture the DCV requests\nRewriteCond %{HTTP_HOST} !^(?:autoconfig|autodiscover|cpanel|cpcalendars|cpcontacts|webdisk|webmail|whm)\\.\nRewriteRule ^ - [END]\n</IfModule>\n\n<LocationMatch \"(^/\\.well-known/acme-challenge/[0-9a-zA-Z_-]+$|^/\\.well-known/pki-validation/[A-F0-9]{32}\\.txt(?: Sectigo DCV)?$|^/\\.well-known/pki-validation/(?: Ballot169)?|^/\\.well-known/cpanel-dcv/[0-9a-zA-Z_-]+$)\">\n# Global DCV Exclude - Location\nSatisfy Any\nOrder Allow,Deny\nAllow from all\n</LocationMatch>\n\n\n\n# You can change this by using WHM, and navigating to the 'Apache Configuration' -> 'DirectoryIndex Priority' interface.\n<IfModule dir_module>\n    DirectoryIndex index.php index.php8 index.php7 index.php5 index.perl index.pl index.plx index.ppl index.cgi index.jsp index.jp index.phtml index.shtml index.xhtml index.html index.htm index.js\n</IfModule>\n\n# You can change this by using WHM, and navigating to the 'Apache Configuration' -> 'Memory Usage Restrictions' interface.\n\n# This setting is required by cPanel & WHM in order to provide access to a default webpage when none exists\n<Directory \"/var/www/html\">\n    Options All\n    AllowOverride None\n    Require all granted\n    Header set Cache-Control \"no-cache, no-store, must-revalidate\"\n    Header set Pragma \"no-cache\"\n    Header set Expires 0\n</Directory>\n\n# Required cPanel security policy: Disallow remote access to .htaccess, .htpasswd, .user.ini, and php.ini files\n<FilesMatch \"^(\\.ht(access|passwds?)|\\.user\\.ini|php\\.ini)$\">\n    Require all denied\n</FilesMatch>\n\n# PHP error_log protection\n<Files ~ \"^error_log$\">\n   <RequireAll>\n       Require all denied\n   </RequireAll>\n</Files>\n\n<IfModule alias_module>\n    ScriptAliasMatch ^/?controlpanel/?$ /usr/local/cpanel/cgi-sys/redirect.cgi\n    ScriptAliasMatch ^/?cpanel/?$ /usr/local/cpanel/cgi-sys/redirect.cgi\n    ScriptAliasMatch ^/?kpanel/?$ /usr/local/cpanel/cgi-sys/redirect.cgi\n    ScriptAliasMatch ^/?securecontrolpanel/?$ /usr/local/cpanel/cgi-sys/sredirect.cgi\n    ScriptAliasMatch ^/?securecpanel/?$ /usr/local/cpanel/cgi-sys/sredirect.cgi\n    ScriptAliasMatch ^/?securewhm/?$ /usr/local/cpanel/cgi-sys/swhmredirect.cgi\n    ScriptAliasMatch ^/?webmail$ /usr/local/cpanel/cgi-sys/wredirect.cgi\n    ScriptAliasMatch ^/?webmail/ /usr/local/cpanel/cgi-sys/wredirect.cgi\n    ScriptAliasMatch ^/?whm/?$ /usr/local/cpanel/cgi-sys/whmredirect.cgi\n    ScriptAliasMatch ^/Autodiscover/Autodiscover.xml /usr/local/cpanel/cgi-sys/autodiscover.cgi\n    ScriptAliasMatch ^/autodiscover/autodiscover.xml /usr/local/cpanel/cgi-sys/autodiscover.cgi\n\n    Alias /bandwidth /usr/local/bandmin/htdocs/\n    Alias /img-sys /usr/local/cpanel/img-sys/\n    Alias /java-sys /usr/local/cpanel/java-sys/\n    Alias /mailman/archives /usr/local/cpanel/3rdparty/mailman/archives/public/\n    Alias /pipermail /usr/local/cpanel/3rdparty/mailman/archives/public/\n    Alias /sys_cpanel /usr/local/cpanel/sys_cpanel/\n\n    ScriptAlias /cgi-sys /usr/local/cpanel/cgi-sys/\n    ScriptAlias /mailman /usr/local/cpanel/3rdparty/mailman/cgi-bin/\n    \n</IfModule>\n\n# This can be configured in the cPanel 'Leech Protection' interface.\n<IfModule rewrite_module>\n    RewriteEngine on\n    RewriteMap LeechProtect prg:/usr/local/cpanel/bin/leechprotect\n    Mutex file:/run/apache2 rewrite-map\n</IfModule>\n\n<IfModule mime_module>\n    TypesConfig conf/mime.types\n\n    AddType application/x-compress .Z\n    AddType application/x-gzip .gz .tgz\n    AddType text/html .shtml\n    AddType application/x-tar .tgz\n    AddType text/vnd.wap.wml .wml\n    AddType image/vnd.wap.wbmp .wbmp\n    AddType text/vnd.wap.wmlscript .wmls\n    AddType application/vnd.wap.wmlc .wmlc\n    AddType application/vnd.wap.wmlscriptc .wmlsc\n\n    # These extensions are used to redirect incoming requests to WHM\n    AddHandler cgi-script .cgi .pl .plx .ppl .perl\n\n    # This is used for custom error documents\n    AddHandler server-parsed .shtml\n</IfModule>\n\n# You can change this by using WHM, and updating the 'Tweak Settings' -> 'System' -> 'Allow server-info' option.\n<IfModule status_module>\n    # This is used by the WHM 'Apache Status' application\n    <Location /3kgopl3k62ospaden2qf1ppl>\n        SetHandler server-status\n        Order deny,allow\n        Deny from all\n        Allow from 127.0.0.1 ::1\n        <IfModule security2_module>\n            SecRuleEngine Off\n        </IfModule>\n        <IfModule security3_module>\n           modsecurity_rules 'SecRuleEngine Off'\n        </IfModule>\n    </Location>\n\n</IfModule>\n\n# Required cPanel security policy: disable userdir when mod_ruid2 or mpm_itk or mod_passenger are loaded\n<IfModule userdir_module>\n    UserDir public_html\n\n    <IfModule ruid2_module>\n        UserDir disabled\n    </IfModule>\n    <IfModule mpm_itk.c>\n        UserDir disabled\n    </IfModule>\n    <IfModule mod_passenger.c>\n        UserDir disabled\n    </IfModule>\n</IfModule>\n\n\n\nInclude /etc/apache2/conf.d/includes/cloudflare.conf\n\n<IfModule mod_log_config.c>\n    LogFormat \"%v:%{local}p %a %l %u %t \\\"%r\\\" %>s %b \\\"%{Referer}i\\\" \\\"%{User-Agent}i\\\"\" combinedvhost\n    <IfModule logio_module>\n        LogFormat \"%v %{%s}t %I .\\n%v %{%s}t %O .\" bytesvhost\n        LogFormat \"apache-traffic.log %{%F}t %H %{SSL_PROTOCOL}x %{Host}i %I %O %{c}a %a\" trafficlog\n    </IfModule>\n    LogFormat \"%v:%{local}p %a %l %u %t \\\"%r\\\" %>s %b \\\"%{Referer}i\\\" \\\"%{User-Agent}i\\\"\" combined\n    LogFormat \"%v:%{local}p %a %l %u %t \\\"%r\\\" %>s %b\" common\n    LogFormat \"%{Referer}i -> %U\" referer\n    LogFormat \"%{User-agent}i\" agent\n    <IfModule logio_module>\n        CustomLog \"|/usr/local/cpanel/bin/splitlogs --dir=/etc/apache2/logs/domlogs --main=server.example.test --suffix=-bytes_log\" bytesvhost env=!isproxyrequest\n        CustomLog \"|/usr/local/cpanel/bin/splitlogs --main=apache-traffic.log --mainout=/var/log/cpanel-server-traffic/web/traffic-apache.log\" trafficlog env=!isproxyrequest\n    </IfModule>\n    CustomLog \"|/usr/local/cpanel/bin/splitlogs --dir=/etc/apache2/logs/domlogs --main=server.example.test --mainout=/etc/apache2/logs/access_log\" combined env=!isproxyrequest\n</IfModule>\n\n\n# The Listen port can be updated using 'Tweak Settings' -> 'System',\n# However, if you have any Apache Reserved IPs, then this Tweak setting will\n# be ignored. Instead, each IP on your system (excluding Apache Reserved IPs)\n# will be listed here.\nListen 0.0.0.0:80\nListen [::]:80\n\n<IfModule ssl_module>\n    # cipher and protocol directives can be set in WHM under 'Apache Configuration' -> 'Global Configuration'\n    SSLCipherSuite ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256\n    SSLProtocol all -SSLv2 -SSLv3 -TLSv1 -TLSv1.1\n    SSLPassPhraseDialog  builtin\n\n    <IfModule socache_shmcb_module>\n        SSLUseStapling On\n        SSLStaplingCache shmcb:/run/apache2/stapling_cache_shmcb(256000)\n\n        # Prevent browsers from failing if an OCSP server is temporarily broken.\n        SSLStaplingReturnResponderErrors off\n        SSLStaplingErrorCacheTimeout 60\n        SSLStaplingFakeTryLater off\n        SSLStaplingResponderTimeout 3\n        SSLSessionCache shmcb:/run/apache2/ssl_gcache_data_shmcb(1024000)\n    </IfModule>\n    <IfModule !socache_shmcb_module>\n        SSLSessionCache dbm:/run/apache2/ssl_gcache_data_dbm\n    </IfModule>\n\n    SSLSessionCacheTimeout  300\n    Mutex                   file:/run/apache2 ssl-cache\n    SSLRandomSeed startup builtin\n    SSLRandomSeed connect builtin\n\n    # The Listen port can be updated using 'Tweak Settings' -> 'System',\n    # However, if you have any Apache Reserved IPs, then this Tweak setting will\n    # be ignored. Instead, each IP on your system (excluding Apache Reserved IPs)\n    # will be listed here.\n    Listen 0.0.0.0:443\n    Listen [::]:443\n\n    AddType application/x-x509-ca-cert .crt\n    AddType application/x-pkcs7-crl .crl\n</IfModule>\n\nInclude \"/etc/apache2/conf.d/*.conf\"\n\nInclude \"/etc/apache2/conf.d/includes/account_suspensions.conf\"\nInclude \"/etc/apache2/conf.d/includes/errordocument.conf\"\n\n# Administrator locations for safely globally altering all virtualhost configurations\nInclude \"/etc/apache2/conf.d/includes/pre_virtualhost_global.conf\"\n\n# Major Version Specific\nInclude \"/etc/apache2/conf.d/includes/pre_virtualhost_2.conf\"\n\nProxyPass /___proxy_subdomain_ws_cpanel  ws://127.0.0.1:2082 max=1 retry=0\nProxyPass /___proxy_subdomain_ws_whm     ws://127.0.0.1:2086 max=1 retry=0\nProxyPass /___proxy_subdomain_ws_webmail ws://127.0.0.1:2095 max=1 retry=0\n\nProxyPass /cpanelwebcall/ http://127.0.0.1:2082/cpanelwebcall/ max=1 retry=0\n\n\n##################################################\n##################################################\n#\n# Define default vhosts for shared IPs\n#\n##################################################\n##################################################\n\n<VirtualHost 127.0.0.1:80>\n    ServerName server.example.test\n    DocumentRoot /var/www/html\n    ServerAdmin root@server.example.test\n    # Global DCV Rewrite Exclude\n    <IfModule rewrite_module>\n    RewriteOptions Inherit\n    </IfModule>\n\n\n    <Directory \"/var/www/html\">\n      AllowOverride All\n    </Directory>\n\n\n    <IfModule suphp_module>\n        suPHP_UserGroup nobody nobody\n    </IfModule>\n\n</VirtualHost>\n\n<VirtualHost 172.16.0.4:80>\n    ServerName server.example.test\n    DocumentRoot /var/www/html\n    ServerAdmin root@server.example.test\n    # Global DCV Rewrite Exclude\n    <IfModule rewrite_module>\n    RewriteOptions Inherit\n    </IfModule>\n\n\n    <Directory \"/var/www/html\">\n      AllowOverride All\n    </Directory>\n\n\n    <IfModule suphp_module>\n        suPHP_UserGroup nobody nobody\n    </IfModule>\n\n</VirtualHost>\n\n\n##################################################\n##################################################\n#\n# Define default vhosts for unbound IPs\n#\n##################################################\n##################################################\n\n<VirtualHost *>\n    ServerName server.example.test\n    DocumentRoot /var/www/html\n    ServerAdmin root@server.example.test\n    # Global DCV Rewrite Exclude\n    <IfModule rewrite_module>\n    RewriteOptions Inherit\n    </IfModule>\n\n\n    <Directory \"/var/www/html\">\n      AllowOverride All\n    </Directory>\n\n\n    <IfModule suphp_module>\n        suPHP_UserGroup nobody nobody\n    </IfModule>\n\n</VirtualHost>\n\n##################################################\n##################################################\n#\n# Define the virtual host configurtion for user domains\n#\n##################################################\n##################################################\n\n# BEGIN: HTTP vhosts list\n\n<VirtualHost 172.16.0.4:80>\n  ServerName olstest2.example.test\n    ServerAlias mail.olstest2.example.test www.olstest2.example.test\n  DocumentRoot /home/olscpb/public_html\n  ServerAdmin webmaster@olstest2.example.test\n  UseCanonicalName Off\n\n  ## User olscpb # Needed for Cpanel::ApacheConf\n  <IfModule userdir_module>\n    <IfModule !mpm_itk.c>\n      <IfModule !ruid2_module>\n        <IfModule !mod_passenger.c>\n          UserDir disabled\n          UserDir enabled olscpb \n        </IfModule>\n      </IfModule>\n    </IfModule>\n  </IfModule>\n\n  # Enable backwards compatible Server Side Include expression parser for Apache versions >= 2.4.\n  # To selectively use the newer Apache 2.4 expression parser, disable SSILegacyExprParser in\n  # the user's .htaccess file.  For more information, please read:\n  #    http://httpd.apache.org/docs/2.4/mod/mod_include.html#ssilegacyexprparser\n  <IfModule include_module>\n    <Directory \"/home/olscpb/public_html\">\n      SSILegacyExprParser On\n    </Directory>\n  </IfModule>\n\n  \n\n  <IfModule suphp_module>\n    suPHP_UserGroup olscpb olscpb\n  </IfModule>\n  <IfModule suexec_module>\n    <IfModule !mod_ruid2.c>\n      SuexecUserGroup olscpb olscpb\n    </IfModule>\n  </IfModule>\n  <IfModule ruid2_module>\n    RMode config\n    RUidGid olscpb olscpb\n  </IfModule>\n  <IfModule mpm_itk.c>\n    # For more information on MPM ITK, please read:\n    #   http://mpm-itk.sesse.net/\n    AssignUserID olscpb olscpb\n  </IfModule>\n  <IfModule mod_passenger.c>\n    PassengerUser olscpb\n    PassengerGroup olscpb\n  </IfModule>\n\n  <IfModule alias_module>\n    ScriptAlias /cgi-bin/ /home/olscpb/public_html/cgi-bin/\n  </IfModule>\n\n\n    # Global DCV Rewrite Exclude\n    <IfModule rewrite_module>\n        RewriteOptions Inherit\n    </IfModule>\n\n\n\n\n  # To customize this VirtualHost use an include file at the following location\n  # Include \"/etc/apache2/conf.d/userdata/std/2_4/olscpb/olstest2.example.test/*.conf\"\n</VirtualHost>\n\n<VirtualHost 172.16.0.4:80 [fd00:6c73:6371:0000:0000:0000:0000:0000]:80>\n  ServerName olstest1.example.test\n    ServerAlias ipv6.olstest1.example.test mail.olscp-alias.test mail.olstest1.example.test olscp-alias.test www.olscp-alias.test www.olstest1.example.test\n  DocumentRoot /home/olscpa/public_html\n  ServerAdmin webmaster@olstest1.example.test\n  UseCanonicalName Off\n\n  ## User olscpa # Needed for Cpanel::ApacheConf\n  <IfModule userdir_module>\n    <IfModule !mpm_itk.c>\n      <IfModule !ruid2_module>\n        <IfModule !mod_passenger.c>\n          UserDir disabled\n          UserDir enabled olscpa \n        </IfModule>\n      </IfModule>\n    </IfModule>\n  </IfModule>\n\n  # Enable backwards compatible Server Side Include expression parser for Apache versions >= 2.4.\n  # To selectively use the newer Apache 2.4 expression parser, disable SSILegacyExprParser in\n  # the user's .htaccess file.  For more information, please read:\n  #    http://httpd.apache.org/docs/2.4/mod/mod_include.html#ssilegacyexprparser\n  <IfModule include_module>\n    <Directory \"/home/olscpa/public_html\">\n      SSILegacyExprParser On\n    </Directory>\n  </IfModule>\n\n  \n\n  <IfModule suphp_module>\n    suPHP_UserGroup olscpa olscpa\n  </IfModule>\n  <IfModule suexec_module>\n    <IfModule !mod_ruid2.c>\n      SuexecUserGroup olscpa olscpa\n    </IfModule>\n  </IfModule>\n  <IfModule ruid2_module>\n    RMode config\n    RUidGid olscpa olscpa\n  </IfModule>\n  <IfModule mpm_itk.c>\n    # For more information on MPM ITK, please read:\n    #   http://mpm-itk.sesse.net/\n    AssignUserID olscpa olscpa\n  </IfModule>\n  <IfModule mod_passenger.c>\n    PassengerUser olscpa\n    PassengerGroup olscpa\n  </IfModule>\n\n  <IfModule alias_module>\n    ScriptAlias /cgi-bin/ /home/olscpa/public_html/cgi-bin/\n  </IfModule>\n\n\n    # Global DCV Rewrite Exclude\n    <IfModule rewrite_module>\n        RewriteOptions Inherit\n    </IfModule>\n\n    <IfModule proxy_fcgi_module>\n        <FilesMatch \\.(phtml|php[0-9]*)$>\n            SetHandler proxy:unix:/opt/cpanel/ea-php83/root/usr/var/run/php-fpm/44a5b6e5e9c970a17254e9bd310b1679286832ae.sock|fcgi://olstest1.example.test\n        </FilesMatch>\n    </IfModule>\n\n\n\n  # To customize this VirtualHost use an include file at the following location\n  # Include \"/etc/apache2/conf.d/userdata/std/2_4/olscpa/olstest1.example.test/*.conf\"\n</VirtualHost>\n\n<VirtualHost 172.16.0.4:80 [fd00:6c73:6371:0000:0000:0000:0000:0000]:80>\n  ServerName olscpc.olstest1.example.test\n    ServerAlias mail.olscp-c.test olscp-c.test www.olscp-c.test www.olscpc.olstest1.example.test\n  DocumentRoot /home/olscpa/public_html/olscp-c.test\n  ServerAdmin webmaster@olscpc.olstest1.example.test\n  UseCanonicalName Off\n\n  ## User olscpa # Needed for Cpanel::ApacheConf\n  <IfModule userdir_module>\n    <IfModule !mpm_itk.c>\n      <IfModule !ruid2_module>\n        <IfModule !mod_passenger.c>\n          UserDir enabled\n        </IfModule>\n      </IfModule>\n    </IfModule>\n  </IfModule>\n\n  # Enable backwards compatible Server Side Include expression parser for Apache versions >= 2.4.\n  # To selectively use the newer Apache 2.4 expression parser, disable SSILegacyExprParser in\n  # the user's .htaccess file.  For more information, please read:\n  #    http://httpd.apache.org/docs/2.4/mod/mod_include.html#ssilegacyexprparser\n  <IfModule include_module>\n    <Directory \"/home/olscpa/public_html/olscp-c.test\">\n      SSILegacyExprParser On\n    </Directory>\n  </IfModule>\n\n  \n\n  <IfModule suphp_module>\n    suPHP_UserGroup olscpa olscpa\n  </IfModule>\n  <IfModule suexec_module>\n    <IfModule !mod_ruid2.c>\n      SuexecUserGroup olscpa olscpa\n    </IfModule>\n  </IfModule>\n  <IfModule ruid2_module>\n    RMode config\n    RUidGid olscpa olscpa\n  </IfModule>\n  <IfModule mpm_itk.c>\n    # For more information on MPM ITK, please read:\n    #   http://mpm-itk.sesse.net/\n    AssignUserID olscpa olscpa\n  </IfModule>\n  <IfModule mod_passenger.c>\n    PassengerUser olscpa\n    PassengerGroup olscpa\n  </IfModule>\n\n  <IfModule alias_module>\n    ScriptAlias /cgi-bin/ /home/olscpa/public_html/olscp-c.test/cgi-bin/\n  </IfModule>\n\n\n    # Global DCV Rewrite Exclude\n    <IfModule rewrite_module>\n        RewriteOptions Inherit\n    </IfModule>\n\n    <IfModule proxy_fcgi_module>\n        <FilesMatch \\.(phtml|php[0-9]*)$>\n            SetHandler proxy:unix:/opt/cpanel/ea-php83/root/usr/var/run/php-fpm/1d796f9a00dba82a0e42880e34f2a94412551fc4.sock|fcgi://olscpc.olstest1.example.test\n        </FilesMatch>\n    </IfModule>\n\n\n\n  # To customize this VirtualHost use an include file at the following location\n  # Include \"/etc/apache2/conf.d/userdata/std/2_4/olscpa/olscpc.olstest1.example.test/*.conf\"\n</VirtualHost>\n\n<VirtualHost 172.16.0.4:80 [fd00:6c73:6371:0000:0000:0000:0000:0000]:80>\n  ServerName secure.olstest1.example.test\n    ServerAlias www.secure.olstest1.example.test\n  DocumentRoot /home/olscpa/public_html/secure\n  ServerAdmin webmaster@secure.olstest1.example.test\n  UseCanonicalName Off\n\n  ## User olscpa # Needed for Cpanel::ApacheConf\n  <IfModule userdir_module>\n    <IfModule !mpm_itk.c>\n      <IfModule !ruid2_module>\n        <IfModule !mod_passenger.c>\n          UserDir enabled\n        </IfModule>\n      </IfModule>\n    </IfModule>\n  </IfModule>\n\n  # Enable backwards compatible Server Side Include expression parser for Apache versions >= 2.4.\n  # To selectively use the newer Apache 2.4 expression parser, disable SSILegacyExprParser in\n  # the user's .htaccess file.  For more information, please read:\n  #    http://httpd.apache.org/docs/2.4/mod/mod_include.html#ssilegacyexprparser\n  <IfModule include_module>\n    <Directory \"/home/olscpa/public_html/secure\">\n      SSILegacyExprParser On\n    </Directory>\n  </IfModule>\n\n  \n\n  <IfModule suphp_module>\n    suPHP_UserGroup olscpa olscpa\n  </IfModule>\n  <IfModule suexec_module>\n    <IfModule !mod_ruid2.c>\n      SuexecUserGroup olscpa olscpa\n    </IfModule>\n  </IfModule>\n  <IfModule ruid2_module>\n    RMode config\n    RUidGid olscpa olscpa\n  </IfModule>\n  <IfModule mpm_itk.c>\n    # For more information on MPM ITK, please read:\n    #   http://mpm-itk.sesse.net/\n    AssignUserID olscpa olscpa\n  </IfModule>\n  <IfModule mod_passenger.c>\n    PassengerUser olscpa\n    PassengerGroup olscpa\n  </IfModule>\n\n  <IfModule alias_module>\n    ScriptAlias /cgi-bin/ /home/olscpa/public_html/secure/cgi-bin/\n  </IfModule>\n\n\n    # Global DCV Rewrite Exclude\n    <IfModule rewrite_module>\n        RewriteOptions Inherit\n    </IfModule>\n\n    <IfModule proxy_fcgi_module>\n        <FilesMatch \\.(phtml|php[0-9]*)$>\n            SetHandler proxy:unix:/opt/cpanel/ea-php83/root/usr/var/run/php-fpm/109649f11cc75196546735df8d88edd2c4198e5b.sock|fcgi://secure.olstest1.example.test\n        </FilesMatch>\n    </IfModule>\n\n\n\n  # To customize this VirtualHost use an include file at the following location\n  # Include \"/etc/apache2/conf.d/userdata/std/2_4/olscpa/secure.olstest1.example.test/*.conf\"\n</VirtualHost>\n\n<VirtualHost 172.16.0.4:80 [fd00:6c73:6371:0000:0000:0000:0000:0000]:80>\n  ServerName blog.olstest1.example.test\n    ServerAlias www.blog.olstest1.example.test\n  DocumentRoot /home/olscpa/public_html/blog\n  ServerAdmin webmaster@blog.olstest1.example.test\n  UseCanonicalName Off\n\n  ## User olscpa # Needed for Cpanel::ApacheConf\n  <IfModule userdir_module>\n    <IfModule !mpm_itk.c>\n      <IfModule !ruid2_module>\n        <IfModule !mod_passenger.c>\n          UserDir enabled\n        </IfModule>\n      </IfModule>\n    </IfModule>\n  </IfModule>\n\n  # Enable backwards compatible Server Side Include expression parser for Apache versions >= 2.4.\n  # To selectively use the newer Apache 2.4 expression parser, disable SSILegacyExprParser in\n  # the user's .htaccess file.  For more information, please read:\n  #    http://httpd.apache.org/docs/2.4/mod/mod_include.html#ssilegacyexprparser\n  <IfModule include_module>\n    <Directory \"/home/olscpa/public_html/blog\">\n      SSILegacyExprParser On\n    </Directory>\n  </IfModule>\n\n  \n\n  <IfModule suphp_module>\n    suPHP_UserGroup olscpa olscpa\n  </IfModule>\n  <IfModule suexec_module>\n    <IfModule !mod_ruid2.c>\n      SuexecUserGroup olscpa olscpa\n    </IfModule>\n  </IfModule>\n  <IfModule ruid2_module>\n    RMode config\n    RUidGid olscpa olscpa\n  </IfModule>\n  <IfModule mpm_itk.c>\n    # For more information on MPM ITK, please read:\n    #   http://mpm-itk.sesse.net/\n    AssignUserID olscpa olscpa\n  </IfModule>\n  <IfModule mod_passenger.c>\n    PassengerUser olscpa\n    PassengerGroup olscpa\n  </IfModule>\n\n  <IfModule alias_module>\n    ScriptAlias /cgi-bin/ /home/olscpa/public_html/blog/cgi-bin/\n  </IfModule>\n\n\n    # Global DCV Rewrite Exclude\n    <IfModule rewrite_module>\n        RewriteOptions Inherit\n    </IfModule>\n\n    <IfModule proxy_fcgi_module>\n        <FilesMatch \\.(phtml|php[0-9]*)$>\n            SetHandler proxy:unix:/opt/cpanel/ea-php83/root/usr/var/run/php-fpm/89f965de59d69e8d879c6d1b36947e01389d5acd.sock|fcgi://blog.olstest1.example.test\n        </FilesMatch>\n    </IfModule>\n\n\n\n  # To customize this VirtualHost use an include file at the following location\n  # Include \"/etc/apache2/conf.d/userdata/std/2_4/olscpa/blog.olstest1.example.test/*.conf\"\n</VirtualHost>\n# END: HTTP vhosts list\n\n# BEGIN: HTTPS vhosts list\n\n<VirtualHost 172.16.0.4:443 [fd00:6c73:6371:0000:0000:0000:0000:0000]:443>\n  ServerName olscpc.olstest1.example.test\n  ServerAlias mail.olscp-c.test olscp-c.test www.olscp-c.test www.olscpc.olstest1.example.test cpanel.olscp-c.test autoconfig.olscp-c.test webmail.olscp-c.test autodiscover.olscp-c.test cpcalendars.olscp-c.test cpcontacts.olscp-c.test webdisk.olscp-c.test\n  DocumentRoot /home/olscpa/public_html/olscp-c.test\n  ServerAdmin webmaster@olscpc.olstest1.example.test\n  UseCanonicalName Off\n\n  ## User olscpa # Needed for Cpanel::ApacheConf\n  <IfModule userdir_module>\n    <IfModule !mpm_itk.c>\n      <IfModule !ruid2_module>\n        <IfModule !mod_passenger.c>\n          UserDir enabled\n        </IfModule>\n      </IfModule>\n    </IfModule>\n  </IfModule>\n\n  # Enable backwards compatible Server Side Include expression parser for Apache versions >= 2.4.\n  # To selectively use the newer Apache 2.4 expression parser, disable SSILegacyExprParser in\n  # the user's .htaccess file.  For more information, please read:\n  #    http://httpd.apache.org/docs/2.4/mod/mod_include.html#ssilegacyexprparser\n  <IfModule mod_include.c>\n    <Directory \"/home/olscpa/public_html/olscp-c.test\">\n      SSILegacyExprParser On\n    </Directory>\n  </IfModule>\n\n  \n  <Proxymatch ^https?://127\\.0\\.0\\.1:(2082|2083|2077|2078|2079|2080|2086|2087|2095|2096)/>\n       <IfModule security2_module>\n          SecRuleEngine Off\n       </IfModule>\n       <IfModule security3_module>\n          modsecurity_rules 'SecRuleEngine Off'\n       </IfModule>\n  </Proxymatch>\n\n  <IfModule mod_suphp.c>\n    suPHP_UserGroup olscpa olscpa\n  </IfModule>\n  <IfModule suexec_module>\n    <IfModule !mod_ruid2.c>\n      SuexecUserGroup olscpa olscpa\n    </IfModule>\n  </IfModule>\n  <IfModule ruid2_module>\n    RMode config\n    RUidGid olscpa olscpa\n  </IfModule>\n  <IfModule mpm_itk.c>\n    # For more information on MPM ITK, please read:\n    #   http://mpm-itk.sesse.net/\n    AssignUserID olscpa olscpa\n  </IfModule>\n  <IfModule mod_passenger.c>\n    PassengerUser olscpa\n    PassengerGroup olscpa\n  </IfModule>\n\n  <IfModule alias_module>\n    ScriptAlias /cgi-bin/ /home/olscpa/public_html/olscp-c.test/cgi-bin/\n  </IfModule>\n  <IfModule ssl_module>\n    SSLEngine on\n    \n    SSLCertificateFile /var/cpanel/ssl/apache_tls/olscpc.olstest1.example.test/combined\n\n    SSLUseStapling off\n    <Directory \"/home/olscpa/public_html/olscp-c.test/cgi-bin\">\n      SSLOptions +StdEnvVars\n    </Directory>\n  </IfModule>\n    <IfModule proxy_fcgi_module>\n        <FilesMatch \\.(phtml|php[0-9]*)$>\n            SetHandler proxy:unix:/opt/cpanel/ea-php83/root/usr/var/run/php-fpm/1d796f9a00dba82a0e42880e34f2a94412551fc4.sock|fcgi://olscpc.olstest1.example.test\n        </FilesMatch>\n    </IfModule>\n\n\n\n\n  # To customize this VirtualHost use an include file at the following location\n  # Include \"/etc/apache2/conf.d/userdata/ssl/2_4/olscpa/olscpc.olstest1.example.test/*.conf\"\n\n    <IfModule headers_module>\n    RequestHeader set X-HTTPS 1\n    </IfModule>\n    RewriteEngine On\n                RewriteCond %{HTTP_HOST} =autoconfig.olscp-c.test [OR]\n                RewriteCond %{HTTP_HOST} =autoconfig.olscp-c.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^ http://127.0.0.1/cgi-sys/autoconfig.cgi [P]\n                RewriteCond %{HTTP_HOST} =autodiscover.olscp-c.test [OR]\n                RewriteCond %{HTTP_HOST} =autodiscover.olscp-c.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^ http://127.0.0.1/cgi-sys/autodiscover.cgi [P]\n                RewriteCond %{HTTP_HOST} =cpanel.olscp-c.test [OR]\n                RewriteCond %{HTTP_HOST} =cpanel.olscp-c.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^/(.*) /___proxy_subdomain_cpanel/$1 [PT]\n\t\tProxyPass \"/___proxy_subdomain_cpanel\" \"http://127.0.0.1:2082\" max=1 retry=0\n                RewriteCond %{HTTP_HOST} =cpcalendars.olscp-c.test [OR]\n                RewriteCond %{HTTP_HOST} =cpcalendars.olscp-c.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^/(.*) /___proxy_subdomain_cpcalendars/$1 [PT]\n\t\tProxyPass \"/___proxy_subdomain_cpcalendars\" \"http://127.0.0.1:2079\" max=1 retry=0\n                RewriteCond %{HTTP_HOST} =cpcontacts.olscp-c.test [OR]\n                RewriteCond %{HTTP_HOST} =cpcontacts.olscp-c.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^/(.*) /___proxy_subdomain_cpcontacts/$1 [PT]\n\t\tProxyPass \"/___proxy_subdomain_cpcontacts\" \"http://127.0.0.1:2079\" max=1 retry=0\n                RewriteCond %{HTTP_HOST} =webdisk.olscp-c.test [OR]\n                RewriteCond %{HTTP_HOST} =webdisk.olscp-c.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^/(.*) /___proxy_subdomain_webdisk/$1 [PT]\n\t\tProxyPass \"/___proxy_subdomain_webdisk\" \"http://127.0.0.1:2077\" max=1 retry=0\n                RewriteCond %{HTTP_HOST} =webmail.olscp-c.test [OR]\n                RewriteCond %{HTTP_HOST} =webmail.olscp-c.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^/(.*) /___proxy_subdomain_webmail/$1 [PT]\n\t\tProxyPass \"/___proxy_subdomain_webmail\" \"http://127.0.0.1:2095\" max=1 retry=0\n\n                RewriteCond %{HTTP:Upgrade} websocket   [nocase]\n                    RewriteCond %{HTTP_HOST} =cpanel.olscp-c.test [OR]\n                    RewriteCond %{HTTP_HOST} =cpanel.olscp-c.test:443\n\n                RewriteRule ^/(.*) /___proxy_subdomain_ws_cpanel/$1 [PT]\n                RewriteCond %{HTTP:Upgrade} websocket   [nocase]\n                    RewriteCond %{HTTP_HOST} =webmail.olscp-c.test [OR]\n                    RewriteCond %{HTTP_HOST} =webmail.olscp-c.test:443\n\n                RewriteRule ^/(.*) /___proxy_subdomain_ws_webmail/$1 [PT]\n\n    RewriteRule ^/Microsoft-Server-ActiveSync /___proxy_activesync/$1 [PT]\n    ProxyPass \"/___proxy_activesync\" \"http://127.0.0.1:2090/Microsoft-Server-ActiveSync\" max=1 retry=0\n\n\n</VirtualHost>\n\n<VirtualHost 172.16.0.4:443 [fd00:6c73:6371:0000:0000:0000:0000:0000]:443>\n  ServerName olstest1.example.test\n  ServerAlias ipv6.olstest1.example.test mail.olscp-alias.test mail.olstest1.example.test olscp-alias.test www.olscp-alias.test www.olstest1.example.test autoconfig.olstest1.example.test cpanel.olstest1.example.test cpcalendars.olstest1.example.test autodiscover.olstest1.example.test webmail.olstest1.example.test cpcontacts.olstest1.example.test webdisk.olstest1.example.test\n  DocumentRoot /home/olscpa/public_html\n  ServerAdmin webmaster@olstest1.example.test\n  UseCanonicalName Off\n\n  ## User olscpa # Needed for Cpanel::ApacheConf\n  <IfModule userdir_module>\n    <IfModule !mpm_itk.c>\n      <IfModule !ruid2_module>\n        <IfModule !mod_passenger.c>\n          UserDir disabled\n          UserDir enabled olscpa \n        </IfModule>\n      </IfModule>\n    </IfModule>\n  </IfModule>\n\n  # Enable backwards compatible Server Side Include expression parser for Apache versions >= 2.4.\n  # To selectively use the newer Apache 2.4 expression parser, disable SSILegacyExprParser in\n  # the user's .htaccess file.  For more information, please read:\n  #    http://httpd.apache.org/docs/2.4/mod/mod_include.html#ssilegacyexprparser\n  <IfModule mod_include.c>\n    <Directory \"/home/olscpa/public_html\">\n      SSILegacyExprParser On\n    </Directory>\n  </IfModule>\n\n  \n  <Proxymatch ^https?://127\\.0\\.0\\.1:(2082|2083|2077|2078|2079|2080|2086|2087|2095|2096)/>\n       <IfModule security2_module>\n          SecRuleEngine Off\n       </IfModule>\n       <IfModule security3_module>\n          modsecurity_rules 'SecRuleEngine Off'\n       </IfModule>\n  </Proxymatch>\n\n  <IfModule mod_suphp.c>\n    suPHP_UserGroup olscpa olscpa\n  </IfModule>\n  <IfModule suexec_module>\n    <IfModule !mod_ruid2.c>\n      SuexecUserGroup olscpa olscpa\n    </IfModule>\n  </IfModule>\n  <IfModule ruid2_module>\n    RMode config\n    RUidGid olscpa olscpa\n  </IfModule>\n  <IfModule mpm_itk.c>\n    # For more information on MPM ITK, please read:\n    #   http://mpm-itk.sesse.net/\n    AssignUserID olscpa olscpa\n  </IfModule>\n  <IfModule mod_passenger.c>\n    PassengerUser olscpa\n    PassengerGroup olscpa\n  </IfModule>\n\n  <IfModule alias_module>\n    ScriptAlias /cgi-bin/ /home/olscpa/public_html/cgi-bin/\n  </IfModule>\n  <IfModule ssl_module>\n    SSLEngine on\n    \n    SSLCertificateFile /var/cpanel/ssl/apache_tls/olstest1.example.test/combined\n\n    SSLUseStapling off\n    <Directory \"/home/olscpa/public_html/cgi-bin\">\n      SSLOptions +StdEnvVars\n    </Directory>\n  </IfModule>\n    <IfModule proxy_fcgi_module>\n        <FilesMatch \\.(phtml|php[0-9]*)$>\n            SetHandler proxy:unix:/opt/cpanel/ea-php83/root/usr/var/run/php-fpm/44a5b6e5e9c970a17254e9bd310b1679286832ae.sock|fcgi://olstest1.example.test\n        </FilesMatch>\n    </IfModule>\n\n\n\n\n  # To customize this VirtualHost use an include file at the following location\n  # Include \"/etc/apache2/conf.d/userdata/ssl/2_4/olscpa/olstest1.example.test/*.conf\"\n\n    <IfModule headers_module>\n    RequestHeader set X-HTTPS 1\n    </IfModule>\n    RewriteEngine On\n                RewriteCond %{HTTP_HOST} =autoconfig.olstest1.example.test [OR]\n                RewriteCond %{HTTP_HOST} =autoconfig.olstest1.example.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^ http://127.0.0.1/cgi-sys/autoconfig.cgi [P]\n                RewriteCond %{HTTP_HOST} =autodiscover.olstest1.example.test [OR]\n                RewriteCond %{HTTP_HOST} =autodiscover.olstest1.example.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^ http://127.0.0.1/cgi-sys/autodiscover.cgi [P]\n                RewriteCond %{HTTP_HOST} =cpanel.olstest1.example.test [OR]\n                RewriteCond %{HTTP_HOST} =cpanel.olstest1.example.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^/(.*) /___proxy_subdomain_cpanel/$1 [PT]\n\t\tProxyPass \"/___proxy_subdomain_cpanel\" \"http://127.0.0.1:2082\" max=1 retry=0\n                RewriteCond %{HTTP_HOST} =cpcalendars.olstest1.example.test [OR]\n                RewriteCond %{HTTP_HOST} =cpcalendars.olstest1.example.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^/(.*) /___proxy_subdomain_cpcalendars/$1 [PT]\n\t\tProxyPass \"/___proxy_subdomain_cpcalendars\" \"http://127.0.0.1:2079\" max=1 retry=0\n                RewriteCond %{HTTP_HOST} =cpcontacts.olstest1.example.test [OR]\n                RewriteCond %{HTTP_HOST} =cpcontacts.olstest1.example.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^/(.*) /___proxy_subdomain_cpcontacts/$1 [PT]\n\t\tProxyPass \"/___proxy_subdomain_cpcontacts\" \"http://127.0.0.1:2079\" max=1 retry=0\n                RewriteCond %{HTTP_HOST} =webdisk.olstest1.example.test [OR]\n                RewriteCond %{HTTP_HOST} =webdisk.olstest1.example.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^/(.*) /___proxy_subdomain_webdisk/$1 [PT]\n\t\tProxyPass \"/___proxy_subdomain_webdisk\" \"http://127.0.0.1:2077\" max=1 retry=0\n                RewriteCond %{HTTP_HOST} =webmail.olstest1.example.test [OR]\n                RewriteCond %{HTTP_HOST} =webmail.olstest1.example.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^/(.*) /___proxy_subdomain_webmail/$1 [PT]\n\t\tProxyPass \"/___proxy_subdomain_webmail\" \"http://127.0.0.1:2095\" max=1 retry=0\n\n                RewriteCond %{HTTP:Upgrade} websocket   [nocase]\n                    RewriteCond %{HTTP_HOST} =cpanel.olstest1.example.test [OR]\n                    RewriteCond %{HTTP_HOST} =cpanel.olstest1.example.test:443\n\n                RewriteRule ^/(.*) /___proxy_subdomain_ws_cpanel/$1 [PT]\n                RewriteCond %{HTTP:Upgrade} websocket   [nocase]\n                    RewriteCond %{HTTP_HOST} =webmail.olstest1.example.test [OR]\n                    RewriteCond %{HTTP_HOST} =webmail.olstest1.example.test:443\n\n                RewriteRule ^/(.*) /___proxy_subdomain_ws_webmail/$1 [PT]\n\n    RewriteRule ^/Microsoft-Server-ActiveSync /___proxy_activesync/$1 [PT]\n    ProxyPass \"/___proxy_activesync\" \"http://127.0.0.1:2090/Microsoft-Server-ActiveSync\" max=1 retry=0\n\n\n</VirtualHost>\n\n<VirtualHost 172.16.0.4:443>\n  ServerName olstest2.example.test\n  ServerAlias mail.olstest2.example.test www.olstest2.example.test webdisk.olstest2.example.test cpcontacts.olstest2.example.test cpanel.olstest2.example.test autoconfig.olstest2.example.test webmail.olstest2.example.test autodiscover.olstest2.example.test cpcalendars.olstest2.example.test\n  DocumentRoot /home/olscpb/public_html\n  ServerAdmin webmaster@olstest2.example.test\n  UseCanonicalName Off\n\n  ## User olscpb # Needed for Cpanel::ApacheConf\n  <IfModule userdir_module>\n    <IfModule !mpm_itk.c>\n      <IfModule !ruid2_module>\n        <IfModule !mod_passenger.c>\n          UserDir disabled\n          UserDir enabled olscpb \n        </IfModule>\n      </IfModule>\n    </IfModule>\n  </IfModule>\n\n  # Enable backwards compatible Server Side Include expression parser for Apache versions >= 2.4.\n  # To selectively use the newer Apache 2.4 expression parser, disable SSILegacyExprParser in\n  # the user's .htaccess file.  For more information, please read:\n  #    http://httpd.apache.org/docs/2.4/mod/mod_include.html#ssilegacyexprparser\n  <IfModule mod_include.c>\n    <Directory \"/home/olscpb/public_html\">\n      SSILegacyExprParser On\n    </Directory>\n  </IfModule>\n\n  \n  <Proxymatch ^https?://127\\.0\\.0\\.1:(2082|2083|2077|2078|2079|2080|2086|2087|2095|2096)/>\n       <IfModule security2_module>\n          SecRuleEngine Off\n       </IfModule>\n       <IfModule security3_module>\n          modsecurity_rules 'SecRuleEngine Off'\n       </IfModule>\n  </Proxymatch>\n\n  <IfModule mod_suphp.c>\n    suPHP_UserGroup olscpb olscpb\n  </IfModule>\n  <IfModule suexec_module>\n    <IfModule !mod_ruid2.c>\n      SuexecUserGroup olscpb olscpb\n    </IfModule>\n  </IfModule>\n  <IfModule ruid2_module>\n    RMode config\n    RUidGid olscpb olscpb\n  </IfModule>\n  <IfModule mpm_itk.c>\n    # For more information on MPM ITK, please read:\n    #   http://mpm-itk.sesse.net/\n    AssignUserID olscpb olscpb\n  </IfModule>\n  <IfModule mod_passenger.c>\n    PassengerUser olscpb\n    PassengerGroup olscpb\n  </IfModule>\n\n  <IfModule alias_module>\n    ScriptAlias /cgi-bin/ /home/olscpb/public_html/cgi-bin/\n  </IfModule>\n  <IfModule ssl_module>\n    SSLEngine on\n    \n    SSLCertificateFile /var/cpanel/ssl/apache_tls/olstest2.example.test/combined\n\n    SSLUseStapling off\n    <Directory \"/home/olscpb/public_html/cgi-bin\">\n      SSLOptions +StdEnvVars\n    </Directory>\n  </IfModule>\n\n\n\n\n  # To customize this VirtualHost use an include file at the following location\n  # Include \"/etc/apache2/conf.d/userdata/ssl/2_4/olscpb/olstest2.example.test/*.conf\"\n\n    <IfModule headers_module>\n    RequestHeader set X-HTTPS 1\n    </IfModule>\n    RewriteEngine On\n                RewriteCond %{HTTP_HOST} =autoconfig.olstest2.example.test [OR]\n                RewriteCond %{HTTP_HOST} =autoconfig.olstest2.example.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^ http://127.0.0.1/cgi-sys/autoconfig.cgi [P]\n                RewriteCond %{HTTP_HOST} =autodiscover.olstest2.example.test [OR]\n                RewriteCond %{HTTP_HOST} =autodiscover.olstest2.example.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^ http://127.0.0.1/cgi-sys/autodiscover.cgi [P]\n                RewriteCond %{HTTP_HOST} =cpanel.olstest2.example.test [OR]\n                RewriteCond %{HTTP_HOST} =cpanel.olstest2.example.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^/(.*) /___proxy_subdomain_cpanel/$1 [PT]\n\t\tProxyPass \"/___proxy_subdomain_cpanel\" \"http://127.0.0.1:2082\" max=1 retry=0\n                RewriteCond %{HTTP_HOST} =cpcalendars.olstest2.example.test [OR]\n                RewriteCond %{HTTP_HOST} =cpcalendars.olstest2.example.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^/(.*) /___proxy_subdomain_cpcalendars/$1 [PT]\n\t\tProxyPass \"/___proxy_subdomain_cpcalendars\" \"http://127.0.0.1:2079\" max=1 retry=0\n                RewriteCond %{HTTP_HOST} =cpcontacts.olstest2.example.test [OR]\n                RewriteCond %{HTTP_HOST} =cpcontacts.olstest2.example.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^/(.*) /___proxy_subdomain_cpcontacts/$1 [PT]\n\t\tProxyPass \"/___proxy_subdomain_cpcontacts\" \"http://127.0.0.1:2079\" max=1 retry=0\n                RewriteCond %{HTTP_HOST} =webdisk.olstest2.example.test [OR]\n                RewriteCond %{HTTP_HOST} =webdisk.olstest2.example.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^/(.*) /___proxy_subdomain_webdisk/$1 [PT]\n\t\tProxyPass \"/___proxy_subdomain_webdisk\" \"http://127.0.0.1:2077\" max=1 retry=0\n                RewriteCond %{HTTP_HOST} =webmail.olstest2.example.test [OR]\n                RewriteCond %{HTTP_HOST} =webmail.olstest2.example.test:443\n            RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n            RewriteRule ^/(.*) /___proxy_subdomain_webmail/$1 [PT]\n\t\tProxyPass \"/___proxy_subdomain_webmail\" \"http://127.0.0.1:2095\" max=1 retry=0\n\n                RewriteCond %{HTTP:Upgrade} websocket   [nocase]\n                    RewriteCond %{HTTP_HOST} =cpanel.olstest2.example.test [OR]\n                    RewriteCond %{HTTP_HOST} =cpanel.olstest2.example.test:443\n\n                RewriteRule ^/(.*) /___proxy_subdomain_ws_cpanel/$1 [PT]\n                RewriteCond %{HTTP:Upgrade} websocket   [nocase]\n                    RewriteCond %{HTTP_HOST} =webmail.olstest2.example.test [OR]\n                    RewriteCond %{HTTP_HOST} =webmail.olstest2.example.test:443\n\n                RewriteRule ^/(.*) /___proxy_subdomain_ws_webmail/$1 [PT]\n\n    RewriteRule ^/Microsoft-Server-ActiveSync /___proxy_activesync/$1 [PT]\n    ProxyPass \"/___proxy_activesync\" \"http://127.0.0.1:2090/Microsoft-Server-ActiveSync\" max=1 retry=0\n\n\n</VirtualHost>\n\n<VirtualHost 172.16.0.4:443 [fd00:6c73:6371:0000:0000:0000:0000:0000]:443>\n  ServerName secure.olstest1.example.test\n  ServerAlias www.secure.olstest1.example.test\n  DocumentRoot /home/olscpa/public_html/secure\n  ServerAdmin webmaster@secure.olstest1.example.test\n  UseCanonicalName Off\n\n  ## User olscpa # Needed for Cpanel::ApacheConf\n  <IfModule userdir_module>\n    <IfModule !mpm_itk.c>\n      <IfModule !ruid2_module>\n        <IfModule !mod_passenger.c>\n          UserDir enabled\n        </IfModule>\n      </IfModule>\n    </IfModule>\n  </IfModule>\n\n  # Enable backwards compatible Server Side Include expression parser for Apache versions >= 2.4.\n  # To selectively use the newer Apache 2.4 expression parser, disable SSILegacyExprParser in\n  # the user's .htaccess file.  For more information, please read:\n  #    http://httpd.apache.org/docs/2.4/mod/mod_include.html#ssilegacyexprparser\n  <IfModule mod_include.c>\n    <Directory \"/home/olscpa/public_html/secure\">\n      SSILegacyExprParser On\n    </Directory>\n  </IfModule>\n\n  \n  <Proxymatch ^https?://127\\.0\\.0\\.1:(2082|2083|2077|2078|2079|2080|2086|2087|2095|2096)/>\n       <IfModule security2_module>\n          SecRuleEngine Off\n       </IfModule>\n       <IfModule security3_module>\n          modsecurity_rules 'SecRuleEngine Off'\n       </IfModule>\n  </Proxymatch>\n\n  <IfModule mod_suphp.c>\n    suPHP_UserGroup olscpa olscpa\n  </IfModule>\n  <IfModule suexec_module>\n    <IfModule !mod_ruid2.c>\n      SuexecUserGroup olscpa olscpa\n    </IfModule>\n  </IfModule>\n  <IfModule ruid2_module>\n    RMode config\n    RUidGid olscpa olscpa\n  </IfModule>\n  <IfModule mpm_itk.c>\n    # For more information on MPM ITK, please read:\n    #   http://mpm-itk.sesse.net/\n    AssignUserID olscpa olscpa\n  </IfModule>\n  <IfModule mod_passenger.c>\n    PassengerUser olscpa\n    PassengerGroup olscpa\n  </IfModule>\n\n  <IfModule alias_module>\n    ScriptAlias /cgi-bin/ /home/olscpa/public_html/secure/cgi-bin/\n  </IfModule>\n  <IfModule ssl_module>\n    SSLEngine on\n    \n    SSLCertificateFile /var/cpanel/ssl/apache_tls/secure.olstest1.example.test/combined\n\n    SSLUseStapling off\n    <Directory \"/home/olscpa/public_html/secure/cgi-bin\">\n      SSLOptions +StdEnvVars\n    </Directory>\n  </IfModule>\n    <IfModule proxy_fcgi_module>\n        <FilesMatch \\.(phtml|php[0-9]*)$>\n            SetHandler proxy:unix:/opt/cpanel/ea-php83/root/usr/var/run/php-fpm/109649f11cc75196546735df8d88edd2c4198e5b.sock|fcgi://secure.olstest1.example.test\n        </FilesMatch>\n    </IfModule>\n\n\n\n\n  # To customize this VirtualHost use an include file at the following location\n  # Include \"/etc/apache2/conf.d/userdata/ssl/2_4/olscpa/secure.olstest1.example.test/*.conf\"\n\n\n\n</VirtualHost>\n\n<VirtualHost 172.16.0.4:443 [fd00:6c73:6371:0000:0000:0000:0000:0000]:443>\n  ServerName blog.olstest1.example.test\n  ServerAlias www.blog.olstest1.example.test\n  DocumentRoot /home/olscpa/public_html/blog\n  ServerAdmin webmaster@blog.olstest1.example.test\n  UseCanonicalName Off\n\n  ## User olscpa # Needed for Cpanel::ApacheConf\n  <IfModule userdir_module>\n    <IfModule !mpm_itk.c>\n      <IfModule !ruid2_module>\n        <IfModule !mod_passenger.c>\n          UserDir enabled\n        </IfModule>\n      </IfModule>\n    </IfModule>\n  </IfModule>\n\n  # Enable backwards compatible Server Side Include expression parser for Apache versions >= 2.4.\n  # To selectively use the newer Apache 2.4 expression parser, disable SSILegacyExprParser in\n  # the user's .htaccess file.  For more information, please read:\n  #    http://httpd.apache.org/docs/2.4/mod/mod_include.html#ssilegacyexprparser\n  <IfModule mod_include.c>\n    <Directory \"/home/olscpa/public_html/blog\">\n      SSILegacyExprParser On\n    </Directory>\n  </IfModule>\n\n  \n  <Proxymatch ^https?://127\\.0\\.0\\.1:(2082|2083|2077|2078|2079|2080|2086|2087|2095|2096)/>\n       <IfModule security2_module>\n          SecRuleEngine Off\n       </IfModule>\n       <IfModule security3_module>\n          modsecurity_rules 'SecRuleEngine Off'\n       </IfModule>\n  </Proxymatch>\n\n  <IfModule mod_suphp.c>\n    suPHP_UserGroup olscpa olscpa\n  </IfModule>\n  <IfModule suexec_module>\n    <IfModule !mod_ruid2.c>\n      SuexecUserGroup olscpa olscpa\n    </IfModule>\n  </IfModule>\n  <IfModule ruid2_module>\n    RMode config\n    RUidGid olscpa olscpa\n  </IfModule>\n  <IfModule mpm_itk.c>\n    # For more information on MPM ITK, please read:\n    #   http://mpm-itk.sesse.net/\n    AssignUserID olscpa olscpa\n  </IfModule>\n  <IfModule mod_passenger.c>\n    PassengerUser olscpa\n    PassengerGroup olscpa\n  </IfModule>\n\n  <IfModule alias_module>\n    ScriptAlias /cgi-bin/ /home/olscpa/public_html/blog/cgi-bin/\n  </IfModule>\n  <IfModule ssl_module>\n    SSLEngine on\n    \n    SSLCertificateFile /var/cpanel/ssl/apache_tls/blog.olstest1.example.test/combined\n\n    SSLUseStapling off\n    <Directory \"/home/olscpa/public_html/blog/cgi-bin\">\n      SSLOptions +StdEnvVars\n    </Directory>\n  </IfModule>\n    <IfModule proxy_fcgi_module>\n        <FilesMatch \\.(phtml|php[0-9]*)$>\n            SetHandler proxy:unix:/opt/cpanel/ea-php83/root/usr/var/run/php-fpm/89f965de59d69e8d879c6d1b36947e01389d5acd.sock|fcgi://blog.olstest1.example.test\n        </FilesMatch>\n    </IfModule>\n\n\n\n\n  # To customize this VirtualHost use an include file at the following location\n  # Include \"/etc/apache2/conf.d/userdata/ssl/2_4/olscpa/blog.olstest1.example.test/*.conf\"\n\n\n\n</VirtualHost>\n# END: HTTPS vhosts list\n\n##################################################\n##################################################\n#\n# Define the main cPanel & WHM proxy subdomains\n#\n##################################################\n##################################################\n\n# CPANEL/WHM/WEBMAIL/WEBDISK/AUTOCONFIG PROXY SUBDOMAINS\n<VirtualHost 172.16.0.4:80 [fd00:6c73:6371:0000:0000:0000:0000:0000]:80 127.0.0.1:80>\n    ServerName proxy-subdomains-vhost.localhost\n    ServerAlias cpanel.* whm.* webmail.* webdisk.* cpcalendars.* cpcontacts.* autodiscover.* autoconfig.*\n\n    DocumentRoot /var/www/html\n    ServerAdmin root@server.example.test\n\n    <IfModule suphp_module>\n        suPHP_UserGroup nobody nobody\n    </IfModule>\n    <Proxy \"*\">\n        <IfModule security2_module>\n            SecRuleEngine Off\n        </IfModule>\n        <IfModule security3_module>\n           modsecurity_rules 'SecRuleEngine Off'\n        </IfModule>\n    </Proxy>\n\n    <Directory \"/var/www/html\">\n      AllowOverride All\n    </Directory>\n\n\n\n\n    ScriptAlias /.cpanel/dcv /usr/local/cpanel/cgi-priv/get_local.cgi\n\n    RewriteEngine On\n\n                    RewriteCond %{REQUEST_URI} ^/\\.well-known/acme-challenge/[0-9a-zA-Z_-]+$ [OR]\n                    RewriteCond %{REQUEST_URI} ^/\\.well-known/pki-validation/[A-F0-9]{32}\\.txt(?:\\ Sectigo\\ DCV)?$ [OR]\n                    RewriteCond %{REQUEST_URI} ^/\\.well-known/pki-validation/(?:\\ Ballot169)? [OR]\n                    RewriteCond %{REQUEST_URI} ^/\\.well-known/cpanel-dcv/[0-9a-zA-Z_-]+$ \n                RewriteRule ^ /.cpanel/dcv [passthrough]\n\n    RewriteCond %{HTTP_HOST} !^server.example.test$\n    RewriteCond %{HTTP_HOST} ^cpanel\\.\n    RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n    RewriteRule ^/(.*) /___proxy_subdomain_cpanel/$1 [PT]\n    ProxyPass \"/___proxy_subdomain_cpanel\" \"http://127.0.0.1:2082\" max=1 retry=0\n\n\n    RewriteCond %{HTTP_HOST} !^server.example.test$\n    RewriteCond %{HTTP_HOST} ^webmail\\.\n    RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n    RewriteRule ^/(.*) /___proxy_subdomain_webmail/$1 [PT]\n    ProxyPass \"/___proxy_subdomain_webmail\" \"http://127.0.0.1:2095\" max=1 retry=0\n\n\n    RewriteCond %{HTTP_HOST} !^server.example.test$\n    RewriteCond %{HTTP_HOST} ^whm\\.\n    RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n    RewriteRule ^/(.*) /___proxy_subdomain_whm/$1 [PT]\n    ProxyPass \"/___proxy_subdomain_whm\" \"http://127.0.0.1:2086\" max=1 retry=0\n\n\n    RewriteCond %{HTTP_HOST} !^server.example.test$\n    RewriteCond %{HTTP_HOST} ^webdisk\\.\n\n    RewriteRule ^/(.*) /___proxy_subdomain_webdisk/$1 [PT]\n    ProxyPass \"/___proxy_subdomain_webdisk\" \"http://127.0.0.1:2077\" max=1 retry=0\n\n\n    RewriteCond %{HTTP_HOST} !^server.example.test$\n    RewriteCond %{HTTP_HOST} ^cpcalendars\\.\n\n    RewriteRule ^/(.*) /___proxy_subdomain_cpcalendars/$1 [PT]\n    ProxyPass \"/___proxy_subdomain_cpcalendars\" \"http://127.0.0.1:2079\" max=1 retry=0\n\n\n    RewriteCond %{HTTP_HOST} !^server.example.test$\n    RewriteCond %{HTTP_HOST} ^cpcontacts\\.\n\n    RewriteRule ^/(.*) /___proxy_subdomain_cpcontacts/$1 [PT]\n    ProxyPass \"/___proxy_subdomain_cpcontacts\" \"http://127.0.0.1:2079\" max=1 retry=0\n\n\n\n    RewriteCond %{HTTP_HOST} !^server.example.test$\n    RewriteCond %{HTTP_HOST} ^autodiscover\\.\n    RewriteRule ^[^?]*(\\\\?.*)? http://127.0.0.1/cgi-sys/autodiscover.cgi [P]\n\n    RewriteCond %{HTTP_HOST} !^server.example.test$\n    RewriteCond %{HTTP_HOST} ^autoconfig\\.\n    RewriteRule ^[^?]*(\\\\?.*)? http://127.0.0.1/cgi-sys/autoconfig.cgi [P]\n\n\n                    RewriteCond %{HTTP_HOST} ^cpanel\\.\n    RewriteCond %{HTTP:Upgrade} websocket   [nocase]\n    RewriteRule ^/(.*) /___proxy_subdomain_ws_cpanel/$1 [PT]\n\n        RewriteCond %{HTTP_HOST} ^webmail\\.\n    RewriteCond %{HTTP:Upgrade} websocket   [nocase]\n    RewriteRule ^/(.*) /___proxy_subdomain_ws_webmail/$1 [PT]\n\n        RewriteCond %{HTTP_HOST} ^whm\\.\n    RewriteCond %{HTTP:Upgrade} websocket   [nocase]\n    RewriteRule ^/(.*) /___proxy_subdomain_ws_whm/$1 [PT]\n    \n\n    UseCanonicalName Off\n\n    <IfModule security2_module>\n        SecRuleEngine On\n    </IfModule>\n    <IfModule security3_module>\n        modsecurity_rules 'SecRuleEngine On'\n    </IfModule>\n</VirtualHost>\n\n\n# CPANEL/WHM/WEBMAIL/WEBDISK/AUTOCONFIG PROXY SUBDOMAINS\n<VirtualHost 172.16.0.4:443 [fd00:6c73:6371:0000:0000:0000:0000:0000]:443 127.0.0.1:443>\n    ServerName server.example.test\n\n    ServerAlias cpanel.* whm.* webmail.* webdisk.* cpcalendars.* cpcontacts.* autodiscover.* autoconfig.*\n\n    DocumentRoot /var/www/html\n    ServerAdmin root@server.example.test\n\n    <IfModule suphp_module>\n        suPHP_UserGroup nobody nobody\n    </IfModule>\n    <Proxy \"*\">\n        <IfModule security2_module>\n            SecRuleEngine Off\n        </IfModule>\n        <IfModule security3_module>\n            modsecurity_rules 'SecRuleEngine Off'\n        </IfModule>\n    </Proxy>\n\n    <Directory \"/var/www/html\">\n      AllowOverride All\n    </Directory>\n\n\n\n\n    RewriteEngine On\n\n    <IfModule ssl_module>\n        SSLEngine on\n\n\n\n        SSLCertificateFile /var/cpanel/ssl/cpanel/mycpanel.pem\n        SSLCertificateKeyFile /var/cpanel/ssl/cpanel/mycpanel.pem\n        SSLCertificateChainFile /var/cpanel/ssl/cpanel/mycpanel.pem\n        SSLUseStapling Off\n\n    </IfModule>\n\n    \n    \n\n    <IfModule headers_module>\n    RequestHeader set X-HTTPS 1\n    </IfModule>\n\n    RewriteCond %{HTTP_HOST} !^server.example.test$\n    RewriteCond %{HTTP_HOST} ^cpanel\\.\n    RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n    RewriteRule ^/(.*) /___proxy_subdomain_cpanel/$1 [PT]\n    ProxyPass \"/___proxy_subdomain_cpanel\" \"http://127.0.0.1:2082\" max=1 retry=0\n\n\n    RewriteCond %{HTTP_HOST} !^server.example.test$\n    RewriteCond %{HTTP_HOST} ^webmail\\.\n    RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n    RewriteRule ^/(.*) /___proxy_subdomain_webmail/$1 [PT]\n    ProxyPass \"/___proxy_subdomain_webmail\" \"http://127.0.0.1:2095\" max=1 retry=0\n\n\n    RewriteCond %{HTTP_HOST} !^server.example.test$\n    RewriteCond %{HTTP_HOST} ^whm\\.\n    RewriteCond %{HTTP:Upgrade} !websocket   [nocase]\n\n    RewriteRule ^/(.*) /___proxy_subdomain_whm/$1 [PT]\n    ProxyPass \"/___proxy_subdomain_whm\" \"http://127.0.0.1:2086\" max=1 retry=0\n\n\n    RewriteCond %{HTTP_HOST} !^server.example.test$\n    RewriteCond %{HTTP_HOST} ^webdisk\\.\n\n    RewriteRule ^/(.*) /___proxy_subdomain_webdisk/$1 [PT]\n    ProxyPass \"/___proxy_subdomain_webdisk\" \"http://127.0.0.1:2077\" max=1 retry=0\n\n\n    RewriteCond %{HTTP_HOST} !^server.example.test$\n    RewriteCond %{HTTP_HOST} ^cpcontacts\\.\n\n    RewriteRule ^/(.*) /___proxy_subdomain_cpcontacts/$1 [PT]\n    ProxyPass \"/___proxy_subdomain_cpcontacts\" \"http://127.0.0.1:2079\" max=1 retry=0\n\n\n    RewriteCond %{HTTP_HOST} !^server.example.test$\n    RewriteCond %{HTTP_HOST} ^cpcalendars\\.\n\n    RewriteRule ^/(.*) /___proxy_subdomain_cpcalendars/$1 [PT]\n    ProxyPass \"/___proxy_subdomain_cpcalendars\" \"http://127.0.0.1:2079\" max=1 retry=0\n\n\n\n    RewriteCond %{HTTP_HOST} !^server.example.test$\n    RewriteCond %{HTTP_HOST} ^autodiscover\\.\n    RewriteRule ^[^?]*(\\\\?.*)? http://127.0.0.1/cgi-sys/autodiscover.cgi [P]\n\n    RewriteCond %{HTTP_HOST} !^server.example.test$\n    RewriteCond %{HTTP_HOST} ^autoconfig\\.\n    RewriteRule ^[^?]*(\\\\?.*)? http://127.0.0.1/cgi-sys/autoconfig.cgi [P]\n\n\n\n                    RewriteCond %{HTTP_HOST} ^cpanel\\.\n    RewriteCond %{HTTP:Upgrade} websocket   [nocase]\n    RewriteRule ^/(.*) /___proxy_subdomain_ws_cpanel/$1 [PT]\n\n        RewriteCond %{HTTP_HOST} ^webmail\\.\n    RewriteCond %{HTTP:Upgrade} websocket   [nocase]\n    RewriteRule ^/(.*) /___proxy_subdomain_ws_webmail/$1 [PT]\n\n        RewriteCond %{HTTP_HOST} ^whm\\.\n    RewriteCond %{HTTP:Upgrade} websocket   [nocase]\n    RewriteRule ^/(.*) /___proxy_subdomain_ws_whm/$1 [PT]\n    \n\n    UseCanonicalName Off\n\n    <IfModule security2_module>\n        SecRuleEngine On\n    </IfModule>\n    <IfModule security3_module>\n        modsecurity_rules 'SecRuleEngine On'\n    </IfModule>\n</VirtualHost>\n\n# Administrator locations for safely altering virtualhost configuration\nInclude \"/etc/apache2/conf.d/includes/post_virtualhost_global.conf\"\n\n# Major Version Specific\nInclude \"/etc/apache2/conf.d/includes/post_virtualhost_2.conf\"\n\n##################################################\n##################################################\n#\n# Define the Domain Forwarding virtual hosts\n#\n##################################################\n##################################################\n\n# Domain forwarding is currently disabled.\n# You can set this by logging into WHM, and navigating to the 'DNS Functions' => 'Setup/Edit Domain Forwarding' interface.\n\n\n##################################################\n##################################################\n#\n# Default SSL Hostname Virtual Host\n#\n##################################################\n##################################################\n<VirtualHost 127.0.0.1:443 172.16.0.4:443 *:443>\n    ServerName server.example.test\n    DocumentRoot /var/www/html\n\n    ServerAdmin root@server.example.test\n    <IfModule suphp_module>\n        suPHP_UserGroup nobody nobody\n    </IfModule>\n    <Directory \"/var/www/html\">\n        AllowOverride All\n    </Directory>\n\n    \n    <IfModule ssl_module>\n        SSLEngine on\n        \n\n        SSLCertificateFile /var/cpanel/ssl/cpanel/mycpanel.pem\n        SSLCertificateKeyFile /var/cpanel/ssl/cpanel/mycpanel.pem\n        SSLCertificateChainFile /var/cpanel/ssl/cpanel/mycpanel.pem\n        SSLUseStapling Off\n\n    </IfModule>\n\n    UseCanonicalName Off\n\n    <IfModule security2_module>\n        SecRuleEngine On\n    </IfModule>\n    <IfModule security3_module>\n        modsecurity_rules 'SecRuleEngine On'\n    </IfModule>\n</VirtualHost>\n\n# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #\n#\n#   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n#   DO NOT EDIT. AUTOMATICALLY GENERATED.  USE INCLUDE FILES IF YOU NEED TO MAKE A CHANGE\n#   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n#\n# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #\n\n"
+  },
+  {
+   "argv": [
+    "/usr/sbin/ip",
+    "-6",
+    "-o",
+    "addr",
+    "show",
+    "scope",
+    "global"
+   ],
+   "exit_code": 0,
+   "name": "ipv6-addresses",
+   "stdout": "2: eth0    inet6 fd00:6c73:6371::/64 scope global \\       valid_lft forever preferred_lft forever\n"
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/bandmin/htdocs/"
+   ],
+   "exit_code": 1,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/img-sys/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/java-sys/"
+   ],
+   "exit_code": 1,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/3rdparty/mailman/archives/public/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/3rdparty/mailman/archives/public/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/sys_cpanel/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/home/olscpa/public_html/blog/cgi-bin/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/cgi-sys/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/3rdparty/mailman/cgi-bin/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/bandmin/htdocs/"
+   ],
+   "exit_code": 1,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/img-sys/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/java-sys/"
+   ],
+   "exit_code": 1,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/3rdparty/mailman/archives/public/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/3rdparty/mailman/archives/public/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/sys_cpanel/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/home/olscpa/public_html/olscp-c.test/cgi-bin/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/cgi-sys/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/3rdparty/mailman/cgi-bin/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/bandmin/htdocs/"
+   ],
+   "exit_code": 1,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/img-sys/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/java-sys/"
+   ],
+   "exit_code": 1,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/3rdparty/mailman/archives/public/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/3rdparty/mailman/archives/public/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/sys_cpanel/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/home/olscpa/public_html/cgi-bin/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/cgi-sys/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/3rdparty/mailman/cgi-bin/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/bandmin/htdocs/"
+   ],
+   "exit_code": 1,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/img-sys/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/java-sys/"
+   ],
+   "exit_code": 1,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/3rdparty/mailman/archives/public/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/3rdparty/mailman/archives/public/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/sys_cpanel/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/home/olscpa/public_html/secure/cgi-bin/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/cgi-sys/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/3rdparty/mailman/cgi-bin/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/bandmin/htdocs/"
+   ],
+   "exit_code": 1,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/img-sys/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/java-sys/"
+   ],
+   "exit_code": 1,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/3rdparty/mailman/archives/public/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/3rdparty/mailman/archives/public/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/sys_cpanel/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/home/olscpb/public_html/cgi-bin/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/cgi-sys/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/3rdparty/mailman/cgi-bin/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-f",
+    "/var/cpanel/ssl/cpanel/mycpanel.pem"
+   ],
+   "exit_code": 0,
+   "name": "service-cert",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/bandmin/htdocs/"
+   ],
+   "exit_code": 1,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/img-sys/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/java-sys/"
+   ],
+   "exit_code": 1,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/3rdparty/mailman/archives/public/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/3rdparty/mailman/archives/public/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/sys_cpanel/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/var/www/html/cgi-bin/"
+   ],
+   "exit_code": 1,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/cgi-sys/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/bin/test",
+    "-d",
+    "/usr/local/cpanel/3rdparty/mailman/cgi-bin/"
+   ],
+   "exit_code": 0,
+   "name": "alias-dir",
+   "stdout": ""
+  }
+ ],
+ "compiled": {
+  "config": "# Empty-lab G0-A ownership configuration: OLS owns public 80/443 with a static lab vhost.\n# Requires the product build (autoDetectCdn/enableUpdateCheck). Not a production configuration.\nserverName                       ols-cpanel-lab\nuser                             nobody\ngroup                            nobody\nautoRestart                      1\nenableChroot                     0\ninMemBufSize                     60M\nswappingDir                      /run/ols-cpanel/lshttpd/swap\nstatDir                          /run/ols-cpanel/status\nshmDefaultDir                    /run/ols-cpanel/shm/\ngracefulRestartTimeout           300\nmime                             conf/mime.properties\nshowVersionNumber                0\nadminEmails                      root@localhost\nindexFiles                       index.html\ndisableWebAdmin                  1\nautoDetectCdn                    0\nenableUpdateCheck                0\n\nerrorlog logs/error.log {\n    logLevel             INFO\n    debugLevel           0\n    rollingSize          10M\n    enableStderrLog      1\n}\naccessLog logs/access.log {\n    rollingSize          10M\n    keepDays             7\n}\ntuning {\n    maxConnections       200\n    maxSSLConnections    200\n    # HTTP/3 (FV-04): QUIC on the HTTPS listeners (UDP beside TCP, listener key enableQuic, default 1). Its shared\n    # state lives under /run/ols-cpanel like every other (RV-30), never in a world-writable directory; the\n    # compiler writes quicEnable 0 and enableQuic 0 when the operator opted out (/var/lib/ols-cpanel/http3.json).\n    quicEnable           1\n    quicShmDir           /run/ols-cpanel/shm/\n    # Compression of dynamic and cached responses (OLS defaults it off; static files are compressed by\n    # default). Brotli where the client offers it, gzip otherwise; compressed static copies kept up to date.\n    enableGzipCompress   1\n    enableDynGzipCompress 1\n    gzipCompressLevel    6\n    enableBrCompress     4\n    gzipAutoUpdateStatic 1\n    gzipStaticCompressLevel 6\n    brStaticCompressLevel 6\n}\naccessDenyDir {\n    dir                  /\n    dir                  /etc/*\n    dir                  /dev/*\n    dir                  conf/*\n    dir                  admin/conf/*\n}\nfileAccessControl {\n    followSymbolLink     2\n    checkSymbolLink      1\n    requiredPermissionMask    000\n    restrictedPermissionMask  000\n}\n# Required: without this block lscgid refuses every LSAPI start (cgidSuEXEC failed).\nCGIRLimit {\n    maxCGIInstances      20\n    minUID               11\n    minGID               10\n    priority             0\n    CPUSoftLimit         10\n    CPUHardLimit         50\n    memSoftLimit         2047M\n    memHardLimit         2047M\n    procSoftLimit        400\n    procHardLimit        450\n}\naccessControl {\n    allow                ALL\n}\nmodule cache {\n    ls_enabled           0\n    checkPublicCache     1\n    checkPrivateCache    1\n    enableCache          0\n    enablePrivateCache   0\n    qsCache              1\n    reqCookieCache       1\n    respCookieCache      1\n    ignoreReqCacheCtrl   1\n    ignoreRespCacheCtrl  0\n    expireInSeconds      3600\n    privateExpireInSeconds 3600\n    maxStaleAge          200\n    maxCacheObjSize      10000000\n    storagePath          /var/lib/ols-cpanel/cache/server\n}\nvirtualHost blog.olstest1.example.test {\n    vhRoot               /home/olscpa/\n    configFile           conf/vhosts/blog.olstest1.example.test/vhconf.conf\n    allowSymbolLink      2\n    enableScript         1\n    restrained           1\n    setUIDMode           2\n}\nvirtualHost olscpc.olstest1.example.test {\n    vhRoot               /home/olscpa/\n    configFile           conf/vhosts/olscpc.olstest1.example.test/vhconf.conf\n    allowSymbolLink      2\n    enableScript         1\n    restrained           1\n    setUIDMode           2\n}\nvirtualHost svc.olscpc.olstest1.example.test {\n    vhRoot               /home/olscpa/\n    configFile           $SERVER_ROOT/conf/vhosts/svc.olscpc.olstest1.example.test/vhconf.conf\n    allowSymbolLink      2\n    enableScript         1\n    restrained           1\n    setUIDMode           0\n}\nvirtualHost olstest1.example.test {\n    vhRoot               /home/olscpa/\n    configFile           conf/vhosts/olstest1.example.test/vhconf.conf\n    allowSymbolLink      2\n    enableScript         1\n    restrained           1\n    setUIDMode           2\n}\nvirtualHost svc.olstest1.example.test {\n    vhRoot               /home/olscpa/\n    configFile           $SERVER_ROOT/conf/vhosts/svc.olstest1.example.test/vhconf.conf\n    allowSymbolLink      2\n    enableScript         1\n    restrained           1\n    setUIDMode           0\n}\nvirtualHost secure.olstest1.example.test {\n    vhRoot               /home/olscpa/\n    configFile           conf/vhosts/secure.olstest1.example.test/vhconf.conf\n    allowSymbolLink      2\n    enableScript         1\n    restrained           1\n    setUIDMode           2\n}\nvirtualHost olstest2.example.test {\n    vhRoot               /home/olscpb/\n    configFile           conf/vhosts/olstest2.example.test/vhconf.conf\n    allowSymbolLink      2\n    enableScript         1\n    restrained           1\n    setUIDMode           2\n}\nvirtualHost svc.olstest2.example.test {\n    vhRoot               /home/olscpb/\n    configFile           $SERVER_ROOT/conf/vhosts/svc.olstest2.example.test/vhconf.conf\n    allowSymbolLink      2\n    enableScript         1\n    restrained           1\n    setUIDMode           0\n}\nvirtualHost cpanel-proxy {\n    vhRoot               /var/www/html/\n    configFile           $SERVER_ROOT/conf/vhosts/cpanel-proxy/vhconf.conf\n    allowSymbolLink      0\n    enableScript         1\n    restrained           1\n    setUIDMode           0\n}\nvirtualHost server-default {\n    vhRoot               /var/www/html/\n    configFile           $SERVER_ROOT/conf/vhosts/server-default/vhconf.conf\n    allowSymbolLink      0\n    enableScript         1\n    restrained           1\n    setUIDMode           0\n}\nextProcessor cpsrvd2077 {\n    type                 proxy\n    address              127.0.0.1:2077\n    maxConns             20\n    initTimeout          60\n    retryTimeout         0\n    respBuffer           0\n}\nextProcessor cpsrvd2079 {\n    type                 proxy\n    address              127.0.0.1:2079\n    maxConns             20\n    initTimeout          60\n    retryTimeout         0\n    respBuffer           0\n}\nextProcessor cpsrvd2082 {\n    type                 proxy\n    address              127.0.0.1:2082\n    maxConns             20\n    initTimeout          60\n    retryTimeout         0\n    respBuffer           0\n}\nextProcessor cpsrvd2086 {\n    type                 proxy\n    address              127.0.0.1:2086\n    maxConns             20\n    initTimeout          60\n    retryTimeout         0\n    respBuffer           0\n}\nextProcessor cpsrvd2090 {\n    type                 proxy\n    address              127.0.0.1:2090\n    maxConns             20\n    initTimeout          60\n    retryTimeout         0\n    respBuffer           0\n}\nextProcessor cpsrvd2095 {\n    type                 proxy\n    address              127.0.0.1:2095\n    maxConns             20\n    initTimeout          60\n    retryTimeout         0\n    respBuffer           0\n}\nlistener http {\n    address              *:80\n    secure               0\n    map                  blog.olstest1.example.test blog.olstest1.example.test, www.blog.olstest1.example.test\n    map                  olscpc.olstest1.example.test olscpc.olstest1.example.test, www.olscpc.olstest1.example.test, mail.olscp-c.test, www.olscp-c.test, olscp-c.test\n    map                  olstest1.example.test olstest1.example.test, www.olstest1.example.test, ipv6.olstest1.example.test, mail.olscp-alias.test, mail.olstest1.example.test, www.olscp-alias.test, olscp-alias.test\n    map                  secure.olstest1.example.test secure.olstest1.example.test, www.secure.olstest1.example.test\n    map                  olstest2.example.test olstest2.example.test, www.olstest2.example.test, mail.olstest2.example.test\n    map                  svc.olscpc.olstest1.example.test cpanel.olscp-c.test, webmail.olscp-c.test, webdisk.olscp-c.test, cpcalendars.olscp-c.test, cpcontacts.olscp-c.test, autoconfig.olscp-c.test, autodiscover.olscp-c.test\n    map                  svc.olstest1.example.test cpanel.olstest1.example.test, webmail.olstest1.example.test, webdisk.olstest1.example.test, cpcalendars.olstest1.example.test, cpcontacts.olstest1.example.test, autoconfig.olstest1.example.test, autodiscover.olstest1.example.test\n    map                  svc.olstest2.example.test cpanel.olstest2.example.test, webmail.olstest2.example.test, webdisk.olstest2.example.test, cpcalendars.olstest2.example.test, cpcontacts.olstest2.example.test, autoconfig.olstest2.example.test, autodiscover.olstest2.example.test\n    map                  cpanel-proxy cpanel.*, webmail.*, whm.*, webdisk.*, cpcontacts.*, cpcalendars.*, autoconfig.*, autodiscover.*\n    map                  server-default *\n}\nlistener https {\n    address              *:443\n    secure               1\n    keyFile              $SERVER_ROOT/conf/cert/lab.key\n    certFile             $SERVER_ROOT/conf/cert/lab.crt\n    enableQuic           1\n    map                  blog.olstest1.example.test blog.olstest1.example.test, www.blog.olstest1.example.test\n    map                  olscpc.olstest1.example.test olscpc.olstest1.example.test, www.olscpc.olstest1.example.test, mail.olscp-c.test, www.olscp-c.test, olscp-c.test\n    map                  olstest1.example.test olstest1.example.test, www.olstest1.example.test, ipv6.olstest1.example.test, mail.olscp-alias.test, mail.olstest1.example.test, www.olscp-alias.test, olscp-alias.test\n    map                  secure.olstest1.example.test secure.olstest1.example.test, www.secure.olstest1.example.test\n    map                  olstest2.example.test olstest2.example.test, www.olstest2.example.test, mail.olstest2.example.test\n    map                  svc.olscpc.olstest1.example.test cpanel.olscp-c.test, webmail.olscp-c.test, webdisk.olscp-c.test, cpcalendars.olscp-c.test, cpcontacts.olscp-c.test, autoconfig.olscp-c.test, autodiscover.olscp-c.test\n    map                  svc.olstest1.example.test cpanel.olstest1.example.test, webmail.olstest1.example.test, webdisk.olstest1.example.test, cpcalendars.olstest1.example.test, cpcontacts.olstest1.example.test, autoconfig.olstest1.example.test, autodiscover.olstest1.example.test\n    map                  svc.olstest2.example.test cpanel.olstest2.example.test, webmail.olstest2.example.test, webdisk.olstest2.example.test, cpcalendars.olstest2.example.test, cpcontacts.olstest2.example.test, autoconfig.olstest2.example.test, autodiscover.olstest2.example.test\n    map                  cpanel-proxy cpanel.*, webmail.*, whm.*, webdisk.*, cpcontacts.*, cpcalendars.*, autoconfig.*, autodiscover.*\n    map                  olscpc.olstest1.example.test *\n}\nlistener http6-0 {\n    address              [::1]:80\n    secure               0\n    map                  server-default *\n}\nlistener https6-0 {\n    address              [::1]:443\n    secure               1\n    keyFile              $SERVER_ROOT/conf/cert/lab.key\n    certFile             $SERVER_ROOT/conf/cert/lab.crt\n    enableQuic           1\n    map                  server-default *\n}\nlistener http6-1 {\n    address              [fd00:6c73:6371::]:80\n    secure               0\n    map                  blog.olstest1.example.test blog.olstest1.example.test, www.blog.olstest1.example.test\n    map                  olscpc.olstest1.example.test olscpc.olstest1.example.test, www.olscpc.olstest1.example.test, mail.olscp-c.test, www.olscp-c.test, olscp-c.test\n    map                  olstest1.example.test olstest1.example.test, www.olstest1.example.test, ipv6.olstest1.example.test, mail.olscp-alias.test, mail.olstest1.example.test, www.olscp-alias.test, olscp-alias.test\n    map                  secure.olstest1.example.test secure.olstest1.example.test, www.secure.olstest1.example.test\n    map                  cpanel-proxy cpanel.*, webmail.*, whm.*, webdisk.*, cpcontacts.*, cpcalendars.*, autoconfig.*, autodiscover.*\n    map                  olstest1.example.test *\n}\nlistener https6-1 {\n    address              [fd00:6c73:6371::]:443\n    secure               1\n    keyFile              $SERVER_ROOT/conf/cert/lab.key\n    certFile             $SERVER_ROOT/conf/cert/lab.crt\n    enableQuic           1\n    map                  blog.olstest1.example.test blog.olstest1.example.test, www.blog.olstest1.example.test\n    map                  olscpc.olstest1.example.test olscpc.olstest1.example.test, www.olscpc.olstest1.example.test, mail.olscp-c.test, www.olscp-c.test, olscp-c.test\n    map                  olstest1.example.test olstest1.example.test, www.olstest1.example.test, ipv6.olstest1.example.test, mail.olscp-alias.test, mail.olstest1.example.test, www.olscp-alias.test, olscp-alias.test\n    map                  secure.olstest1.example.test secure.olstest1.example.test, www.secure.olstest1.example.test\n    map                  svc.olscpc.olstest1.example.test cpanel.olscp-c.test, webmail.olscp-c.test, webdisk.olscp-c.test, cpcalendars.olscp-c.test, cpcontacts.olscp-c.test, autoconfig.olscp-c.test, autodiscover.olscp-c.test\n    map                  svc.olstest1.example.test cpanel.olstest1.example.test, webmail.olstest1.example.test, webdisk.olstest1.example.test, cpcalendars.olstest1.example.test, cpcontacts.olstest1.example.test, autoconfig.olstest1.example.test, autodiscover.olstest1.example.test\n    map                  cpanel-proxy cpanel.*, webmail.*, whm.*, webdisk.*, cpcontacts.*, cpcalendars.*, autoconfig.*, autodiscover.*\n    map                  olscpc.olstest1.example.test *\n}\n",
+  "vhconf": {
+   "blog.olstest1.example.test": "docRoot                  /home/olscpa/public_html/blog/\nvhDomain                 blog.olstest1.example.test\nerrorlog /var/lib/ols-cpanel-lab/logs/blog.olstest1.example.test-error.log {\n    useServer            0\n    logLevel             INFO\n}\nindex {\n    useServer            0\n    indexFiles           index.html, index.php\n    # Mirrors the lab Apache, which lists directories unless \"Options -Indexes\" applies.\n    autoIndex            1\n}\nextProcessor olscpa-php {\n    type                 lsapi\n    address              uds://run/ols-cpanel/lshttpd/blog.olstest1.example.test-php.sock\n    maxConns             5\n    env                  PHP_LSAPI_CHILDREN=5\n    env                  LSPHP_ENABLE_USER_INI=on\n    env                  LSAPI_MAX_IDLE=10\n    initTimeout          60\n    retryTimeout         0\n    persistConn          1\n    respBuffer           0\n    autoStart            2\n    path                 /opt/cpanel/ea-php83/root/usr/bin/lsphp\n    extUser              olscpa\n    extGroup             olscpa\n    backlog              50\n    instances            1\n    memSoftLimit         0\n    memHardLimit         0\n    procSoftLimit        400\n    procHardLimit        500\n}\nscripthandler {\n    add                  lsapi:olscpa-php phtml\n    add                  lsapi:olscpa-php php\n    add                  lsapi:olscpa-php php3\n    add                  lsapi:olscpa-php php4\n    add                  lsapi:olscpa-php php5\n    add                  lsapi:olscpa-php php6\n    add                  lsapi:olscpa-php php7\n    add                  lsapi:olscpa-php php8\n}\nrewrite {\n    enable               1\n    autoLoadHtaccess     0\n    rules                <<<END_rules\nRewriteCond %{REQUEST_METHOD} ^(PURGE|REFRESH)$ [NC]\nRewriteRule ^ - [F]\nRewriteCond %{REQUEST_URI} ^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$\nRewriteRule ^ - [L]\nRewriteCond %{HTTPS} on\nRewriteRule ^/?Microsoft-Server-ActiveSync http://cpsrvd2090/Microsoft-Server-ActiveSync/ [P,L]\nRewriteRule ^/?(controlpanel|cpanel|kpanel)/?$ /cgi-sys/redirect.cgi [L]\nRewriteRule ^/?(securecontrolpanel|securecpanel)/?$ /cgi-sys/sredirect.cgi [L]\nRewriteRule ^/?securewhm/?$ /cgi-sys/swhmredirect.cgi [L]\nRewriteRule ^/?webmail(/.*)?$ /cgi-sys/wredirect.cgi [L]\nRewriteRule ^/?whm/?$ /cgi-sys/whmredirect.cgi [L]\nRewriteRule ^/[Aa]utodiscover/[Aa]utodiscover\\.xml /cgi-sys/autodiscover.cgi [L]\nEND_rules\n}\ncontext exp:^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$ {\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n}\ncontext exp:(^|/)(\\.ht(access|passwds?)|\\.user\\.ini|php\\.ini|error_log)$ {\n  allowBrowse             0\n}\ncontext /img-sys/ {\n  location                /usr/local/cpanel/img-sys/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /mailman/archives/ {\n  location                /usr/local/cpanel/3rdparty/mailman/archives/public/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nHeader set X-Content-Type-Options nosniff\nEND_extraHeaders\n}\ncontext /pipermail/ {\n  location                /usr/local/cpanel/3rdparty/mailman/archives/public/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nHeader set X-Content-Type-Options nosniff\nEND_extraHeaders\n}\ncontext /sys_cpanel/ {\n  location                /usr/local/cpanel/sys_cpanel/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /cgi-bin/ {\n  type                    cgi\n  location                $DOC_ROOT/cgi-bin/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /cgi-sys/ {\n  type                    cgi\n  location                /usr/local/cpanel/cgi-sys/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /mailman/ {\n  type                    cgi\n  location                /usr/local/cpanel/3rdparty/mailman/cgi-bin/\n  allowBrowse             1\n  allowSetUID             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /cpanelwebcall/ {\n  type                    proxy\n  handler                 cpsrvd2082\n  addDefaultCharset       off\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\naccesslog /run/ols-cpanel/logs/access.fifo {\n    useServer            0\n    rollingSize          0\n    logFormat            blog.olstest1.example.test:%p %a %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"\n}\naccesslog /run/ols-cpanel/logs/bytes.fifo {\n    useServer            0\n    rollingSize          0\n    logFormat            blog.olstest1.example.test %{%s}t %S .\n}\n\nphpIniOverride  {\nphp_admin_flag allow_url_fopen 1\nphp_admin_flag log_errors 1\nphp_admin_value disable_functions exec,passthru,shell_exec,system\nphp_admin_value doc_root /home/olscpa/public_html/blog\nphp_admin_value error_log /home/olscpa/logs/blog_olstest1_example_test.php.error.log\nphp_admin_value short_open_tag 1\nphp_value error_reporting 32759\n}\ncontext / {\n  location                /home/olscpa/public_html/blog/\n  extraHeaders            <<<END_extraHeaders\nHeader set X-Frame-Options \"SAMEORIGIN\"\nEND_extraHeaders\n}\ncontext exp:^/(.*/)?\\.env$ {\n  allowBrowse             0\n}\nerrorPage 404 {\n  url                     /404.html\n}\nvhssl {\n    keyFile              /var/cpanel/ssl/apache_tls/blog.olstest1.example.test/combined\n    certFile             /var/cpanel/ssl/apache_tls/blog.olstest1.example.test/combined\n    certChain            1\n}\nmodule cache {\n    ls_enabled           1\n    checkPublicCache     1\n    checkPrivateCache    1\n    enableCache          0\n    enablePrivateCache   0\n    qsCache              1\n    reqCookieCache       1\n    respCookieCache      1\n    ignoreReqCacheCtrl   1\n    ignoreRespCacheCtrl  0\n    expireInSeconds      3600\n    privateExpireInSeconds 3600\n    maxStaleAge          200\n    maxCacheObjSize      10000000\n    storagePath          /var/lib/ols-cpanel/cache/olscpa@blog.olstest1.example.test\n}\n",
+   "cpanel-proxy": "docRoot                  /var/www/html/\nrewrite {\n    enable               1\n    autoLoadHtaccess     0\n    rules                <<<END_rules\nRewriteCond %{HTTPS} !on\nRewriteCond %{REQUEST_URI} ^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$\nRewriteRule ^ - [L]\nRewriteCond %{HTTP:Upgrade} websocket [NC]\nRewriteCond %{HTTP_HOST} ^cpanel\\.\nRewriteRule ^/?(.*)$ ws://127.0.0.1:2082/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} websocket [NC]\nRewriteCond %{HTTP_HOST} ^webmail\\.\nRewriteRule ^/?(.*)$ ws://127.0.0.1:2095/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} websocket [NC]\nRewriteCond %{HTTP_HOST} ^whm\\.\nRewriteRule ^/?(.*)$ ws://127.0.0.1:2086/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^cpanel\\.\nRewriteRule ^/?(.*)$ http://cpsrvd2082/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^webmail\\.\nRewriteRule ^/?(.*)$ http://cpsrvd2095/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^whm\\.\nRewriteRule ^/?(.*)$ http://cpsrvd2086/$1 [P,L]\nRewriteCond %{HTTP_HOST} ^webdisk\\.\nRewriteRule ^/?(.*)$ http://cpsrvd2077/$1 [P,L]\nRewriteCond %{HTTP_HOST} ^cpcontacts\\.\nRewriteRule ^/?(.*)$ http://cpsrvd2079/$1 [P,L]\nRewriteCond %{HTTP_HOST} ^cpcalendars\\.\nRewriteRule ^/?(.*)$ http://cpsrvd2079/$1 [P,L]\nRewriteCond %{HTTP_HOST} ^autoconfig\\.\nRewriteRule ^ /cgi-sys/autoconfig.cgi [L]\nRewriteCond %{HTTP_HOST} ^autodiscover\\.\nRewriteRule ^ /cgi-sys/autodiscover.cgi [L]\nEND_rules\n}\ncontext exp:^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$ {\n  type                    cgi\n  location                /usr/local/cpanel/cgi-priv/get_local.cgi\n  allowBrowse             1\n}\ncontext /cgi-sys/ {\n  type                    cgi\n  location                /usr/local/cpanel/cgi-sys/\n  allowBrowse             1\n}\nvhssl {\n    keyFile              /var/cpanel/ssl/cpanel/mycpanel.pem\n    certFile             /var/cpanel/ssl/cpanel/mycpanel.pem\n    certChain            1\n}\n",
+   "olscpc.olstest1.example.test": "docRoot                  /home/olscpa/public_html/olscp-c.test/\nvhDomain                 olscpc.olstest1.example.test\nerrorlog /var/lib/ols-cpanel-lab/logs/olscpc.olstest1.example.test-error.log {\n    useServer            0\n    logLevel             INFO\n}\nindex {\n    useServer            0\n    indexFiles           index.html, index.php\n    # Mirrors the lab Apache, which lists directories unless \"Options -Indexes\" applies.\n    autoIndex            1\n}\nextProcessor olscpa-php {\n    type                 lsapi\n    address              uds://run/ols-cpanel/lshttpd/olscpc.olstest1.example.test-php.sock\n    maxConns             5\n    env                  PHP_LSAPI_CHILDREN=5\n    env                  LSPHP_ENABLE_USER_INI=on\n    env                  LSAPI_MAX_IDLE=10\n    initTimeout          60\n    retryTimeout         0\n    persistConn          1\n    respBuffer           0\n    autoStart            2\n    path                 /opt/cpanel/ea-php83/root/usr/bin/lsphp\n    extUser              olscpa\n    extGroup             olscpa\n    backlog              50\n    instances            1\n    memSoftLimit         0\n    memHardLimit         0\n    procSoftLimit        400\n    procHardLimit        500\n}\nscripthandler {\n    add                  lsapi:olscpa-php phtml\n    add                  lsapi:olscpa-php php\n    add                  lsapi:olscpa-php php3\n    add                  lsapi:olscpa-php php4\n    add                  lsapi:olscpa-php php5\n    add                  lsapi:olscpa-php php6\n    add                  lsapi:olscpa-php php7\n    add                  lsapi:olscpa-php php8\n}\nrewrite {\n    enable               1\n    autoLoadHtaccess     0\n    rules                <<<END_rules\nRewriteCond %{REQUEST_METHOD} ^(PURGE|REFRESH)$ [NC]\nRewriteRule ^ - [F]\nRewriteCond %{REQUEST_URI} ^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$\nRewriteRule ^ - [L]\nRewriteCond %{HTTPS} on\nRewriteRule ^/?Microsoft-Server-ActiveSync http://cpsrvd2090/Microsoft-Server-ActiveSync/ [P,L]\nRewriteRule ^/?(controlpanel|cpanel|kpanel)/?$ /cgi-sys/redirect.cgi [L]\nRewriteRule ^/?(securecontrolpanel|securecpanel)/?$ /cgi-sys/sredirect.cgi [L]\nRewriteRule ^/?securewhm/?$ /cgi-sys/swhmredirect.cgi [L]\nRewriteRule ^/?webmail(/.*)?$ /cgi-sys/wredirect.cgi [L]\nRewriteRule ^/?whm/?$ /cgi-sys/whmredirect.cgi [L]\nRewriteRule ^/[Aa]utodiscover/[Aa]utodiscover\\.xml /cgi-sys/autodiscover.cgi [L]\nEND_rules\n}\ncontext exp:^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$ {\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n}\ncontext exp:(^|/)(\\.ht(access|passwds?)|\\.user\\.ini|php\\.ini|error_log)$ {\n  allowBrowse             0\n}\ncontext /img-sys/ {\n  location                /usr/local/cpanel/img-sys/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /mailman/archives/ {\n  location                /usr/local/cpanel/3rdparty/mailman/archives/public/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nHeader set X-Content-Type-Options nosniff\nEND_extraHeaders\n}\ncontext /pipermail/ {\n  location                /usr/local/cpanel/3rdparty/mailman/archives/public/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nHeader set X-Content-Type-Options nosniff\nEND_extraHeaders\n}\ncontext /sys_cpanel/ {\n  location                /usr/local/cpanel/sys_cpanel/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /cgi-bin/ {\n  type                    cgi\n  location                $DOC_ROOT/cgi-bin/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /cgi-sys/ {\n  type                    cgi\n  location                /usr/local/cpanel/cgi-sys/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /mailman/ {\n  type                    cgi\n  location                /usr/local/cpanel/3rdparty/mailman/cgi-bin/\n  allowBrowse             1\n  allowSetUID             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /cpanelwebcall/ {\n  type                    proxy\n  handler                 cpsrvd2082\n  addDefaultCharset       off\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\naccesslog /run/ols-cpanel/logs/access.fifo {\n    useServer            0\n    rollingSize          0\n    logFormat            olscpc.olstest1.example.test:%p %a %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"\n}\naccesslog /run/ols-cpanel/logs/bytes.fifo {\n    useServer            0\n    rollingSize          0\n    logFormat            olscpc.olstest1.example.test %{%s}t %S .\n}\n\nphpIniOverride  {\nphp_admin_flag allow_url_fopen 1\nphp_admin_flag log_errors 1\nphp_admin_value disable_functions exec,passthru,shell_exec,system\nphp_admin_value doc_root /home/olscpa/public_html/olscp-c.test\nphp_admin_value error_log /home/olscpa/logs/olscp-c_test.php.error.log\nphp_admin_value short_open_tag 1\nphp_value error_reporting 32759\n}\ncontext / {\n  location                /home/olscpa/public_html/olscp-c.test/\n  extraHeaders            <<<END_extraHeaders\nHeader set X-Frame-Options \"SAMEORIGIN\"\nEND_extraHeaders\n}\ncontext exp:^/(.*/)?\\.env$ {\n  allowBrowse             0\n}\nerrorPage 404 {\n  url                     /404.html\n}\nvhssl {\n    keyFile              /var/cpanel/ssl/apache_tls/olscpc.olstest1.example.test/combined\n    certFile             /var/cpanel/ssl/apache_tls/olscpc.olstest1.example.test/combined\n    certChain            1\n}\nmodule cache {\n    ls_enabled           1\n    checkPublicCache     1\n    checkPrivateCache    1\n    enableCache          0\n    enablePrivateCache   0\n    qsCache              1\n    reqCookieCache       1\n    respCookieCache      1\n    ignoreReqCacheCtrl   1\n    ignoreRespCacheCtrl  0\n    expireInSeconds      3600\n    privateExpireInSeconds 3600\n    maxStaleAge          200\n    maxCacheObjSize      10000000\n    storagePath          /var/lib/ols-cpanel/cache/olscpa@olscpc.olstest1.example.test\n}\n",
+   "olstest1.example.test": "docRoot                  /home/olscpa/public_html/\nvhDomain                 olstest1.example.test\nerrorlog /var/lib/ols-cpanel-lab/logs/olstest1.example.test-error.log {\n    useServer            0\n    logLevel             INFO\n}\nindex {\n    useServer            0\n    indexFiles           index.html, index.php\n    # Mirrors the lab Apache, which lists directories unless \"Options -Indexes\" applies.\n    autoIndex            1\n}\nextProcessor olscpa-php {\n    type                 lsapi\n    address              uds://run/ols-cpanel/lshttpd/olstest1.example.test-php.sock\n    maxConns             5\n    env                  PHP_LSAPI_CHILDREN=5\n    env                  LSPHP_ENABLE_USER_INI=on\n    env                  LSAPI_MAX_IDLE=10\n    initTimeout          60\n    retryTimeout         0\n    persistConn          1\n    respBuffer           0\n    autoStart            2\n    path                 /opt/cpanel/ea-php83/root/usr/bin/lsphp\n    extUser              olscpa\n    extGroup             olscpa\n    backlog              50\n    instances            1\n    memSoftLimit         0\n    memHardLimit         0\n    procSoftLimit        400\n    procHardLimit        500\n}\nscripthandler {\n    add                  lsapi:olscpa-php phtml\n    add                  lsapi:olscpa-php php\n    add                  lsapi:olscpa-php php3\n    add                  lsapi:olscpa-php php4\n    add                  lsapi:olscpa-php php5\n    add                  lsapi:olscpa-php php6\n    add                  lsapi:olscpa-php php7\n    add                  lsapi:olscpa-php php8\n}\nrewrite {\n    enable               1\n    autoLoadHtaccess     0\n    rules                <<<END_rules\nRewriteCond %{REQUEST_METHOD} ^(PURGE|REFRESH)$ [NC]\nRewriteRule ^ - [F]\nRewriteCond %{REQUEST_URI} ^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$\nRewriteRule ^ - [L]\nRewriteCond %{HTTPS} on\nRewriteRule ^/?Microsoft-Server-ActiveSync http://cpsrvd2090/Microsoft-Server-ActiveSync/ [P,L]\nRewriteRule ^/?(controlpanel|cpanel|kpanel)/?$ /cgi-sys/redirect.cgi [L]\nRewriteRule ^/?(securecontrolpanel|securecpanel)/?$ /cgi-sys/sredirect.cgi [L]\nRewriteRule ^/?securewhm/?$ /cgi-sys/swhmredirect.cgi [L]\nRewriteRule ^/?webmail(/.*)?$ /cgi-sys/wredirect.cgi [L]\nRewriteRule ^/?whm/?$ /cgi-sys/whmredirect.cgi [L]\nRewriteRule ^/[Aa]utodiscover/[Aa]utodiscover\\.xml /cgi-sys/autodiscover.cgi [L]\nEND_rules\n}\ncontext exp:^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$ {\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n}\ncontext exp:(^|/)(\\.ht(access|passwds?)|\\.user\\.ini|php\\.ini|error_log)$ {\n  allowBrowse             0\n}\ncontext /img-sys/ {\n  location                /usr/local/cpanel/img-sys/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /mailman/archives/ {\n  location                /usr/local/cpanel/3rdparty/mailman/archives/public/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nHeader set X-Content-Type-Options nosniff\nEND_extraHeaders\n}\ncontext /pipermail/ {\n  location                /usr/local/cpanel/3rdparty/mailman/archives/public/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nHeader set X-Content-Type-Options nosniff\nEND_extraHeaders\n}\ncontext /sys_cpanel/ {\n  location                /usr/local/cpanel/sys_cpanel/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /cgi-bin/ {\n  type                    cgi\n  location                $DOC_ROOT/cgi-bin/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /cgi-sys/ {\n  type                    cgi\n  location                /usr/local/cpanel/cgi-sys/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /mailman/ {\n  type                    cgi\n  location                /usr/local/cpanel/3rdparty/mailman/cgi-bin/\n  allowBrowse             1\n  allowSetUID             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /cpanelwebcall/ {\n  type                    proxy\n  handler                 cpsrvd2082\n  addDefaultCharset       off\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\naccesslog /run/ols-cpanel/logs/access.fifo {\n    useServer            0\n    rollingSize          0\n    logFormat            olstest1.example.test:%p %a %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"\n}\naccesslog /run/ols-cpanel/logs/bytes.fifo {\n    useServer            0\n    rollingSize          0\n    logFormat            olstest1.example.test %{%s}t %S .\n}\n\nphpIniOverride  {\nphp_admin_flag allow_url_fopen 1\nphp_admin_flag log_errors 1\nphp_admin_value disable_functions exec,passthru,shell_exec,system\nphp_admin_value doc_root /home/olscpa/public_html\nphp_admin_value error_log /home/olscpa/logs/olstest1_example_test.php.error.log\nphp_admin_value short_open_tag 1\nphp_value error_reporting 32759\n}\nrealm ppd_98c406a82350 {\n  userDB {\n    location              /home/olscpa/.htpasswds/public_html/private/passwd\n  }\n}\nrealm ppd_d909f0ba46aa {\n  userDB {\n    location              /home/olscpa/.htpasswds/public_html/secure/passwd\n  }\n}\ncontext / {\n  location                /home/olscpa/public_html/\n  extraHeaders            <<<END_extraHeaders\nHeader set X-Frame-Options \"SAMEORIGIN\"\nEND_extraHeaders\n}\ncontext /denied/ {\n  location                /home/olscpa/public_html/denied/\n  allowBrowse             0\n}\ncontext /legacy/ {\n  location                /home/olscpa/public_html/legacy/\n  allowBrowse             0\n}\ncontext /noindex/ {\n  location                /home/olscpa/public_html/noindex/\n  autoIndex               0\n}\ncontext /private/ {\n  location                /home/olscpa/public_html/private/\n  realm                   ppd_98c406a82350\n  authName                Private\n  required                valid-user\n}\ncontext /secure/ {\n  location                /home/olscpa/public_html/secure/\n  realm                   ppd_d909f0ba46aa\n  authName                Secure\n  required                valid-user\n  extraHeaders            <<<END_extraHeaders\nHeader set X-Frame-Options \"DENY\"\nEND_extraHeaders\n}\ncontext exp:^/(.*/)?\\.env$ {\n  allowBrowse             0\n}\ncontext exp:^/uploads/(.*/)?[^/]*\\.php$ {\n  allowBrowse             0\n}\nerrorPage 404 {\n  url                     /404.html\n}\nvhssl {\n    keyFile              /var/cpanel/ssl/apache_tls/olstest1.example.test/combined\n    certFile             /var/cpanel/ssl/apache_tls/olstest1.example.test/combined\n    certChain            1\n}\nmodule cache {\n    ls_enabled           1\n    checkPublicCache     1\n    checkPrivateCache    1\n    enableCache          0\n    enablePrivateCache   0\n    qsCache              1\n    reqCookieCache       1\n    respCookieCache      1\n    ignoreReqCacheCtrl   1\n    ignoreRespCacheCtrl  0\n    expireInSeconds      3600\n    privateExpireInSeconds 3600\n    maxStaleAge          200\n    maxCacheObjSize      10000000\n    storagePath          /var/lib/ols-cpanel/cache/olscpa@olstest1.example.test\n}\n",
+   "olstest2.example.test": "docRoot                  /home/olscpb/public_html/\nvhDomain                 olstest2.example.test\nerrorlog /var/lib/ols-cpanel-lab/logs/olstest2.example.test-error.log {\n    useServer            0\n    logLevel             INFO\n}\nindex {\n    useServer            0\n    indexFiles           index.html, index.php\n    # Mirrors the lab Apache, which lists directories unless \"Options -Indexes\" applies.\n    autoIndex            1\n}\nextProcessor olscpb-php {\n    type                 lsapi\n    address              uds://run/ols-cpanel/lshttpd/olstest2.example.test-php.sock\n    maxConns             5\n    env                  PHP_LSAPI_CHILDREN=5\n    env                  LSPHP_ENABLE_USER_INI=on\n    env                  LSAPI_MAX_IDLE=10\n    initTimeout          60\n    retryTimeout         0\n    persistConn          1\n    respBuffer           0\n    autoStart            2\n    path                 /opt/cpanel/ea-php82/root/usr/bin/lsphp\n    extUser              olscpb\n    extGroup             olscpb\n    backlog              50\n    instances            1\n    memSoftLimit         0\n    memHardLimit         0\n    procSoftLimit        400\n    procHardLimit        500\n}\nscripthandler {\n    add                  lsapi:olscpb-php php\n}\nrewrite {\n    enable               1\n    autoLoadHtaccess     0\n    rules                <<<END_rules\nRewriteCond %{REQUEST_METHOD} ^(PURGE|REFRESH)$ [NC]\nRewriteRule ^ - [F]\nRewriteCond %{REQUEST_URI} ^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$\nRewriteRule ^ - [L]\nRewriteCond %{HTTPS} on\nRewriteRule ^/?Microsoft-Server-ActiveSync http://cpsrvd2090/Microsoft-Server-ActiveSync/ [P,L]\nRewriteRule ^/?(controlpanel|cpanel|kpanel)/?$ /cgi-sys/redirect.cgi [L]\nRewriteRule ^/?(securecontrolpanel|securecpanel)/?$ /cgi-sys/sredirect.cgi [L]\nRewriteRule ^/?securewhm/?$ /cgi-sys/swhmredirect.cgi [L]\nRewriteRule ^/?webmail(/.*)?$ /cgi-sys/wredirect.cgi [L]\nRewriteRule ^/?whm/?$ /cgi-sys/whmredirect.cgi [L]\nRewriteRule ^/[Aa]utodiscover/[Aa]utodiscover\\.xml /cgi-sys/autodiscover.cgi [L]\nEND_rules\n}\ncontext exp:^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$ {\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n}\ncontext exp:(^|/)(\\.ht(access|passwds?)|\\.user\\.ini|php\\.ini|error_log)$ {\n  allowBrowse             0\n}\ncontext /img-sys/ {\n  location                /usr/local/cpanel/img-sys/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n}\ncontext /mailman/archives/ {\n  location                /usr/local/cpanel/3rdparty/mailman/archives/public/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader set X-Content-Type-Options nosniff\nEND_extraHeaders\n}\ncontext /pipermail/ {\n  location                /usr/local/cpanel/3rdparty/mailman/archives/public/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader set X-Content-Type-Options nosniff\nEND_extraHeaders\n}\ncontext /sys_cpanel/ {\n  location                /usr/local/cpanel/sys_cpanel/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n}\ncontext /cgi-bin/ {\n  type                    cgi\n  location                $DOC_ROOT/cgi-bin/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n}\ncontext /cgi-sys/ {\n  type                    cgi\n  location                /usr/local/cpanel/cgi-sys/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n}\ncontext /mailman/ {\n  type                    cgi\n  location                /usr/local/cpanel/3rdparty/mailman/cgi-bin/\n  allowBrowse             1\n  allowSetUID             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n}\ncontext /cpanelwebcall/ {\n  type                    proxy\n  handler                 cpsrvd2082\n  addDefaultCharset       off\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n}\naccesslog /run/ols-cpanel/logs/access.fifo {\n    useServer            0\n    rollingSize          0\n    logFormat            olstest2.example.test:%p %a %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"\n}\naccesslog /run/ols-cpanel/logs/bytes.fifo {\n    useServer            0\n    rollingSize          0\n    logFormat            olstest2.example.test %{%s}t %S .\n}\n\ncontext / {\n  location                /home/olscpb/public_html/\n  rewrite  {\n    enable                1\n    base                  /\n    rules                 <<<END_rules\nRewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]\nRewriteRule ^old-page/?$ /new-page/ [R=301,L]\nRewriteRule ^index\\.php$ - [L]\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME} !-d\nRewriteRule . /index.php [L]\nEND_rules\n  }\n}\ncontext /app/ {\n  location                /home/olscpb/public_html/app/\n  rewrite  {\n    enable                1\n    rules                 <<<END_rules\nRewriteRule ^go$ target.txt [L]\nEND_rules\n  }\n}\ncontext /sub-noindex/ {\n  location                /home/olscpb/public_html/sub-noindex/\n  autoIndex               0\n}\nvhssl {\n    keyFile              /var/cpanel/ssl/apache_tls/olstest2.example.test/combined\n    certFile             /var/cpanel/ssl/apache_tls/olstest2.example.test/combined\n    certChain            1\n}\nmodule cache {\n    ls_enabled           1\n    checkPublicCache     1\n    checkPrivateCache    1\n    enableCache          0\n    enablePrivateCache   0\n    qsCache              1\n    reqCookieCache       1\n    respCookieCache      1\n    ignoreReqCacheCtrl   1\n    ignoreRespCacheCtrl  0\n    expireInSeconds      3600\n    privateExpireInSeconds 3600\n    maxStaleAge          200\n    maxCacheObjSize      10000000\n    storagePath          /var/lib/ols-cpanel/cache/olscpb@olstest2.example.test\n}\n",
+   "secure.olstest1.example.test": "docRoot                  /home/olscpa/public_html/secure/\nvhDomain                 secure.olstest1.example.test\nerrorlog /var/lib/ols-cpanel-lab/logs/secure.olstest1.example.test-error.log {\n    useServer            0\n    logLevel             INFO\n}\nindex {\n    useServer            0\n    indexFiles           index.html, index.php\n    # Mirrors the lab Apache, which lists directories unless \"Options -Indexes\" applies.\n    autoIndex            1\n}\nextProcessor olscpa-php {\n    type                 lsapi\n    address              uds://run/ols-cpanel/lshttpd/secure.olstest1.example.test-php.sock\n    maxConns             5\n    env                  PHP_LSAPI_CHILDREN=5\n    env                  LSPHP_ENABLE_USER_INI=on\n    env                  LSAPI_MAX_IDLE=10\n    initTimeout          60\n    retryTimeout         0\n    persistConn          1\n    respBuffer           0\n    autoStart            2\n    path                 /opt/cpanel/ea-php83/root/usr/bin/lsphp\n    extUser              olscpa\n    extGroup             olscpa\n    backlog              50\n    instances            1\n    memSoftLimit         0\n    memHardLimit         0\n    procSoftLimit        400\n    procHardLimit        500\n}\nscripthandler {\n    add                  lsapi:olscpa-php phtml\n    add                  lsapi:olscpa-php php\n    add                  lsapi:olscpa-php php3\n    add                  lsapi:olscpa-php php4\n    add                  lsapi:olscpa-php php5\n    add                  lsapi:olscpa-php php6\n    add                  lsapi:olscpa-php php7\n    add                  lsapi:olscpa-php php8\n}\nrewrite {\n    enable               1\n    autoLoadHtaccess     0\n    rules                <<<END_rules\nRewriteCond %{REQUEST_METHOD} ^(PURGE|REFRESH)$ [NC]\nRewriteRule ^ - [F]\nRewriteCond %{REQUEST_URI} ^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$\nRewriteRule ^ - [L]\nRewriteCond %{HTTPS} on\nRewriteRule ^/?Microsoft-Server-ActiveSync http://cpsrvd2090/Microsoft-Server-ActiveSync/ [P,L]\nRewriteRule ^/?(controlpanel|cpanel|kpanel)/?$ /cgi-sys/redirect.cgi [L]\nRewriteRule ^/?(securecontrolpanel|securecpanel)/?$ /cgi-sys/sredirect.cgi [L]\nRewriteRule ^/?securewhm/?$ /cgi-sys/swhmredirect.cgi [L]\nRewriteRule ^/?webmail(/.*)?$ /cgi-sys/wredirect.cgi [L]\nRewriteRule ^/?whm/?$ /cgi-sys/whmredirect.cgi [L]\nRewriteRule ^/[Aa]utodiscover/[Aa]utodiscover\\.xml /cgi-sys/autodiscover.cgi [L]\nEND_rules\n}\ncontext exp:^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$ {\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n}\ncontext exp:(^|/)(\\.ht(access|passwds?)|\\.user\\.ini|php\\.ini|error_log)$ {\n  allowBrowse             0\n}\ncontext /img-sys/ {\n  location                /usr/local/cpanel/img-sys/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /mailman/archives/ {\n  location                /usr/local/cpanel/3rdparty/mailman/archives/public/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nHeader set X-Content-Type-Options nosniff\nEND_extraHeaders\n}\ncontext /pipermail/ {\n  location                /usr/local/cpanel/3rdparty/mailman/archives/public/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nHeader set X-Content-Type-Options nosniff\nEND_extraHeaders\n}\ncontext /sys_cpanel/ {\n  location                /usr/local/cpanel/sys_cpanel/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /cgi-bin/ {\n  type                    cgi\n  location                $DOC_ROOT/cgi-bin/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /cgi-sys/ {\n  type                    cgi\n  location                /usr/local/cpanel/cgi-sys/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /mailman/ {\n  type                    cgi\n  location                /usr/local/cpanel/3rdparty/mailman/cgi-bin/\n  allowBrowse             1\n  allowSetUID             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\ncontext /cpanelwebcall/ {\n  type                    proxy\n  handler                 cpsrvd2082\n  addDefaultCharset       off\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader unset X-Frame-Options\nEND_extraHeaders\n}\naccesslog /run/ols-cpanel/logs/access.fifo {\n    useServer            0\n    rollingSize          0\n    logFormat            secure.olstest1.example.test:%p %a %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"\n}\naccesslog /run/ols-cpanel/logs/bytes.fifo {\n    useServer            0\n    rollingSize          0\n    logFormat            secure.olstest1.example.test %{%s}t %S .\n}\n\nphpIniOverride  {\nphp_admin_flag allow_url_fopen 1\nphp_admin_flag log_errors 1\nphp_admin_value disable_functions exec,passthru,shell_exec,system\nphp_admin_value doc_root /home/olscpa/public_html/secure\nphp_admin_value error_log /home/olscpa/logs/secure_olstest1_example_test.php.error.log\nphp_admin_value short_open_tag 1\nphp_value error_reporting 32759\n}\nrealm ppd_a17f94174b7b {\n  userDB {\n    location              /home/olscpa/.htpasswds/public_html/secure/passwd\n  }\n}\ncontext / {\n  location                /home/olscpa/public_html/secure/\n  realm                   ppd_a17f94174b7b\n  authName                Secure\n  required                valid-user\n  extraHeaders            <<<END_extraHeaders\nHeader set X-Frame-Options \"SAMEORIGIN\"\nHeader set X-Frame-Options \"DENY\"\nEND_extraHeaders\n}\ncontext exp:^/(.*/)?\\.env$ {\n  allowBrowse             0\n}\nerrorPage 404 {\n  url                     /404.html\n}\nvhssl {\n    keyFile              /var/cpanel/ssl/apache_tls/secure.olstest1.example.test/combined\n    certFile             /var/cpanel/ssl/apache_tls/secure.olstest1.example.test/combined\n    certChain            1\n}\nmodule cache {\n    ls_enabled           1\n    checkPublicCache     1\n    checkPrivateCache    1\n    enableCache          0\n    enablePrivateCache   0\n    qsCache              1\n    reqCookieCache       1\n    respCookieCache      1\n    ignoreReqCacheCtrl   1\n    ignoreRespCacheCtrl  0\n    expireInSeconds      3600\n    privateExpireInSeconds 3600\n    maxStaleAge          200\n    maxCacheObjSize      10000000\n    storagePath          /var/lib/ols-cpanel/cache/olscpa@secure.olstest1.example.test\n}\n",
+   "server-default": "docRoot                  /var/www/html/\nrewrite {\n    enable               1\n    autoLoadHtaccess     0\n    rules                <<<END_rules\nRewriteCond %{REQUEST_URI} ^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$\nRewriteRule ^ - [L]\nRewriteRule ^/?(controlpanel|cpanel|kpanel)/?$ /cgi-sys/redirect.cgi [L]\nRewriteRule ^/?(securecontrolpanel|securecpanel)/?$ /cgi-sys/sredirect.cgi [L]\nRewriteRule ^/?securewhm/?$ /cgi-sys/swhmredirect.cgi [L]\nRewriteRule ^/?webmail(/.*)?$ /cgi-sys/wredirect.cgi [L]\nRewriteRule ^/?whm/?$ /cgi-sys/whmredirect.cgi [L]\nRewriteRule ^/[Aa]utodiscover/[Aa]utodiscover\\.xml /cgi-sys/autodiscover.cgi [L]\nEND_rules\n}\ncontext exp:^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$ {\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n}\ncontext exp:(^|/)(\\.ht(access|passwds?)|\\.user\\.ini|php\\.ini|error_log)$ {\n  allowBrowse             0\n}\ncontext /img-sys/ {\n  location                /usr/local/cpanel/img-sys/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n}\ncontext /mailman/archives/ {\n  location                /usr/local/cpanel/3rdparty/mailman/archives/public/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader set X-Content-Type-Options nosniff\nEND_extraHeaders\n}\ncontext /pipermail/ {\n  location                /usr/local/cpanel/3rdparty/mailman/archives/public/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n  extraHeaders            <<<END_extraHeaders\nHeader set X-Content-Type-Options nosniff\nEND_extraHeaders\n}\ncontext /sys_cpanel/ {\n  location                /usr/local/cpanel/sys_cpanel/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n}\ncontext /cgi-sys/ {\n  type                    cgi\n  location                /usr/local/cpanel/cgi-sys/\n  allowBrowse             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n}\ncontext /mailman/ {\n  type                    cgi\n  location                /usr/local/cpanel/3rdparty/mailman/cgi-bin/\n  allowBrowse             1\n  allowSetUID             1\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n}\ncontext /cpanelwebcall/ {\n  type                    proxy\n  handler                 cpsrvd2082\n  addDefaultCharset       off\n  accessControl  {\n    allow                 ALL\n  }\n  satisfy                 any\n  rewrite  {\n    enable                0\n  }\n}\nvhssl {\n    keyFile              /var/cpanel/ssl/cpanel/mycpanel.pem\n    certFile             /var/cpanel/ssl/cpanel/mycpanel.pem\n    certChain            1\n}\n",
+   "svc.olscpc.olstest1.example.test": "docRoot                  /home/olscpa/public_html/olscp-c.test/\nrewrite {\n    enable               1\n    autoLoadHtaccess     0\n    rules                <<<END_rules\nRewriteCond %{REQUEST_URI} ^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$\nRewriteRule ^ - [L]\nRewriteCond %{HTTP:Upgrade} websocket [NC]\nRewriteCond %{HTTP_HOST} ^cpanel\\.olscp-c\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ ws://127.0.0.1:2082/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} websocket [NC]\nRewriteCond %{HTTP_HOST} ^webmail\\.olscp-c\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ ws://127.0.0.1:2095/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^cpanel\\.olscp-c\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ http://cpsrvd2082/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^webmail\\.olscp-c\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ http://cpsrvd2095/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^webdisk\\.olscp-c\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ http://cpsrvd2077/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^cpcalendars\\.olscp-c\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ http://cpsrvd2079/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^cpcontacts\\.olscp-c\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ http://cpsrvd2079/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^autoconfig\\.olscp-c\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^ /cgi-sys/autoconfig.cgi [L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^autodiscover\\.olscp-c\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^ /cgi-sys/autodiscover.cgi [L]\nRewriteCond %{HTTPS} on\nRewriteRule ^/?Microsoft-Server-ActiveSync http://cpsrvd2090/Microsoft-Server-ActiveSync/ [P,L]\nRewriteRule ^/?(controlpanel|cpanel|kpanel)/?$ /cgi-sys/redirect.cgi [L]\nRewriteRule ^/?(securecontrolpanel|securecpanel)/?$ /cgi-sys/sredirect.cgi [L]\nRewriteRule ^/?securewhm/?$ /cgi-sys/swhmredirect.cgi [L]\nRewriteRule ^/?webmail(/.*)?$ /cgi-sys/wredirect.cgi [L]\nRewriteRule ^/?whm/?$ /cgi-sys/whmredirect.cgi [L]\nRewriteRule ^/[Aa]utodiscover/[Aa]utodiscover\\.xml /cgi-sys/autodiscover.cgi [L]\nEND_rules\n}\ncontext exp:^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$ {\n  allowBrowse             1\n}\ncontext /cgi-sys/ {\n  type                    cgi\n  location                /usr/local/cpanel/cgi-sys/\n  allowBrowse             1\n}\nvhssl {\n    keyFile              /var/cpanel/ssl/apache_tls/olscpc.olstest1.example.test/combined\n    certFile             /var/cpanel/ssl/apache_tls/olscpc.olstest1.example.test/combined\n    certChain            1\n}\n",
+   "svc.olstest1.example.test": "docRoot                  /home/olscpa/public_html/\nrewrite {\n    enable               1\n    autoLoadHtaccess     0\n    rules                <<<END_rules\nRewriteCond %{REQUEST_URI} ^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$\nRewriteRule ^ - [L]\nRewriteCond %{HTTP:Upgrade} websocket [NC]\nRewriteCond %{HTTP_HOST} ^cpanel\\.olstest1\\.example\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ ws://127.0.0.1:2082/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} websocket [NC]\nRewriteCond %{HTTP_HOST} ^webmail\\.olstest1\\.example\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ ws://127.0.0.1:2095/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^cpanel\\.olstest1\\.example\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ http://cpsrvd2082/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^webmail\\.olstest1\\.example\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ http://cpsrvd2095/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^webdisk\\.olstest1\\.example\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ http://cpsrvd2077/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^cpcalendars\\.olstest1\\.example\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ http://cpsrvd2079/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^cpcontacts\\.olstest1\\.example\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ http://cpsrvd2079/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^autoconfig\\.olstest1\\.example\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^ /cgi-sys/autoconfig.cgi [L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^autodiscover\\.olstest1\\.example\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^ /cgi-sys/autodiscover.cgi [L]\nRewriteCond %{HTTPS} on\nRewriteRule ^/?Microsoft-Server-ActiveSync http://cpsrvd2090/Microsoft-Server-ActiveSync/ [P,L]\nRewriteRule ^/?(controlpanel|cpanel|kpanel)/?$ /cgi-sys/redirect.cgi [L]\nRewriteRule ^/?(securecontrolpanel|securecpanel)/?$ /cgi-sys/sredirect.cgi [L]\nRewriteRule ^/?securewhm/?$ /cgi-sys/swhmredirect.cgi [L]\nRewriteRule ^/?webmail(/.*)?$ /cgi-sys/wredirect.cgi [L]\nRewriteRule ^/?whm/?$ /cgi-sys/whmredirect.cgi [L]\nRewriteRule ^/[Aa]utodiscover/[Aa]utodiscover\\.xml /cgi-sys/autodiscover.cgi [L]\nEND_rules\n}\ncontext exp:^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$ {\n  allowBrowse             1\n}\ncontext /cgi-sys/ {\n  type                    cgi\n  location                /usr/local/cpanel/cgi-sys/\n  allowBrowse             1\n}\nvhssl {\n    keyFile              /var/cpanel/ssl/apache_tls/olstest1.example.test/combined\n    certFile             /var/cpanel/ssl/apache_tls/olstest1.example.test/combined\n    certChain            1\n}\n",
+   "svc.olstest2.example.test": "docRoot                  /home/olscpb/public_html/\nrewrite {\n    enable               1\n    autoLoadHtaccess     0\n    rules                <<<END_rules\nRewriteCond %{REQUEST_URI} ^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$\nRewriteRule ^ - [L]\nRewriteCond %{HTTP:Upgrade} websocket [NC]\nRewriteCond %{HTTP_HOST} ^cpanel\\.olstest2\\.example\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ ws://127.0.0.1:2082/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} websocket [NC]\nRewriteCond %{HTTP_HOST} ^webmail\\.olstest2\\.example\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ ws://127.0.0.1:2095/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^cpanel\\.olstest2\\.example\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ http://cpsrvd2082/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^webmail\\.olstest2\\.example\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ http://cpsrvd2095/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^webdisk\\.olstest2\\.example\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ http://cpsrvd2077/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^cpcalendars\\.olstest2\\.example\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ http://cpsrvd2079/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^cpcontacts\\.olstest2\\.example\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^/?(.*)$ http://cpsrvd2079/$1 [P,L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^autoconfig\\.olstest2\\.example\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^ /cgi-sys/autoconfig.cgi [L]\nRewriteCond %{HTTP:Upgrade} !websocket [NC]\nRewriteCond %{HTTP_HOST} ^autodiscover\\.olstest2\\.example\\.test(:[0-9]+)?$ [NC]\nRewriteRule ^ /cgi-sys/autodiscover.cgi [L]\nRewriteCond %{HTTPS} on\nRewriteRule ^/?Microsoft-Server-ActiveSync http://cpsrvd2090/Microsoft-Server-ActiveSync/ [P,L]\nRewriteRule ^/?(controlpanel|cpanel|kpanel)/?$ /cgi-sys/redirect.cgi [L]\nRewriteRule ^/?(securecontrolpanel|securecpanel)/?$ /cgi-sys/sredirect.cgi [L]\nRewriteRule ^/?securewhm/?$ /cgi-sys/swhmredirect.cgi [L]\nRewriteRule ^/?webmail(/.*)?$ /cgi-sys/wredirect.cgi [L]\nRewriteRule ^/?whm/?$ /cgi-sys/whmredirect.cgi [L]\nRewriteRule ^/[Aa]utodiscover/[Aa]utodiscover\\.xml /cgi-sys/autodiscover.cgi [L]\nEND_rules\n}\ncontext exp:^/\\.well-known/(acme-challenge/[0-9a-zA-Z_-]+|cpanel-dcv/[0-9a-zA-Z_-]+|pki-validation/[A-F0-9]{32}\\.txt(\\ Sectigo\\ DCV)?|pki-validation/(\\ Ballot169)?)$ {\n  allowBrowse             1\n}\ncontext /cgi-sys/ {\n  type                    cgi\n  location                /usr/local/cpanel/cgi-sys/\n  allowBrowse             1\n}\nvhssl {\n    keyFile              /var/cpanel/ssl/apache_tls/olstest2.example.test/combined\n    certFile             /var/cpanel/ssl/apache_tls/olstest2.example.test/combined\n    certChain            1\n}\n"
+  }
+ },
+ "production": true,
+ "summary": {
+  "apache_defaults": {
+   "*:443": "server.example.test",
+   "*:None": "server.example.test",
+   "127.0.0.1:443": "server.example.test",
+   "127.0.0.1:80": "server.example.test",
+   "172.16.0.4:443": "olscpc.olstest1.example.test",
+   "172.16.0.4:80": "server.example.test",
+   "fd00:6c73:6371:::443": "olscpc.olstest1.example.test",
+   "fd00:6c73:6371:::80": "olstest1.example.test"
+  },
+  "apache_proxy_endpoints": [
+   "127.0.0.1:80",
+   "127.0.0.1:443",
+   "172.16.0.4:80",
+   "172.16.0.4:443",
+   "fd00:6c73:6371:::80",
+   "fd00:6c73:6371:::443"
+  ],
+  "cache": {
+   "blog.olstest1.example.test": {
+    "enabled": true,
+    "storage": "/var/lib/ols-cpanel/cache/olscpa@blog.olstest1.example.test"
+   },
+   "olscpc.olstest1.example.test": {
+    "enabled": true,
+    "storage": "/var/lib/ols-cpanel/cache/olscpa@olscpc.olstest1.example.test"
+   },
+   "olstest1.example.test": {
+    "enabled": true,
+    "storage": "/var/lib/ols-cpanel/cache/olscpa@olstest1.example.test"
+   },
+   "olstest2.example.test": {
+    "enabled": true,
+    "storage": "/var/lib/ols-cpanel/cache/olscpb@olstest2.example.test"
+   },
+   "secure.olstest1.example.test": {
+    "enabled": true,
+    "storage": "/var/lib/ols-cpanel/cache/olscpa@secure.olstest1.example.test"
+   }
+  },
+  "htaccess_blockers": {
+   "blog.olstest1.example.test": [],
+   "olscpc.olstest1.example.test": [],
+   "olstest1.example.test": [],
+   "olstest2.example.test": [],
+   "secure.olstest1.example.test": []
+  },
+  "hybrid_vhosts": [],
+  "ipv6_addresses": [
+   "::1",
+   "fd00:6c73:6371::"
+  ],
+  "missing_alias_dirs": {
+   "blog.olstest1.example.test": [
+    "/bandwidth/",
+    "/java-sys/"
+   ],
+   "olscpc.olstest1.example.test": [
+    "/bandwidth/",
+    "/java-sys/"
+   ],
+   "olstest1.example.test": [
+    "/bandwidth/",
+    "/java-sys/"
+   ],
+   "olstest2.example.test": [
+    "/bandwidth/",
+    "/java-sys/"
+   ],
+   "secure.olstest1.example.test": [
+    "/bandwidth/",
+    "/java-sys/"
+   ]
+  },
+  "php_overrides": {
+   "blog.olstest1.example.test": [
+    [
+     "php_admin_flag",
+     "allow_url_fopen",
+     "1"
+    ],
+    [
+     "php_admin_flag",
+     "log_errors",
+     "1"
+    ],
+    [
+     "php_admin_value",
+     "disable_functions",
+     "exec,passthru,shell_exec,system"
+    ],
+    [
+     "php_admin_value",
+     "doc_root",
+     "/home/olscpa/public_html/blog"
+    ],
+    [
+     "php_admin_value",
+     "error_log",
+     "/home/olscpa/logs/blog_olstest1_example_test.php.error.log"
+    ],
+    [
+     "php_admin_value",
+     "short_open_tag",
+     "1"
+    ],
+    [
+     "php_value",
+     "error_reporting",
+     "32759"
+    ]
+   ],
+   "olscpc.olstest1.example.test": [
+    [
+     "php_admin_flag",
+     "allow_url_fopen",
+     "1"
+    ],
+    [
+     "php_admin_flag",
+     "log_errors",
+     "1"
+    ],
+    [
+     "php_admin_value",
+     "disable_functions",
+     "exec,passthru,shell_exec,system"
+    ],
+    [
+     "php_admin_value",
+     "doc_root",
+     "/home/olscpa/public_html/olscp-c.test"
+    ],
+    [
+     "php_admin_value",
+     "error_log",
+     "/home/olscpa/logs/olscp-c_test.php.error.log"
+    ],
+    [
+     "php_admin_value",
+     "short_open_tag",
+     "1"
+    ],
+    [
+     "php_value",
+     "error_reporting",
+     "32759"
+    ]
+   ],
+   "olstest1.example.test": [
+    [
+     "php_admin_flag",
+     "allow_url_fopen",
+     "1"
+    ],
+    [
+     "php_admin_flag",
+     "log_errors",
+     "1"
+    ],
+    [
+     "php_admin_value",
+     "disable_functions",
+     "exec,passthru,shell_exec,system"
+    ],
+    [
+     "php_admin_value",
+     "doc_root",
+     "/home/olscpa/public_html"
+    ],
+    [
+     "php_admin_value",
+     "error_log",
+     "/home/olscpa/logs/olstest1_example_test.php.error.log"
+    ],
+    [
+     "php_admin_value",
+     "short_open_tag",
+     "1"
+    ],
+    [
+     "php_value",
+     "error_reporting",
+     "32759"
+    ]
+   ],
+   "olstest2.example.test": [],
+   "secure.olstest1.example.test": [
+    [
+     "php_admin_flag",
+     "allow_url_fopen",
+     "1"
+    ],
+    [
+     "php_admin_flag",
+     "log_errors",
+     "1"
+    ],
+    [
+     "php_admin_value",
+     "disable_functions",
+     "exec,passthru,shell_exec,system"
+    ],
+    [
+     "php_admin_value",
+     "doc_root",
+     "/home/olscpa/public_html/secure"
+    ],
+    [
+     "php_admin_value",
+     "error_log",
+     "/home/olscpa/logs/secure_olstest1_example_test.php.error.log"
+    ],
+    [
+     "php_admin_value",
+     "short_open_tag",
+     "1"
+    ],
+    [
+     "php_value",
+     "error_reporting",
+     "32759"
+    ]
+   ]
+  },
+  "php_versions": {
+   "olscpa": "ea-php83",
+   "olscpb": "ea-php82"
+  },
+  "service_cert": "/var/cpanel/ssl/cpanel/mycpanel.pem",
+  "suspended_accounts": [],
+  "tls_sources": {
+   "blog.olstest1.example.test": "/var/cpanel/ssl/apache_tls/blog.olstest1.example.test/combined",
+   "olscpc.olstest1.example.test": "/var/cpanel/ssl/apache_tls/olscpc.olstest1.example.test/combined",
+   "olstest1.example.test": "/var/cpanel/ssl/apache_tls/olstest1.example.test/combined",
+   "olstest2.example.test": "/var/cpanel/ssl/apache_tls/olstest2.example.test/combined",
+   "secure.olstest1.example.test": "/var/cpanel/ssl/apache_tls/secure.olstest1.example.test/combined"
+  },
+  "vhosts": {
+   "blog.olstest1.example.test": {
+    "aliases": [
+     "www.blog.olstest1.example.test"
+    ],
+    "docroot": "/home/olscpa/public_html/blog",
+    "php": "ea-php83",
+    "php_handler": "fpm",
+    "pool": "blog.olstest1.example.test",
+    "service_domains": [],
+    "type": "sub",
+    "user": "olscpa"
+   },
+   "olscpc.olstest1.example.test": {
+    "aliases": [
+     "www.olscpc.olstest1.example.test",
+     "mail.olscp-c.test",
+     "www.olscp-c.test",
+     "olscp-c.test"
+    ],
+    "docroot": "/home/olscpa/public_html/olscp-c.test",
+    "php": "ea-php83",
+    "php_handler": "fpm",
+    "pool": "olscp-c.test",
+    "service_domains": [
+     "olscp-c.test"
+    ],
+    "type": "sub",
+    "user": "olscpa"
+   },
+   "olstest1.example.test": {
+    "aliases": [
+     "www.olstest1.example.test",
+     "ipv6.olstest1.example.test",
+     "mail.olscp-alias.test",
+     "mail.olstest1.example.test",
+     "www.olscp-alias.test",
+     "olscp-alias.test"
+    ],
+    "docroot": "/home/olscpa/public_html",
+    "php": "ea-php83",
+    "php_handler": "fpm",
+    "pool": "olstest1.example.test",
+    "service_domains": [
+     "olstest1.example.test"
+    ],
+    "type": "main",
+    "user": "olscpa"
+   },
+   "olstest2.example.test": {
+    "aliases": [
+     "www.olstest2.example.test",
+     "mail.olstest2.example.test"
+    ],
+    "docroot": "/home/olscpb/public_html",
+    "php": "ea-php82",
+    "php_handler": "cgi",
+    "pool": "olstest2.example.test",
+    "service_domains": [
+     "olstest2.example.test"
+    ],
+    "type": "main",
+    "user": "olscpb"
+   },
+   "secure.olstest1.example.test": {
+    "aliases": [
+     "www.secure.olstest1.example.test"
+    ],
+    "docroot": "/home/olscpa/public_html/secure",
+    "php": "ea-php83",
+    "php_handler": "fpm",
+    "pool": "secure.olstest1.example.test",
+    "service_domains": [],
+    "type": "sub",
+    "user": "olscpa"
+   }
+  }
+ }
+}

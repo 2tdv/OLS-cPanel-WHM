@@ -1,0 +1,26 @@
+{
+  "observed_at": 1792630000,
+  "source": "ols-cpanel cache limits --format=json",
+  "exit_code": 0,
+  "output": {
+    "command": "cache limits",
+    "changed": false,
+    "observed_at": 1792630000,
+    "limits": { "per_site_mb": 512, "server_percent": 10, "server_max_gb": 20 },
+    "defaults": { "per_site_mb": 512, "server_percent": 10, "server_max_gb": 20 },
+    "bounds": { "per_site_mb": [16, 102400], "server_percent": [1, 50], "server_max_gb": [1, 2048] },
+    "problem": null,
+    "per_site_bytes": 536870912,
+    "server_bytes": 21474836480,
+    "emergency": false,
+    "filesystem": { "total_bytes": 429496729600, "free_bytes": 236223201280, "free_percent": 55 },
+    "max_entry_age": 90200,
+    "last_clean": {
+      "last_run": 1792626400,
+      "result": "cleaned",
+      "emergency": false,
+      "totals": { "stores": 6, "files": 1840, "bytes": 73400320, "failed": 0, "remaining_bytes": 126201856 }
+    },
+    "stores": {}
+  }
+}

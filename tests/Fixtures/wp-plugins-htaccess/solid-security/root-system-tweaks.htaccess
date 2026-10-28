@@ -1,0 +1,48 @@
+# BEGIN iThemes Security - Do not modify or remove this line
+# iThemes Security Config Details: 2
+	# Protect System Files - Security > Settings > System Tweaks > System Files
+	<files .htaccess>
+		<IfModule mod_authz_core.c>
+			Require all denied
+		</IfModule>
+		<IfModule !mod_authz_core.c>
+			Order allow,deny
+			Deny from all
+		</IfModule>
+	</files>
+	<files readme.html>
+		<IfModule mod_authz_core.c>
+			Require all denied
+		</IfModule>
+		<IfModule !mod_authz_core.c>
+			Order allow,deny
+			Deny from all
+		</IfModule>
+	</files>
+
+	# Disable Directory Browsing - Security > Settings > System Tweaks > Directory Browsing
+	Options -Indexes
+
+	# Filter Request Methods - Security > Settings > System Tweaks > Request Methods
+	<IfModule mod_rewrite.c>
+		RewriteEngine On
+		RewriteCond %{REQUEST_METHOD} ^(TRACE|DELETE|TRACK) [NC]
+		RewriteRule ^(.*)$ - [F]
+	</IfModule>
+
+	# Filter Suspicious Query Strings in the URL - Security > Settings > System Tweaks > Suspicious Query Strings
+	<IfModule mod_rewrite.c>
+		RewriteEngine On
+		RewriteCond %{QUERY_STRING} \.\.\/ [NC,OR]
+		RewriteCond %{QUERY_STRING} ^.*\.(bash|git|hg|log|svn|swp|cvs) [NC,OR]
+		RewriteCond %{QUERY_STRING} etc/passwd [NC,OR]
+		RewriteCond %{QUERY_STRING} boot\.ini [NC]
+		RewriteRule ^(.*)$ - [F]
+	</IfModule>
+
+	# Disable PHP in Uploads - Security > Settings > System Tweaks > Uploads
+	<IfModule mod_rewrite.c>
+		RewriteEngine On
+		RewriteRule ^wp\-content/uploads/.*\.(?:php[1-6]?|pht|phtml?)$ - [NC,F]
+	</IfModule>
+# END iThemes Security - Do not modify or remove this line

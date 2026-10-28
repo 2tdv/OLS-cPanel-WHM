@@ -1,0 +1,81 @@
+# Product unit: the privileged broker (plan 5.2-5.4). Installed disabled; `ols-cpanel install --prepare`
+# enables and starts it after the state directory exists. The package never starts, enables or restarts it.
+[Unit]
+Description=OLS-cPanel privileged broker
+After=local-fs.target
+# Prepared state is a precondition: without it the broker must not serve requests.
+AssertPathIsDirectory=/var/lib/ols-cpanel
+
+[Service]
+Type=simple
+# Root by design: the broker is the only privileged entry point (peer-credential checks, fixed operations).
+ExecStart=/usr/local/ols-cpanel/libexec/ols-cpanel-broker /run/ols-cpanel-broker
+# Sockets: admin.sock (0600, root peers only), tenant.sock (0666, account from SO_PEERCRED) and engine.sock
+# (0660 group olscpanel, root and olscpanel peers only; 0600 while that group does not exist) are created and
+# chmod-ed by the broker itself. The directory must be traversable by every account (0755).
+# systemd re-applies a RuntimeDirectory's ownership for EVERY command it runs, including ExecReload
+# (lab finding RV-20, which turned nobody-owned OLS sockets into root:root after each reload). That is
+# harmless here only because the broker runs as root, so the owner systemd re-applies (root:root) is the
+# owner the sockets already have, and because this unit runs no command besides ExecStart: there is
+# deliberately no ExecStartPre, ExecStartPost, ExecReload or ExecStop. Do not add one without re-checking
+# RV-20. The broker has no reload: a new binary or configuration takes effect through a restart, which
+# recreates all three sockets (the upgrade handoff of plan 23.3.1 is driven by the CLI, not by the package).
+RuntimeDirectory=ols-cpanel-broker
+RuntimeDirectoryMode=0755
+# Removed when the broker stops, so no stale socket survives an uninstall.
+RuntimeDirectoryPreserve=no
+# No StateDirectory=: systemd would re-own /var/lib/ols-cpanel recursively on every start, and that tree is
+# created with its own per-path owners by `ols-cpanel install --prepare`.
+UMask=0077
+Restart=on-failure
+RestartSec=2
+# Let an in-flight activation finish its journaled step before SIGKILL.
+TimeoutStopSec=60
+
+# Hardening. Every option below is compatible with the broker's documented jobs; options that would break
+# one of them are left out on purpose and explained.
+# No privilege gain through setuid/setgid/file capabilities. The broker only ever drops privileges (it reads
+# a tenant's .htaccess after switching to the tenant's UID), which NoNewPrivileges allows.
+NoNewPrivileges=yes
+# ProtectSystem=full (not strict): /usr, /boot, /efi and /etc become read-only; /var stays writable. strict
+# would also make /var read-only, and the hybrid profile runs cPanel's own tools (whmapi1 set_tweaksetting
+# writes /var/cpanel/cpanel.config, the Apache rebuild writes /var/cpanel and /etc/apache2), so strict would
+# break port changes and the return to Apache. ReadWritePaths re-opens exactly the product-owned paths plus
+# the paths those cPanel tools are known to write under the read-only trees:
+#   /var/lib/ols-cpanel         product state (already writable under full; listed so the contract survives
+#                               a later move to strict)
+#   /run/ols-cpanel-broker      the sockets (RuntimeDirectory above)
+#   /usr/local/lsws/conf        generation activation by ols-cpanel-activator (child of the broker)
+#   /etc/apache2                mod_remoteip include and Apache configuration rebuild (hybrid profile,
+#                               return to Apache)
+#   /usr/local/cpanel/logs      log files written by whmapi1 and cPanel's restart scripts
+# The WHM preparation jobs (ols.plan, ols.plan_hybrid) deploy the plugins into /usr/local/cpanel; they therefore do NOT run
+# inside this unit's mount namespace: the broker starts them as the transient unit ols-cpanel-job-<id>.service through PID 1
+# (systemd-run, see broker/src/panel/jobs.rs), so no plugin destination is added to ReadWritePaths.
+# Any further path a qualified cPanel tool needs must be added here from lab evidence, not by widening
+# ProtectSystem. Service control (systemctl) goes through D-Bus to PID 1 and is not affected.
+ProtectSystem=full
+ReadWritePaths=/var/lib/ols-cpanel /run/ols-cpanel-broker /usr/local/lsws/conf /etc/apache2 /usr/local/cpanel/logs
+# ProtectHome is NOT set (neither yes nor read-only). The broker reads tenant .htaccess files, and for the
+# managed .htaccess policy (plan 9.3) writes tenant files, always after switching to the tenant's UID:
+# isolation comes from that identity switch and the kernel's permission checks. ProtectHome=yes would hide
+# the files, ProtectHome=read-only would break the tenant write path with EROFS, and neither covers cPanel
+# home directories outside /home (for example /home2), so it would give no consistent guarantee.
+# Private /tmp: nothing the broker or its children create in /tmp is visible to tenants.
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+# Unix sockets (its own and D-Bus), netlink (firewall rules) and IP (local health checks of every vhost).
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
+# Not set on purpose:
+#   ProtectKernelModules  firewall rule changes can load netfilter modules on demand.
+#   PrivateDevices        children (cPanel tools, iptables/nft) are not qualified without /dev.
+#   MemoryDenyWriteExecute, RestrictNamespaces  children such as cPanel's PHP (PCRE JIT) and the OLS
+#                         configuration test are not qualified under them.
+#   ProtectClock, ProtectKernelLogs, ProtectHostname  not available in systemd 239 (EL8).
+
+[Install]
+WantedBy=multi-user.target

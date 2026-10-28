@@ -1,0 +1,99 @@
+{
+  "observed_at": 1792630000,
+  "total": 6,
+  "page": 1,
+  "size": 50,
+  "domains": [
+    {
+      "user": "shopco",
+      "domain": "shop.fixture-domain.test",
+      "type": "main",
+      "docroot": "/home/shopco/public_html",
+      "engine": "ols",
+      "php_handler": "fpm",
+      "tls": true,
+      "suspended": false,
+      "parent": "shop.fixture-domain.test",
+      "vhost": "shop.fixture-domain.test",
+      "php_version": "ea-php83",
+      "php": "ea-php83"
+    },
+    {
+      "user": "shopco",
+      "domain": "cdn.shop.fixture-domain.test",
+      "type": "sub",
+      "docroot": "/home/shopco/public_html/cdn",
+      "engine": "ols",
+      "php_handler": "fpm",
+      "tls": true,
+      "suspended": false,
+      "parent": "shop.fixture-domain.test",
+      "vhost": "cdn.shop.fixture-domain.test",
+      "php_version": "ea-php83",
+      "php": "ea-php83"
+    },
+    {
+      "user": "legacy",
+      "domain": "legacy.fixture-domain.test",
+      "type": "main",
+      "docroot": "/home/legacy/public_html",
+      "engine": "hybrid",
+      "php_handler": "cgi",
+      "tls": true,
+      "suspended": false,
+      "parent": "legacy.fixture-domain.test",
+      "vhost": "legacy.fixture-domain.test",
+      "php_version": "ea-php83",
+      "php": "ea-php83"
+    },
+    {
+      "user": "legacy",
+      "domain": "old.fixture-domain.test",
+      "type": "parked",
+      "docroot": "/home/legacy/public_html",
+      "engine": "hybrid",
+      "php_handler": "cgi",
+      "tls": false,
+      "suspended": false,
+      "parent": "fixture-domain.test",
+      "vhost": "legacy.fixture-domain.test",
+      "php_version": "ea-php83",
+      "php": "ea-php83"
+    },
+    {
+      "user": "dormant",
+      "domain": "dormant.fixture-domain.test",
+      "type": "main",
+      "docroot": "/home/dormant/public_html",
+      "engine": "ols",
+      "php_handler": "fpm",
+      "tls": false,
+      "suspended": true,
+      "parent": "dormant.fixture-domain.test",
+      "vhost": "dormant.fixture-domain.test",
+      "php_version": "ea-php83",
+      "php": "ea-php83"
+    },
+    {
+      "user": "newbie",
+      "domain": "newbie.fixture-domain.test",
+      "type": "addon",
+      "docroot": "/home/newbie/newbie.fixture-domain.test",
+      "engine": "unknown",
+      "php_handler": null,
+      "tls": null,
+      "suspended": null,
+      "parent": "fixture-domain.test",
+      "vhost": "newbie.fixture-domain.test",
+      "php_version": "ea-php83",
+      "php": "ea-php83"
+    }
+  ],
+  "source": "/etc/userdatadomains",
+  "engine_source": {
+    "source": "plan",
+    "id": "p20261022101500-a1b2c3",
+    "compiled_at": "2026-10-22T10:15:00+00:00"
+  },
+  "rejected_rows": 0
+}

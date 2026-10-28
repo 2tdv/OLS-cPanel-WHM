@@ -1,0 +1,13 @@
+# Product unit: runs the LSCache cleanup every hour (ols-cpanel-cache-clean.service). Enabled by `install --prepare` and by
+# `upgrade`; the random delay keeps the hosts of a fleet from cleaning at the same minute.
+[Unit]
+Description=OLS-cPanel LSCache cleanup timer
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=1h
+RandomizedDelaySec=5min
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

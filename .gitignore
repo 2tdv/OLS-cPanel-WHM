@@ -1,0 +1,10 @@
+/evidence/local/
+/artifacts/
+/vendor/
+/node_modules/
+**/__pycache__/
+*.pyc
+.env
+*.pem
+*.key
+error_log

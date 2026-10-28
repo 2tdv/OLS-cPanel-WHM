@@ -1,0 +1,12 @@
+# Product unit: looks for due maintenance windows every minute (ols-cpanel-schedule.service). Enabled by `install --prepare` and by
+# `upgrade`. Without a scheduled job the pass reads one small file and ends.
+[Unit]
+Description=OLS-cPanel maintenance windows timer
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

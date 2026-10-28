@@ -1,0 +1,72 @@
+{
+  "observed_at": 1792630000,
+  "source": "/etc/userdatadomains",
+  "sites": [
+    {
+      "domain": "legacy.fixture-domain.test",
+      "type": "main",
+      "docroot": "/home/legacy/public_html",
+      "engine": "hybrid",
+      "php_version": "ea-php82",
+      "php_handler": "cgi",
+      "tls": {
+        "present": true,
+        "not_after": "+90d"
+      },
+      "suspended": false,
+      "vhost": "legacy.fixture-domain.test",
+      "parent": null
+    },
+    {
+      "domain": "store.fixture-domain.test",
+      "type": "addon",
+      "docroot": "/home/legacy/store.fixture-domain.test",
+      "engine": "ols",
+      "php_version": "ea-php83",
+      "php_handler": "fpm",
+      "tls": {
+        "present": true,
+        "not_after": "+9d"
+      },
+      "suspended": false,
+      "vhost": "store.fixture-domain.test",
+      "parent": null
+    },
+    {
+      "domain": "old.fixture-domain.test",
+      "type": "parked",
+      "docroot": "/home/legacy/public_html",
+      "engine": "hybrid",
+      "php_version": "ea-php82",
+      "php_handler": "cgi",
+      "tls": {
+        "present": true,
+        "not_after": "-3d"
+      },
+      "suspended": false,
+      "vhost": "old.fixture-domain.test",
+      "parent": null
+    },
+    {
+      "domain": "dev.legacy.fixture-domain.test",
+      "type": "sub",
+      "docroot": "/home/legacy/public_html/dev",
+      "engine": "unknown",
+      "php_version": null,
+      "php_handler": null,
+      "tls": {
+        "present": false,
+        "not_after": null
+      },
+      "suspended": false,
+      "vhost": "dev.legacy.fixture-domain.test",
+      "parent": null
+    }
+  ],
+  "user": "legacy",
+  "engine_source": {
+    "source": "plan",
+    "id": "p20261022101500-a1b2c3",
+    "compiled_at": "2026-10-22T10:15:00+00:00"
+  }
+}

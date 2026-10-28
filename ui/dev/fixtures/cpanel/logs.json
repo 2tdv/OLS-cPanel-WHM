@@ -1,0 +1,13 @@
+{
+  "user": "legacy",
+  "domain": "store.fixture-domain.test",
+  "kind": "access",
+  "file": "store.fixture-domain.test-ssl_log",
+  "observed_at": 0,
+  "search": null,
+  "download": false,
+  "exists": true,
+  "lines": [],
+  "count": 0,
+  "window_truncated": false
+}

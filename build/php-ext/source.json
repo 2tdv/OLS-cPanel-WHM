@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "extension": "redis",
+  "version": "6.3.0",
+  "url": "https://pecl.php.net/get/redis-6.3.0.tgz",
+  "sha256": "0d5141f634bd1db6c1ddcda053d25ecf2c4fc1c395430d534fd3f8d51dd7f0b5",
+  "builder_image": "docker.io/library/almalinux@sha256:dc973f4dffd28a1e6ae4d1662086d83bac34cd26f3b701e7ba51f4dcb300c80d",
+  "ea4_repo_key_url": "https://securedownloads.cpanel.net/cPanelPublicPkgKey.asc",
+  "ea4_repo_key_fingerprint": "7FB69A062F334F2510CCDFFE2378B5957E931C7C",
+  "ea4_repo_os_name_prefix": "c",
+  "php_versions": ["ea-php81", "ea-php82", "ea-php83", "ea-php84", "ea-php85"],
+  "configure_options": ["--disable-redis-igbinary", "--disable-redis-msgpack", "--disable-redis-lzf", "--disable-redis-zstd", "--disable-redis-lz4"],
+  "source_date_epoch": 1761523200,
+  "product_release": 1,
+  "release_inputs_sha256": "29f2ad30712b32b369f9804e1815cf60193963ad0e1caba5831f22b42874e96f"
+}

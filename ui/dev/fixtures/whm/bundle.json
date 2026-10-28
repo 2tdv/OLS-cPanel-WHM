@@ -1,0 +1,8 @@
+{
+  "observed_at": 1792630000,
+  "bundles": [
+    { "name": "bundle-1792500000-0a1b2c3d.tar.gz", "size": 1843200, "created": 1792500000 }
+  ],
+  "limit_bytes": 20971520,
+  "keep": 3
+}

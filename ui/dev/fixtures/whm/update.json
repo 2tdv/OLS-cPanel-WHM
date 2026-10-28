@@ -1,0 +1,19 @@
+{
+  "observed_at": 1792630000,
+  "source": "ols-cpanel update check --format=json",
+  "exit_code": 0,
+  "output": {
+    "command": "update check",
+    "checked_at": 1792629500,
+    "error": null,
+    "update_available": true,
+    "cpanel_version": "11.134.0.20",
+    "cached": false,
+    "packages": [
+      { "package": "ols-cpanel", "installed": "0.9.4-1.el9.x86_64", "available": "0.9.5-1.el9.x86_64", "update_available": true,
+        "signature": { "state": "unsigned", "key_id": null, "detail": "No rpm signature (lab or local build)." } },
+      { "package": "ols-cpanel-openlitespeed", "installed": "1.8.5-1.el9.x86_64", "available": null, "update_available": false,
+        "signature": { "state": "unsigned", "key_id": null, "detail": "No rpm signature (lab or local build)." } }
+    ]
+  }
+}

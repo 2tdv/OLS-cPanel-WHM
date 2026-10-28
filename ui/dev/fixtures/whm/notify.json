@@ -1,0 +1,31 @@
+{
+  "observed_at": 1792630000,
+  "source": "ols-cpanel notify show --format=json",
+  "exit_code": 0,
+  "output": {
+    "command": "notify show",
+    "settings": {
+      "enabled": false,
+      "emails": [],
+      "webhook": { "set": false, "host": null },
+      "events": ["job", "held", "php_env", "upgrade", "cache_emergency", "disk", "objcache", "schedule"],
+      "available_events": {
+        "job": "A switch, return or recovery job finished",
+        "held": "A site was newly held back or left on Apache",
+        "php_env": "A PHP environment check failed",
+        "upgrade": "An upgrade failed",
+        "cache_emergency": "The page cache was trimmed in an emergency",
+        "disk": "A disk is nearly full",
+        "objcache": "An object cache site check failed",
+        "schedule": "A scheduled job was missed or could not start"
+      },
+      "enabled_since": null
+    },
+    "limits": { "per_day": 20, "dedupe_hours": 6 },
+    "sent_last_24h": 0,
+    "last_run": null,
+    "last_sent": null,
+    "last_error": null,
+    "recent": []
+  }
+}

@@ -1,0 +1,20 @@
+# Product unit: applies a package upgrade of the product (`ols-cpanel upgrade`: verify the packages, load changed unit files,
+# restart the broker and the reconciler, refresh the plugins, reload OLS gracefully when its binary was replaced). Started by
+# the PHP environment pass (ols-cpanel-php.service, run after every package transaction) when the installed ols-cpanel or
+# ols-cpanel-openlitespeed version differs from the one the last upgrade recorded, so nobody has to run it.
+[Unit]
+Description=OLS-cPanel: apply an installed package upgrade
+After=local-fs.target network-online.target
+ConditionPathExists=/usr/local/ols-cpanel/bin/ols-cpanel
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/ols-cpanel/bin/ols-cpanel upgrade --format=json
+TimeoutStartSec=1800
+UMask=0022
+PrivateTmp=yes
+ProtectKernelTunables=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native

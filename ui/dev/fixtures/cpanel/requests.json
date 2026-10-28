@@ -1,0 +1,26 @@
+{
+  "user": "legacy",
+  "observed_at": 0,
+  "subjects": [
+    "cache",
+    "php",
+    "htaccess",
+    "ssl",
+    "performance",
+    "logs",
+    "domains",
+    "other"
+  ],
+  "max_text": 1000,
+  "requests": [
+    {
+      "id": "r1792627000-0a1b2c3d",
+      "user": "legacy",
+      "subject": "php",
+      "text": "Please raise the PHP memory limit for my shop.",
+      "created_at": 1792627000,
+      "status": "open",
+      "done_at": null
+    }
+  ]
+}

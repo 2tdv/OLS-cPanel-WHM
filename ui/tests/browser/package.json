@@ -1,0 +1,11 @@
+{
+  "name": "ols-cpanel-ui-browser-check",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Browser and accessibility check of the fixture build (build/ui/browser-check.sh); not part of the release build",
+  "type": "module",
+  "dependencies": {
+    "axe-core": "4.10.2",
+    "playwright-core": "1.49.1"
+  }
+}

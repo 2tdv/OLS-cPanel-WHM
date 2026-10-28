@@ -1,0 +1,41 @@
+# BEGIN LSCACHE
+## LITESPEED WP CACHE PLUGIN - Do not edit the contents of this block! ##
+<IfModule LiteSpeed>
+RewriteEngine on
+CacheLookup on
+RewriteRule .* - [E=Cache-Control:no-autoflush]
+RewriteRule litespeed/debug/.*\.log$ - [F,L]
+RewriteRule \.litespeed_conf\.dat - [F,L]
+
+### marker ASYNC start ###
+RewriteCond %{REQUEST_URI} /wp-admin/admin-ajax\.php
+RewriteCond %{QUERY_STRING} action=async_litespeed
+RewriteRule .* - [E=noabort:1]
+### marker ASYNC end ###
+
+### marker MOBILE start ###
+RewriteCond %{HTTP_USER_AGENT} Mobile|Android|Silk/|Kindle|BlackBerry|Opera\ Mini|Opera\ Mobi [NC]
+RewriteRule .* - [E=Cache-Control:vary=%{ENV:LSCACHE_VARY_VALUE}+ismobile]
+### marker MOBILE end ###
+
+### marker LOGIN COOKIE start ###
+RewriteRule .? - [E="Cache-Vary:,wp-postpass_abc"]
+### marker LOGIN COOKIE end ###
+
+### marker DROPQS start ###
+CacheKeyModify -qs:fbclid
+CacheKeyModify -qs:utm*
+### marker DROPQS end ###
+
+### marker WEBP start ###
+RewriteCond %{HTTP_ACCEPT} "image/webp"
+RewriteRule .* - [E=Cache-Control:vary=%{ENV:LSCACHE_VARY_VALUE}+webp]
+RewriteCond %{HTTP_USER_AGENT} iPhone.*Version/(\d{2}).*Safari
+RewriteCond %1 >13
+RewriteRule .* - [E=Cache-Control:vary=%{ENV:LSCACHE_VARY_VALUE}+webp]
+### marker WEBP end ###
+</IfModule>
+## LITESPEED WP CACHE PLUGIN - Do not edit the contents of this block! ##
+# END LSCACHE
+# BEGIN NON_LSCACHE
+# END NON_LSCACHE

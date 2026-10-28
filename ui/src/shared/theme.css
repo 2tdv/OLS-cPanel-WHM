@@ -1,0 +1,270 @@
+/* OLS-cPanel design system (UIX-04): one visual language for WHM and cPanel, light and dark, driven by
+   CSS variables. Tone pairs (background/text) keep at least 4.5:1 contrast in both themes (UIX-06). */
+.olsc-app {
+  --olsc-bg: #f5f7fa;
+  --olsc-surface: #ffffff;
+  --olsc-border: #d9dfe8;
+  --olsc-text: #1d2433;
+  --olsc-muted: #4f596b;
+  --olsc-accent: #2a62c9;
+  --olsc-focus: #2a62c9;
+  --olsc-chart-1: #2a62c9; --olsc-chart-2: #b45309;
+  --olsc-radius: 10px;
+  --olsc-gap: 16px;
+  --olsc-tone-ok-bg: #e6f4ea; --olsc-tone-ok-fg: #14532d;
+  --olsc-tone-warn-bg: #fdf3e1; --olsc-tone-warn-fg: #7a4b00;
+  --olsc-tone-bad-bg: #fde8e8; --olsc-tone-bad-fg: #8f1d1d;
+  --olsc-tone-info-bg: #e7effc; --olsc-tone-info-fg: #1b4aa0;
+  --olsc-tone-neutral-bg: #eef0f4; --olsc-tone-neutral-fg: #3b4456;
+  --olsc-tone-pending-bg: #efe9fb; --olsc-tone-pending-fg: #4b2a91;
+  color: var(--olsc-text);
+  background: var(--olsc-bg);
+  font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 60vh;
+  border-radius: var(--olsc-radius);
+  position: relative;
+}
+.olsc-app.olsc-dark {
+  --olsc-bg: #11151c;
+  --olsc-surface: #1a2029;
+  --olsc-border: #2f3846;
+  --olsc-text: #e6e9ef;
+  --olsc-muted: #a3adbd;
+  --olsc-accent: #7eaaff;
+  --olsc-chart-1: #7eaaff; --olsc-chart-2: #f5c46b;
+  --olsc-focus: #9cc2ff;
+  --olsc-tone-ok-bg: #15291f; --olsc-tone-ok-fg: #8fe0ad;
+  --olsc-tone-warn-bg: #2e2512; --olsc-tone-warn-fg: #f5c46b;
+  --olsc-tone-bad-bg: #34191a; --olsc-tone-bad-fg: #ff9c9c;
+  --olsc-tone-info-bg: #17243a; --olsc-tone-info-fg: #9cc2ff;
+  --olsc-tone-neutral-bg: #222a35; --olsc-tone-neutral-fg: #c7cfdc;
+  --olsc-tone-pending-bg: #251d3a; --olsc-tone-pending-fg: #c7b2ff;
+}
+
+/* Element Plus tokens in the light theme (WCAG 1.4.3): its default palette (#409eff, #909399, #f56c6c, ...) is below 4.5:1
+   for text and for white text on solid buttons. Set on :root (doubled to beat the library's own :root rule) as well because dialogs and popovers are teleported to <body>. */
+:root:root, .olsc-app {
+  --el-color-primary: #2a62c9; --el-color-primary-dark-2: #204e9f;
+  --el-color-primary-light-3: #7f9fdc; --el-color-primary-light-5: #a9c0e8; --el-color-primary-light-7: #d4dff3;
+  --el-color-primary-light-8: #e2eaf7; --el-color-primary-light-9: #e7effc;
+  --el-color-success: #2a7a2a; --el-color-success-dark-2: #226122;
+  --el-color-warning: #8a5300; --el-color-warning-dark-2: #6e4200;
+  --el-color-danger: #b02a2a; --el-color-danger-dark-2: #8d2121; --el-color-error: #b02a2a;
+  --el-color-info: #5b6270; --el-color-info-dark-2: #494f5a;
+  --el-text-color-secondary: #4f596b;
+  --el-text-color-placeholder: #6b7280;
+  --el-table-header-text-color: #4f596b;
+}
+/* The switch sets its own off colour on the component, so the token has to be set at the same level. */
+.olsc-app .el-switch { --el-switch-off-color: #6b7280; }
+
+/* Frame */
+.olsc-header {
+  display: flex; align-items: center; gap: var(--olsc-gap); flex-wrap: wrap;
+  padding: 14px 20px; background: var(--olsc-surface); border-bottom: 1px solid var(--olsc-border);
+  border-radius: var(--olsc-radius) var(--olsc-radius) 0 0;
+}
+.olsc-title { font-size: 18px; font-weight: 600; margin: 0; flex: 1 1 auto; }
+.olsc-layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); }
+.olsc-nav { border-right: 1px solid var(--olsc-border); background: var(--olsc-surface); padding: 12px 8px; }
+.olsc-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.olsc-nav a {
+  display: block; padding: 8px 12px; border-radius: 8px; color: var(--olsc-text); text-decoration: none;
+}
+.olsc-nav a:hover { background: var(--olsc-tone-neutral-bg); }
+.olsc-nav a[aria-current="page"] { background: var(--olsc-tone-info-bg); color: var(--olsc-tone-info-fg); font-weight: 600; }
+.olsc-body { padding: 20px; min-width: 0; outline: none; }
+.olsc-fixture-banner {
+  padding: 8px 20px; background: var(--olsc-tone-pending-bg); color: var(--olsc-tone-pending-fg); font-weight: 600;
+  border-bottom: 1px solid var(--olsc-border);
+}
+/* Keyboard-only skip button (WCAG 2.4.1): invisible and out of the layout until reached with Tab. Hidden by
+   clipping, not by an offset, because the WHM and cPanel frames leave room above the page; a mouse or
+   programmatic focus never shows it (only :focus-visible). */
+.olsc-skip {
+  position: absolute; left: 8px; top: 8px; z-index: 10; padding: 0; border: 0; margin: -1px;
+  width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap;
+}
+.olsc-skip:focus-visible {
+  width: auto; height: auto; margin: 0; padding: 6px 12px; overflow: visible; clip: auto; border-radius: 6px;
+  background: var(--olsc-surface); color: var(--olsc-text); border: 2px solid var(--olsc-focus);
+}
+.olsc-app a { color: var(--olsc-accent); text-decoration: underline; text-underline-offset: 2px; }
+.olsc-app .olsc-nav a { text-decoration: none; }
+.olsc-app :focus-visible { outline: 2px solid var(--olsc-focus); outline-offset: 2px; }
+.olsc-sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0);
+  white-space: nowrap; border: 0;
+}
+
+/* Page structure */
+.olsc-page-header { display: flex; gap: var(--olsc-gap); align-items: flex-start; flex-wrap: wrap; margin-bottom: var(--olsc-gap); }
+.olsc-page-title { flex: 1 1 320px; }
+.olsc-page-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.olsc-h2 { font-size: 17px; font-weight: 600; margin: 0 0 4px; }
+.olsc-h3 { font-size: 15px; font-weight: 600; margin: 0 0 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.olsc-h4 { font-size: 13px; font-weight: 600; margin: 16px 0 8px; }
+.olsc-page-title p { margin: 0; }
+.olsc-section { margin-bottom: calc(var(--olsc-gap) * 1.5); }
+.olsc-gap-below { margin-bottom: var(--olsc-gap); }
+.olsc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: var(--olsc-gap); }
+.olsc-card {
+  background: var(--olsc-surface); border: 1px solid var(--olsc-border); border-radius: var(--olsc-radius);
+  padding: 16px;
+}
+.olsc-card h3 { margin: 0 0 6px; font-size: 13px; font-weight: 500; color: var(--olsc-muted); }
+.olsc-card .olsc-h3 { color: var(--olsc-text); font-size: 15px; font-weight: 600; }
+.olsc-metric { font-size: 22px; font-weight: 600; overflow-wrap: anywhere; }
+.olsc-metric.olsc-mono { font-size: 14px; }
+.olsc-unknown { color: var(--olsc-muted); font-style: italic; }
+.olsc-metric.olsc-unknown { font-size: 18px; }
+.olsc-muted { color: var(--olsc-muted); }
+.olsc-small { font-size: 12.5px; }
+.olsc-hint { color: var(--olsc-tone-warn-fg); font-size: 13px; margin: 8px 0 0; }
+.olsc-toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: var(--olsc-gap); }
+.olsc-search { max-width: 360px; }
+.olsc-filter { width: 180px; }
+.olsc-count { margin-left: auto; }
+.olsc-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+.olsc-wrap { overflow-wrap: anywhere; white-space: normal; }
+.olsc-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.olsc-list.olsc-tight { gap: 2px; padding-left: 14px; }
+.olsc-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0 0 12px; }
+.olsc-facts dt { color: var(--olsc-muted); }
+.olsc-facts dd { margin: 0; overflow-wrap: anywhere; }
+.olsc-details summary { cursor: pointer; color: var(--olsc-accent); margin: 8px 0; }
+.olsc-pre {
+  max-height: 420px; overflow: auto; padding: 12px; border-radius: 8px; background: var(--olsc-tone-neutral-bg);
+  color: var(--olsc-text); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.olsc-freshness { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 12px 0 0; color: var(--olsc-muted); font-size: 12.5px; }
+.olsc-pagination { margin-top: 12px; flex-wrap: wrap; }
+.olsc-table-wrap { overflow-x: auto; }
+
+/* Status badge: glyph plus text, never colour alone */
+.olsc-badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; font-size: 12px;
+  font-weight: 600; line-height: 20px; white-space: nowrap; vertical-align: middle;
+}
+.olsc-badge-glyph { font-weight: 700; }
+.olsc-tone-ok { background: var(--olsc-tone-ok-bg); color: var(--olsc-tone-ok-fg); }
+.olsc-tone-warn { background: var(--olsc-tone-warn-bg); color: var(--olsc-tone-warn-fg); }
+.olsc-tone-bad { background: var(--olsc-tone-bad-bg); color: var(--olsc-tone-bad-fg); }
+.olsc-tone-info { background: var(--olsc-tone-info-bg); color: var(--olsc-tone-info-fg); }
+.olsc-tone-neutral { background: var(--olsc-tone-neutral-bg); color: var(--olsc-tone-neutral-fg); }
+.olsc-tone-pending { background: var(--olsc-tone-pending-bg); color: var(--olsc-tone-pending-fg); }
+.olsc-tone-text-ok { color: var(--olsc-tone-ok-fg); }
+.olsc-tone-text-bad { color: var(--olsc-tone-bad-fg); }
+
+/* Job timeline */
+.olsc-job-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.olsc-timeline { list-style: none; margin: 0 0 12px; padding: 0 0 0 6px; border-left: 2px solid var(--olsc-border); }
+.olsc-timeline-item { position: relative; display: flex; gap: 10px; flex-wrap: wrap; padding: 4px 0 4px 14px; }
+.olsc-timeline-dot {
+  position: absolute; left: -7px; top: 10px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--olsc-surface); border: 2px solid var(--olsc-accent);
+}
+.olsc-timeline-live .olsc-timeline-dot { background: var(--olsc-accent); animation: olsc-pulse 1.4s ease-in-out infinite; }
+@keyframes olsc-pulse { 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) { .olsc-timeline-live .olsc-timeline-dot { animation: none; } }
+
+/* Help in context */
+.olsc-help { display: inline; }
+.olsc-help-body {
+  margin: 6px 0; padding: 10px 12px; border-left: 3px solid var(--olsc-accent); background: var(--olsc-tone-info-bg);
+  color: var(--olsc-text); border-radius: 0 8px 8px 0; font-size: 13px; white-space: normal;
+}
+.olsc-help-body p { margin: 4px 0; }
+.olsc-confirm { display: flex; flex-direction: column; gap: 10px; }
+.olsc-confirm-label { font-weight: 600; }
+
+/* Dark mode drives Element Plus through its own variables so tables, rows, alerts, inputs and
+   popovers all follow (human review 2026-10-22: rows stayed white with low-contrast text). */
+.olsc-app.olsc-dark {
+  --el-bg-color: var(--olsc-surface);
+  --el-bg-color-overlay: var(--olsc-surface);
+  --el-bg-color-page: var(--olsc-bg);
+  --el-fill-color-blank: var(--olsc-surface);
+  --el-fill-color: #222a35;
+  --el-fill-color-light: #242c38;
+  --el-fill-color-lighter: #1f2630;
+  --el-text-color-primary: var(--olsc-text);
+  --el-text-color-regular: var(--olsc-text);
+  --el-text-color-secondary: var(--olsc-muted);
+  --el-border-color: var(--olsc-border);
+  --el-border-color-light: var(--olsc-border);
+  --el-border-color-lighter: var(--olsc-border);
+  --el-table-bg-color: var(--olsc-surface);
+  --el-table-tr-bg-color: var(--olsc-surface);
+  --el-table-header-bg-color: #202733;
+  --el-table-row-hover-bg-color: #253041;
+  --el-table-text-color: var(--olsc-text);
+  --el-table-header-text-color: var(--olsc-muted);
+  --el-color-success-light-9: #15291f;
+  --el-color-success-light-8: #1b3a2a;
+  --el-color-warning-light-9: #2e2512;
+  --el-color-danger-light-9: #34191a;
+  --el-color-error-light-9: #34191a;
+  --el-color-info-light-9: #1f2630;
+  --el-color-primary: #7eaaff; --el-color-primary-dark-2: #9cc2ff; --el-color-primary-light-9: #17243a;
+  --el-color-success: #8fe0ad; --el-color-warning: #f5c46b; --el-color-danger: #ff9c9c; --el-color-error: #ff9c9c; --el-color-info: #a3adbd;
+  --el-text-color-placeholder: #9aa3b2;
+  --el-switch-off-color: #5b6270;
+}
+.olsc-app.olsc-dark .el-switch { --el-switch-off-color: #5b6270; --el-switch-on-color: #2a62c9; }
+/* Solid buttons keep a dark fill with white text; the light tokens above are for text, links and tinted fills. */
+.olsc-app.olsc-dark .el-button--primary:not(.is-link):not(.is-text):not(.is-plain) {
+  --el-button-bg-color: #2a62c9; --el-button-border-color: #2a62c9; --el-button-hover-bg-color: #3a72d9; --el-button-hover-border-color: #3a72d9;
+  --el-button-active-bg-color: #204e9f; --el-button-active-border-color: #204e9f; --el-button-text-color: #fff; --el-button-hover-text-color: #fff;
+}
+.olsc-app.olsc-dark .el-button--danger:not(.is-link):not(.is-text):not(.is-plain) {
+  --el-button-bg-color: #b02a2a; --el-button-border-color: #b02a2a; --el-button-hover-bg-color: #c43a3a; --el-button-hover-border-color: #c43a3a;
+  --el-button-active-bg-color: #8d2121; --el-button-active-border-color: #8d2121; --el-button-text-color: #fff; --el-button-hover-text-color: #fff;
+}
+@media (max-width: 900px) {
+  .olsc-layout { grid-template-columns: minmax(0, 1fr); }
+  .olsc-nav { border-right: 0; border-bottom: 1px solid var(--olsc-border); padding: 8px; }
+  .olsc-nav ul { flex-direction: row; flex-wrap: wrap; }
+}
+@media (max-width: 640px) {
+  .olsc-body { padding: 12px; }
+  .olsc-header { padding: 12px; }
+  .olsc-facts { grid-template-columns: minmax(0, 1fr); }
+  .olsc-facts dd { margin-bottom: 6px; }
+}
+
+/* Metrics history charts (inline SVG): series 0 and 1 use two colours that stay distinct in both themes. */
+.olsc-chart { margin: 0; }
+.olsc-chart-grid-wide { grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); margin-bottom: 12px; }
+.olsc-chart-svg { width: 100%; height: auto; display: block; }
+.olsc-chart-grid { stroke: var(--olsc-border); stroke-width: 1; }
+.olsc-chart-axis { fill: var(--olsc-muted); font-size: 10.5px; }
+.olsc-chart-line path { stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+.olsc-chart-s0 path { stroke: var(--olsc-chart-1); }
+.olsc-chart-s0 .olsc-chart-swatch { border-top-color: var(--olsc-chart-1); }
+.olsc-chart-s1 path { stroke: var(--olsc-chart-2); }
+.olsc-chart-s1 .olsc-chart-swatch { border-top-color: var(--olsc-chart-2); }
+.olsc-chart-s0 circle { fill: var(--olsc-chart-1); }
+.olsc-chart-s1 circle { fill: var(--olsc-chart-2); }
+.olsc-chart-s1 path { stroke-dasharray: 5 3; }
+.olsc-chart-legend { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; }
+.olsc-chart-legend li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.olsc-chart-swatch { display: inline-block; width: 18px; height: 0; border-top: 2px solid; align-self: center; }
+.olsc-chart-s1 .olsc-chart-swatch { border-top-style: dashed; }
+.olsc-plain-list { list-style: none; margin: 0; padding: 0; }
+.olsc-gap-above { margin-top: var(--olsc-gap); }
+.olsc-log { max-height: 420px; overflow: auto; padding: 12px; margin: 0; border: 1px solid var(--olsc-border, #ddd); border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Narrow screens (WCAG 1.4.10, 320 px): long paths and checkbox labels wrap instead of widening the page. */
+fieldset.olsc-field { min-width: 0; }
+.el-checkbox.olsc-block { display: flex; height: auto; white-space: normal; margin-right: 0; }
+.olsc-app .el-collapse-item__header { height: auto; min-height: 48px; padding: 8px 0; line-height: 1.4; white-space: normal; text-align: left; }
+.olsc-app .el-collapse-item__header { gap: 6px; }
+.olsc-app .el-collapse-item__header .olsc-mono { min-width: 0; overflow-wrap: anywhere; }
+.olsc-app .el-pagination { max-width: 100%; }
+/* A button that is a link keeps the button colours (the link colour rule above would otherwise win on the filled variants). */
+.olsc-app a.el-button { color: var(--el-button-text-color); text-decoration: none; }
+.olsc-app.olsc-dark .el-radio-button { --el-radio-button-checked-bg-color: #2a62c9; --el-radio-button-checked-border-color: #2a62c9; --el-radio-button-checked-text-color: #fff; }

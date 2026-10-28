@@ -1,0 +1,36 @@
+From 7e0c6288c7eeb12e896b29216c6bba19da9dab70 Mon Sep 17 00:00:00 2001
+From: OLS-cPanel-WHM <2tdv@users.noreply.github.com>
+Date: Wed, 21 Oct 2026 23:05:07 +0000
+Subject: [PATCH 4/4] Do not require the lsadm account
+
+The server ran usermod for lsadm on every start, including -v and -t,
+and logged an error when the account was missing. That error made a
+configuration test fail on hosts that intentionally have no lsadm
+account. Skip both steps when the account does not exist.
+---
+ src/main/httpserver.cpp | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/src/main/httpserver.cpp b/src/main/httpserver.cpp
+index f4cd29a..b5142d0 100644
+--- a/src/main/httpserver.cpp
++++ b/src/main/httpserver.cpp
+@@ -3426,7 +3426,8 @@ void HttpServerImpl::fixConfDirsPermission()
+     struct passwd *pw = getpwnam("lsadm");
+     if (!pw)
+     {
+-        LS_ERROR(ConfigCtx::getCurConfigCtx(), "Get lsadm passwd failed.");
++        LS_INFO(ConfigCtx::getCurConfigCtx(),
++                "No lsadm account, keep configuration directory ownership.");
+         return ;
+     }
+ 
+@@ -4156,7 +4157,7 @@ int HttpServerImpl::configServerBasics(int reconfig, const XmlNode *pRoot)
+ #if defined(macintosh) || defined(__APPLE__) || defined(__APPLE_CC__)
+         snprintf(syscmd, 1024, "dseditgroup -o edit -a lsadm -t user %s", MainServerConfigObj.getGroup());
+ #endif
+-        if (*syscmd)
++        if (*syscmd && getpwnam("lsadm") != NULL)
+             ::system(syscmd);
+ 
+         return 0;

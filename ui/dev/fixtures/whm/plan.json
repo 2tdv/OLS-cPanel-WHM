@@ -1,0 +1,75 @@
+{
+  "observed_at": 1792630000,
+  "source": "/var/lib/ols-cpanel/plans",
+  "plan": {
+    "id": "p20261022101500-a1b2c3",
+    "digest": "7d3f0c2a9b8e6d4f1a2c3e5b7d9f0a1c2e4b6d8f0a3c5e7b9d1f2a4c6e8b0d2f",
+    "modified_at": 1792653300,
+    "valid": true,
+    "content": {
+      "schema_version": 1,
+      "id": "p20261022101500-a1b2c3",
+      "created": "2026-10-22T10:15:00+00:00",
+      "profile": {
+        "production": true,
+        "hybrid_ports": [
+          81,
+          444
+        ]
+      },
+      "hybrid_vhosts": [
+        {
+          "vhost": "legacy.fixture-domain.test",
+          "reasons": [
+            "/: unsupported conditional Header 'Header set X-Frame-Options DENY env=!embed'",
+            "/admin: unsupported access rule combination ['Order deny,allow', 'Deny from all', 'Satisfy any']"
+          ]
+        },
+        {
+          "vhost": "blog.fixture-domain.test",
+          "reasons": [
+            "/: unsupported RewriteRule '^(.*)$ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]'"
+          ]
+        }
+      ],
+      "vhost_count": 14,
+      "vhosts": [],
+      "ols_package": "ols-cpanel-openlitespeed-1.8.3",
+      "compile_sha256": "9c1e2a7b3f5d8e0a4c6b2d9f1e3a5c7b9d0f2e4a6c8b1d3f5e7a9c0b2d4f6e8a",
+      "host_changes": [
+        "Apache moved to 81/444 (apache_port/apache_ssl_port tweaks), /etc/apache2/conf.d/ols-cpanel-remoteip.conf, nftables table inet ols_cpanel, OLS on 80/443"
+      ],
+      "backups_needed": [
+        "/var/cpanel/cpanel.config",
+        "/etc/apache2/conf/httpd.conf",
+        "/etc/chkserv.d/httpd"
+      ],
+      "certification_blockers": [],
+      "checks": [
+        {
+          "name": "platform",
+          "ok": true,
+          "detail": "almalinux 9"
+        },
+        {
+          "name": "ols-package",
+          "ok": true,
+          "detail": "ols-cpanel-openlitespeed-1.8.3"
+        },
+        {
+          "name": "compile",
+          "ok": true,
+          "detail": "14 vhosts, lint passed"
+        },
+        {
+          "name": "suexec",
+          "ok": true,
+          "detail": "suexec_module loaded"
+        }
+      ],
+      "summary": {
+        "compiled_at": "2026-10-22T10:15:00+00:00"
+      }
+    }
+  }
+}

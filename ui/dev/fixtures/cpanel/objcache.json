@@ -1,0 +1,17 @@
+{
+  "user": "legacy",
+  "observed_at": 1792630000,
+  "source": "ols-cpanel objcache status",
+  "enabled": true,
+  "suspended": false,
+  "state": "active",
+  "memory_mb": 64,
+  "connection": { "host": "/home/legacy/.ols-objcache/valkey.sock", "port": 0, "password": null },
+  "wordpress": [
+    { "path": "/home/legacy/public_html", "state": "automatic", "configured_by_product": true, "checked_at": 1792629000, "error": null },
+    { "path": "/home/legacy/public_html/blog", "state": "owner", "configured_by_product": false, "checked_at": 1792629000, "error": null },
+    { "path": "/home/legacy/shop", "state": "inactive", "configured_by_product": false, "checked_at": 1792629000, "error": null },
+    { "path": "/home/legacy/old", "state": "error", "configured_by_product": false, "checked_at": 1792629500, "error": "wp plugin is-active failed: Error: Error establishing a database connection." }
+  ],
+  "usage": { "used_memory": 3145728, "maxmemory": 67108864, "keys": 412, "evicted_keys": 0, "hit_rate": 0.9132, "connected_clients": 2 }
+}

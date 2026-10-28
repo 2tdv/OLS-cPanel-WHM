@@ -1,0 +1,3 @@
+#!/bin/sh
+# cPanel runs script hooks without arguments: the fixed entry point of `ols-cpanel hook`.
+exec /usr/local/ols-cpanel/bin/ols-cpanel hook

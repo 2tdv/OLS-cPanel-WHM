@@ -1,0 +1,24 @@
+# BEGIN WpFastestCache
+# Modified Time: 01-01-26 10:00:00
+<IfModule mod_expires.c>
+  ExpiresActive On
+  AddType application/font-woff2 .woff2
+  ExpiresByType text/css "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+</IfModule>
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteCond %{HTTP:Cookie} !(wordpress_logged_in_|comment_author_|wp-postpass_)
+  RewriteCond %{REQUEST_METHOD} !POST
+  RewriteCond %{HTTPS} =on
+  RewriteCond %{QUERY_STRING} !.+
+  RewriteCond %{DOCUMENT_ROOT}/wp-content/cache/all/$1/index.html -f
+  RewriteRule ^(.*) /wp-content/cache/all/$1/index.html [L]
+</IfModule>
+<FilesMatch "\.(html|htm)$">
+  AddDefaultCharset UTF-8
+</FilesMatch>
+# END WpFastestCache

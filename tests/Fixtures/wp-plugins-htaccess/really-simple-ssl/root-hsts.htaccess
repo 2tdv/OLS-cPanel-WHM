@@ -1,0 +1,10 @@
+# BEGIN rlrssslReallySimpleSSL rsssl_version[7.2.0]
+<IfModule mod_rewrite.c>
+RewriteEngine on
+RewriteCond %{HTTPS} !=on [NC]
+RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+</IfModule>
+<IfModule mod_headers.c>
+Header always set Strict-Transport-Security "max-age=31536000" env=HTTPS
+</IfModule>
+# END rlrssslReallySimpleSSL

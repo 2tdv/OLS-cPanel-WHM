@@ -1,0 +1,25 @@
+From 1a2e27b46015047470d42062c3d5e1f47af3c421 Mon Sep 17 00:00:00 2001
+From: OLS-cPanel-WHM <2tdv@users.noreply.github.com>
+Date: Wed, 21 Oct 2026 23:18:49 +0000
+Subject: [PATCH] Link curl configure checks with libstdc++
+
+BoringSSL now contains C++ objects, so the static libssl/libcrypto need
+libstdc++ when curl's configure probes SSL_connect. Without it curl is
+not built and ModSecurity's configure fails later.
+---
+ script/build_curl.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/script/build_curl.sh b/script/build_curl.sh
+index ef2434a..08ae002 100755
+--- a/script/build_curl.sh
++++ b/script/build_curl.sh
+@@ -14,7 +14,7 @@ fi
+     git pull
+     git checkout curl-7_88_1
+     ./buildconf 
+-    CFLAGS="-fPIC" LIBS=-lpthread ./configure --prefix=$PREFIX --with-ssl=$PREFIX --with-brotli=no  --enable-shared=no --enable-ldap=no --without-nghttp2 --without-nghttp3
++    CFLAGS="-fPIC" LIBS="-lpthread -lstdc++" ./configure --prefix=$PREFIX --with-ssl=$PREFIX --with-brotli=no  --enable-shared=no --enable-ldap=no --without-nghttp2 --without-nghttp3
+     make
+     make install
+ 

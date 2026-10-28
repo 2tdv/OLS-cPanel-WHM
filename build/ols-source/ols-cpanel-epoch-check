@@ -1,0 +1,27 @@
+#!/bin/sh
+# ExecStartPre of ols-cpanel.service (plan 14.4, review RV-05): never start OLS on a configuration
+# generation compiled before the newest restriction (suspension, removal, revoked privilege).
+# Without the generation layout there is nothing to compare. A missing record is accepted only while no
+# generation of a later epoch exists (a fresh installation); otherwise the record was lost: fail closed.
+STATE=/var/lib/ols-cpanel
+if [ ! -f "$STATE/epoch.json" ]; then
+    # epoch.high is written before every restriction: if it exists, the record was lost.
+    [ -e "$STATE/epoch.high" ] && { echo "ols-cpanel: restriction epoch record missing" >&2; exit 1; }
+    for f in "$STATE"/generations/*/EPOCH; do
+        [ -f "$f" ] || continue
+        [ "$(cat "$f" 2>/dev/null)" = 0 ] || { echo "ols-cpanel: restriction epoch record missing" >&2; exit 1; }
+    done
+    exit 0
+fi
+high=$(cat "$STATE/epoch.high" 2>/dev/null || echo 0)
+current=$(sed -n 's/^{"epoch": \([0-9][0-9]*\),.*/\1/p' "$STATE/epoch.json")
+active=$(cat "$STATE/active/EPOCH" 2>/dev/null)
+case "$current" in ''|*[!0-9]*) echo "ols-cpanel: unreadable restriction epoch" >&2; exit 1 ;; esac
+case "$active" in ''|*[!0-9]*) echo "ols-cpanel: active generation has no epoch" >&2; exit 1 ;; esac
+case "$high" in ''|*[!0-9]*) echo "ols-cpanel: unreadable epoch high-water mark" >&2; exit 1 ;; esac
+[ "$current" -ge "$high" ] || { echo "ols-cpanel: restriction epoch record older than its high-water mark" >&2; exit 1; }
+if [ "$active" -lt "$current" ]; then
+    echo "ols-cpanel: active generation (epoch $active) predates restriction epoch $current; not starting" >&2
+    exit 1
+fi
+exit 0

@@ -1,0 +1,35 @@
+# Product unit: the PHP environment applier (docs/product-interfaces.md, "PHP environment"). One pass of
+# `ols-cpanel php env sync`: for every installed EA4 PHP version make sure OLS has what it needs and keep it so,
+# whatever EasyApache, MultiPHP or an EA4 profile does to the packages: `ea-phpXX-php-litespeed` (lsphp), OPcache
+# installed and tuned for shared hosting, the redis extension loading (prebuilt, earlier build or built on this
+# server), the recommended EA4 profile file present. Missing packages are installed with dnf; the lsphp processes
+# of the accounts on a version that changed are restarted. Level-triggered and idempotent: a pass over complete
+# versions only reads. Failures are recorded with their reason and retried with a back-off (WHM shows them).
+# Started by ols-cpanel-php.path (after package transactions), ols-cpanel-php.timer (periodic fallback), the
+# reconciler (a vhost whose PHP version has no usable lsphp) and `php env repair` (the WHM button).
+# Installed disabled (the path and timer are enabled by `ols-cpanel install --prepare`); never started by the package.
+[Unit]
+Description=OLS-cPanel PHP environment (lsphp, OPcache, redis for every EA4 PHP version)
+After=local-fs.target network-online.target
+ConditionPathExists=/usr/local/ols-cpanel/bin/ols-cpanel
+# The path unit fails permanently when this unit hits a start limit.
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+# Root: dnf, a compiler for the redis extension, writing php.d drop-ins below /opt/cpanel and ending the lsphp
+# processes of accounts are root operations. The reconciler service (olscpanel) has no such authority; it only
+# asks for this unit to start through one allowlisted broker command.
+ExecStart=/usr/local/ols-cpanel/bin/ols-cpanel php env sync --format=json
+# A first package installation or a redis build over a slow mirror.
+TimeoutStartSec=3600
+Nice=10
+UMask=0022
+NoNewPrivileges=yes
+# ProtectSystem=full would make /usr read-only, which dnf must write; the unit only drops the kernel knobs.
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native

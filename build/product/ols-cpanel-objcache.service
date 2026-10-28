@@ -1,0 +1,40 @@
+# Product unit: applies the object cache desired state (docs/product-interfaces.md, "Object cache"): starts
+# the instances of enabled accounts, stops those of suspended accounts, removes those of deleted accounts or
+# disabled packages; also finds the WordPress sites with LiteSpeed Cache of running accounts and sets their object
+# cache (off again where the product set it when the cache is disabled or the account suspended). Idempotent and level-triggered, so a missed cPanel hook event costs at most one timer
+# period. Started by ols-cpanel-objcache.timer and, without waiting, by the cPanel hook entry after a
+# account lifecycle event. Also migrates queued renames and prunes orphan PHP limits. The timer is
+# enabled by prepare and upgrade; never started by the package scriptlet.
+[Unit]
+Description=OLS-cPanel object cache reconciliation
+After=local-fs.target
+
+[Service]
+Type=oneshot
+# Root: starting and stopping per-account units, writing their drop-ins and removing socket directories
+# (as the account, through runuser) are root operations. The reconciler service (olscpanel) has no such
+# authority and none is added to the broker.
+ExecStart=/usr/local/ols-cpanel/bin/ols-cpanel objcache reconcile --format=json
+TimeoutStartSec=300
+# Background work never competes with the sites: wp-cli (rare, see ObjectCacheManager::RECHECK_OK) runs in this unit's
+# cgroup, so these apply to it too.
+Nice=19
+CPUWeight=10
+IOSchedulingClass=idle
+UMask=0022
+NoNewPrivileges=yes
+# ProtectSystem=full, not strict: strict would also make /home, /home2, ... read-only, and the socket
+# directories are created and removed there (as the account). /usr, /boot and /etc become read-only; the
+# per-account drop-ins under /etc/systemd/system and the product state are re-opened.
+ProtectSystem=full
+ReadWritePaths=/var/lib/ols-cpanel /etc/systemd/system
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+# systemd's bus (AF_UNIX) and, for the WordPress step (wp-cli as the account, through runuser), the network: a
+# WordPress database can be on 127.0.0.1 or a remote host.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+# ProtectHome is not set: the socket directories are created and removed in account homes, as the account.

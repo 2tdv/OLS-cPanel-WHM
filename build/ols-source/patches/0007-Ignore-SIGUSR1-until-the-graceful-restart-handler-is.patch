@@ -1,0 +1,34 @@
+From 2451dc41871bfcf9c2520216aadcfba613a836e5 Mon Sep 17 00:00:00 2001
+From: OLS-cPanel-WHM <2tdv@users.noreply.github.com>
+Date: Thu, 22 Oct 2026 10:48:13 +0000
+Subject: [PATCH] Ignore SIGUSR1 until the graceful-restart handler is
+ installed
+
+LshttpdMain::init() writes the PID file before loading the configuration,
+and HttpSignals::init() installs the SIGUSR1 handler only later, in
+guardCrash(). A graceful restart requested in that window (lswsctrl
+restart, a service manager reload, or a second restart right after the
+first) hits the default action and terminates the server. Ignore SIGUSR1
+from the moment the PID file is written until the handler replaces it.
+---
+ src/main/lshttpdmain.cpp | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/src/main/lshttpdmain.cpp b/src/main/lshttpdmain.cpp
+index 5340198..d410833 100644
+--- a/src/main/lshttpdmain.cpp
++++ b/src/main/lshttpdmain.cpp
+@@ -1014,6 +1014,10 @@ int LshttpdMain::init(int argc, char *argv[])
+ 
+         if (testRunningServer() != 0)
+             return 2;
++        //The PID file is published before the configuration is loaded and long
++        //before HttpSignals::init() installs the SIGUSR1 handler; until then a
++        //graceful restart request must not terminate the server.
++        signal(SIGUSR1, SIG_IGN);
+         if (m_pidFile.writePid(m_pid))
+             return 2;
+         PidFile varRunPid;
+-- 
+2.56.0
+

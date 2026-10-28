@@ -1,0 +1,42 @@
+# Product unit for OLS-cPanel. Installed disabled; enabled only by a verified cutover.
+[Unit]
+Description=OpenLiteSpeed for OLS-cPanel
+After=network-online.target remote-fs.target nss-lookup.target ols-cpanel-logs.service
+Wants=network-online.target
+# cPanel log accounting (domlogs) is written through the root log shipper's FIFOs.
+Requires=ols-cpanel-logs.service
+ConditionPathExists=/usr/local/lsws/conf/httpd_config.conf
+
+[Service]
+Type=forking
+# Runtime state (PID files, LSAPI sockets, swap) under the root-owned /run/ols-cpanel (OLS patch 0009),
+# never in world-writable /tmp (review F-04). Created here, not with RuntimeDirectory=: systemd re-applies
+# the service user's ownership to a RuntimeDirectory for every command, including ExecReload, which made
+# the nobody-owned LSAPI sockets and PID files root-owned and broke PHP after each reload (503).
+# /run/ols-cpanel itself (0711 root) comes from ols-cpanel-logs.service, so only root can create this.
+PIDFile=/run/ols-cpanel/lshttpd/lshttpd.pid
+# Remove state left by a crashed instance; refuses if a live main process owns the PID file.
+ExecStartPre=/usr/bin/install -d -m 0755 /run/ols-cpanel/lshttpd
+# Statistics (.rtreport*) and shared memory (statDir/shmDefaultDir of the server template, review RV-30) live
+# here and not under world-writable /dev/shm (OLS default /dev/shm/ols). Both must exist before OLS starts:
+# shmDefaultDir is only accepted when present, and OLS never creates it. OLS itself forces statDir to nobody
+# with the other-read/execute bits (verifyStatDir); the shm directory stays nobody 0750 (workers write the maps).
+ExecStartPre=/usr/bin/install -d -m 0755 -o nobody -g nobody /run/ols-cpanel/status
+ExecStartPre=/usr/bin/install -d -m 0750 -o nobody -g nobody /run/ols-cpanel/shm
+ExecStartPre=/bin/sh -c 'd=/run/ols-cpanel/lshttpd; p=$d/lshttpd.pid; if [ -s "$p" ] && kill -0 "$(cat "$p")" 2>/dev/null; then echo "OLS already running" >&2; exit 1; fi; rm -f "$d"/*.sock "$d"/*.sock.pid "$p"'
+# Never start on a generation older than the newest restriction (boot, manual start, crash restart).
+ExecStartPre=/usr/libexec/ols-cpanel/ols-cpanel-epoch-check
+ExecStart=/usr/local/lsws/bin/lswsctrl start
+ExecStop=/usr/local/lsws/bin/lswsctrl stop
+# Graceful restart (SIGUSR1) that waits for the new main process, so systemd follows the PID change.
+ExecReload=/usr/libexec/ols-cpanel/ols-cpanel-reload
+# The OLS main process exits 255 on an orderly stop.
+SuccessExitStatus=255
+Restart=on-failure
+RestartSec=5
+PrivateTmp=false
+TimeoutStartSec=60
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

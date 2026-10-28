@@ -1,0 +1,62 @@
+# Product unit template: one Valkey object cache instance per account (FV-09, docs/product-interfaces.md,
+# "Object cache"). The instance name is the account name: ols-cpanel-objcache@<account>.service. Instances are
+# created, started and removed only by `ols-cpanel objcache` (enable/disable/reconcile); the package starts
+# and enables nothing. Everything that varies per account lives in the drop-in
+# /etc/systemd/system/ols-cpanel-objcache@<account>.service.d/50-account.conf that the CLI writes:
+#   ReadWritePaths=<home>/.ols-objcache   (the home mount is /home, /home2, ... so it cannot be fixed here)
+#   MemoryMax=<limit>M                    (above the configuration's maxmemory: overhead and fragmentation)
+# The configuration (/var/lib/ols-cpanel/objcache/<account>/valkey.conf) is root-owned, so an account cannot
+# change its own limits or re-enable the commands the configuration renames away.
+[Unit]
+Description=OLS-cPanel object cache (Valkey) for %i
+After=local-fs.target
+# No configuration, no instance: a hand-started name never runs with Valkey's defaults.
+ConditionPathExists=/var/lib/ols-cpanel/objcache/%i/valkey.conf
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+# The account's own identity: the instance can read and write nothing the account cannot, and no other
+# account can connect to its socket (the socket is 0600 in a 0700 directory of the account's home).
+User=%i
+Group=%i
+ExecStart=/usr/bin/valkey-server /var/lib/ols-cpanel/objcache/%i/valkey.conf
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=15
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+# A cache that was killed or restarted is empty; nothing is persisted.
+LimitNOFILE=1024
+TasksMax=64
+CPUQuota=100%
+Nice=10
+MemorySwapMax=0
+
+# Hardening. The process needs: its own configuration (read), its socket directory in the home (write, from
+# the drop-in), and a Unix socket. Nothing else.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+# Homes are read-only; the account's socket directory is re-opened writable by the drop-in's ReadWritePaths.
+# ProtectHome=tmpfs with BindPaths would need the home mount (/home, /home2) in this file; read-only plus an
+# explicit ReadWritePaths gives the same write confinement without it.
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+# No network at all: the instance listens on its Unix socket only (port 0 in the configuration).
+RestrictAddressFamilies=AF_UNIX
+# Not set on purpose: ProtectProc/ProcSubset (not available in systemd 239, EL8), ProtectClock,
+# ProtectKernelLogs, ProtectHostname (same).

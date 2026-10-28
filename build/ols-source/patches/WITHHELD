@@ -1,0 +1,6 @@
+# Security patches held back until their coordinated disclosure ends; the released packages contain them.
+# <file name> <sha256>
+0008-Run-suEXEC-children-with-the-user-s-primary-group.patch 5cd8f7d8233b9a2fa74a1e78d2ce92954790e918b3f0e890b40ee78ee39d4102
+0009-Keep-runtime-state-out-of-world-writable-tmp.patch 91532fbabff29178aab62575a9cbba7e46c472d194e15ffc3de1d3c29c597044
+0010-Send-the-client-address-to-proxy-backends-in-a-heade.patch 255117ca48de70ee6d01dc81e4df73abdf5ef8571e681517b8431b643c32a2f1
+0011-Use-a-configured-shared-memory-directory-alone.patch 46f87d49a40857c1ab3d5d344f1e48f55aa720da86553442e5942a46c15ea67b

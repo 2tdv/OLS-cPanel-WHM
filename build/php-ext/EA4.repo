@@ -1,0 +1,7 @@
+[EA4-$os_name_prefix$releasever]
+name=EA4 ( EasyApache 4 - $os_name_prefix$releasever )
+mirrorlist=http://httpupdate.cpanel.net/ea4-$os_name_prefix$releasever-$basearch-mirrorlist
+gpgcheck=1
+gpgkey=https://securedownloads.cpanel.net/cPanelPublicPkgKey.asc
+enabled=1
+cost=50

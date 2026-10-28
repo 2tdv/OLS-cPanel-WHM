@@ -1,0 +1,76 @@
+{
+  "observed_at": 1792630000,
+  "source": "/var/lib/ols-cpanel/plans/p20261022101500-a1b2c3.json",
+  "engine_source": {
+    "source": "plan",
+    "id": "p20261022101500-a1b2c3",
+    "compiled_at": "2026-10-22T10:15:00+00:00"
+  },
+  "total": 3,
+  "page": 1,
+  "size": 50,
+  "vhosts": [
+    {
+      "vhost": "legacy.fixture-domain.test",
+      "user": "legacy",
+      "docroot": "/home/legacy/public_html",
+      "engine": "hybrid",
+      "hybrid": true,
+      "findings": [
+        {
+          "kind": "htaccess",
+          "severity": "blocker",
+          "directory": "/",
+          "file": "/home/legacy/public_html/.htaccess",
+          "line": null,
+          "key": "htaccess.conditional_header",
+          "message": "/: unsupported conditional Header 'Header set X-Frame-Options DENY env=!embed'"
+        },
+        {
+          "kind": "htaccess",
+          "severity": "blocker",
+          "directory": "/admin/",
+          "file": "/home/legacy/public_html/admin/.htaccess",
+          "line": null,
+          "key": "htaccess.access_rules",
+          "message": "/admin/: unsupported access rule combination ['Order deny,allow', 'Deny from all', 'Satisfy any']"
+        }
+      ]
+    },
+    {
+      "vhost": "blog.fixture-domain.test",
+      "user": "blogger",
+      "docroot": "/home/blogger/public_html",
+      "engine": "hybrid",
+      "hybrid": true,
+      "findings": [
+        {
+          "kind": "htaccess",
+          "severity": "blocker",
+          "directory": "/",
+          "file": "/home/blogger/public_html/.htaccess",
+          "line": null,
+          "key": "htaccess.rewrite",
+          "message": "/: unsupported RewriteRule '^(.*)$ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]'"
+        },
+        {
+          "kind": "php",
+          "severity": "blocker",
+          "directory": null,
+          "file": null,
+          "line": null,
+          "key": "php.handler",
+          "message": "unsupported PHP handler 'lsapi'"
+        }
+      ]
+    },
+    {
+      "vhost": "shop.fixture-domain.test",
+      "user": "shopco",
+      "docroot": "/home/shopco/public_html",
+      "engine": "hybrid",
+      "hybrid": true,
+      "findings": []
+    }
+  ]
+}

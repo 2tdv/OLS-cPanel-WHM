@@ -1,0 +1,30 @@
+{
+  "synthetic": true,
+  "observations": {
+    "os": {
+      "status": "observed",
+      "value": "ID=\"almalinux\"\nVERSION_ID=\"9.8\"\n",
+      "source": "synthetic-fixture"
+    },
+    "cpanel": {
+      "status": "observed",
+      "value": "11.138.0.17\n",
+      "source": "synthetic-fixture"
+    },
+    "monitor": {
+      "status": "observed",
+      "value": "httpd:1\nsshd:1\n",
+      "source": "synthetic-fixture"
+    },
+    "apache": {
+      "status": "observed",
+      "value": "LoadState=loaded\nActiveState=active\nSubState=running\nUnitFileState=enabled\nFragmentPath=/usr/lib/systemd/system/httpd.service\n",
+      "source": "synthetic-fixture"
+    },
+    "packages": {
+      "status": "observed",
+      "value": "ea-apache24\t2.4.69-1.2.1.cpanel\tx86_64\nbash\t5.1.8-9.el9\tx86_64\n",
+      "source": "synthetic-fixture"
+    }
+  }
+}

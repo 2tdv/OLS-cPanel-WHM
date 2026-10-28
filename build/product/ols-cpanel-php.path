@@ -1,0 +1,17 @@
+# Product unit: fires the PHP environment pass (ols-cpanel-php.service) after every package transaction (dnf, yum, rpm,
+# cPanel's EA4 updates and profile provisioning). rpm opens /var/lib/rpm/.rpm.lock for writing only while it holds the
+# transaction lock, so the close of that file marks the end of a transaction that installed, upgraded or removed
+# packages. (Measured on EL9: rpm -qa never touches it, while the rpmdb.sqlite-wal and -shm files change on plain
+# queries too. Globs below /opt/cpanel cannot be watched, and a new ea-phpNN directory would not be seen at all.)
+# Installed disabled; enabled by `ols-cpanel install --prepare`, the PHP environment pass and `php opcache install`,
+# disabled by `ols-cpanel uninstall`.
+[Unit]
+Description=OLS-cPanel: complete every EA4 PHP version after package transactions
+Documentation=file:///usr/local/ols-cpanel/lib/Php/PhpEnvironment.php
+
+[Path]
+PathChanged=/var/lib/rpm/.rpm.lock
+Unit=ols-cpanel-php.service
+
+[Install]
+WantedBy=paths.target

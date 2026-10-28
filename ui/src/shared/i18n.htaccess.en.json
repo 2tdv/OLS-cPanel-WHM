@@ -1,0 +1,12 @@
+{
+  "privacy": "Apache preserves the password protection for this folder.",
+  "files_block": "Apache preserves the access rules for these files.",
+  "access_rules": "Apache preserves who can access this folder.",
+  "options": "Apache preserves the folder settings that cannot be matched exactly.",
+  "conditional_header": "Apache preserves the conditions for sending this header.",
+  "rewrite": "Apache preserves the address and redirect rules that cannot be matched exactly.",
+  "expiry": "Apache preserves the cache expiry settings that cannot be matched exactly.",
+  "unsafe_path": "This folder cannot be included safely in the OpenLiteSpeed configuration.",
+  "unreadable": "This file could not be read completely for automatic translation.",
+  "directive": "Apache preserves a setting that OpenLiteSpeed cannot match exactly."
+}

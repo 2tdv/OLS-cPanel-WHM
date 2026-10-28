@@ -1,0 +1,55 @@
+From 3c41b9dda5ac58789ee59b528195586cff36fea0 Mon Sep 17 00:00:00 2001
+From: OLS-cPanel-WHM <2tdv@users.noreply.github.com>
+Date: Thu, 22 Oct 2026 03:25:24 +0000
+Subject: [PATCH] Add a context "satisfy" directive
+
+HttpContext already has satisfy-any support (BIT_SATISFY_ANY, used by the
+access check), but no configuration could set it. A context could
+therefore never exempt itself from a realm inherited from a parent
+context, as Apache's "Satisfy Any" with "Allow from all" does (cPanel
+uses this so AutoSSL domain validation works on password-protected
+sites). Accept "satisfy any|all" in context configuration.
+---
+ src/http/httpcontext.cpp | 13 +++++++++++++
+ src/main/plainconf.cpp   |  1 +
+ 2 files changed, 14 insertions(+)
+
+diff --git a/src/http/httpcontext.cpp b/src/http/httpcontext.cpp
+index 4bfcfb0..d6d0d43 100644
+--- a/src/http/httpcontext.cpp
++++ b/src/http/httpcontext.cpp
+@@ -1488,6 +1488,19 @@ int HttpContext::config(const RewriteMapList *pMapList,
+         }
+     }
+     configAccess(pContextNode);
++    //"satisfy any": passing accessControl is enough, as with Apache's Satisfy Any;
++    //otherwise a realm inherited from a parent context would still be enforced.
++    pValue = pContextNode->getChildValue("satisfy");
++    if (pValue)
++    {
++        if (strcasecmp(pValue, "any") == 0)
++            setSatisfyAny(1);
++        else if (strcasecmp(pValue, "all") == 0)
++            setSatisfyAny(0);
++        else
++            LS_ERROR(ConfigCtx::getCurConfigCtx(), "Invalid satisfy value: '%s'",
++                     pValue);
++    }
+     configExtAuthorizer(pContextNode);
+ 
+     getExpires().config(pContextNode,  &pRootContext.getExpires(), this);
+diff --git a/src/main/plainconf.cpp b/src/main/plainconf.cpp
+index 3239cba..4b1c61a 100644
+--- a/src/main/plainconf.cpp
++++ b/src/main/plainconf.cpp
+@@ -282,6 +282,7 @@ plainconfKeywords plainconf::sKeywords[] =
+     {"rollingsize",                              NULL},
+     {"rules",                                    NULL},
+     {"runonstartup",                             NULL},
++    {"satisfy",                                  NULL},
+     {"scripthandler",                            NULL},
+     {"scripthandlerlist",                        NULL},
+     {"secretkey",                                NULL},
+-- 
+2.56.0
+

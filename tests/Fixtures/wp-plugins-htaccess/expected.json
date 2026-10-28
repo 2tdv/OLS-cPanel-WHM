@@ -1,0 +1,111 @@
+{
+ "aios/root-firewall.htaccess": {
+  "outcome": "translated",
+  "reason": "Options -Indexes, deny Files blocks and the 5G rewrite rules"
+ },
+ "aios/root-spambots.htaccess": {
+  "blocker": "unsupported RewriteRule",
+  "outcome": "blocker",
+  "reason": "rewrite target names the loopback address (F-13 refuses internal targets)"
+ },
+ "akismet/wp-content/plugins/akismet/.htaccess": {
+  "outcome": "translated",
+  "reason": "directory deny plus granted FilesMatch becomes one lookahead regex context"
+ },
+ "contact-form-7/wp-content/uploads/wpcf7_uploads/.htaccess": {
+  "outcome": "translated",
+  "reason": "directory deny and Options -Indexes"
+ },
+ "elementor/wp-content/uploads/elementor/css/.htaccess": {
+  "outcome": "translated",
+  "reason": "Options -Indexes"
+ },
+ "elementor/wp-content/uploads/elementor/forms/.htaccess": {
+  "blocker": "RemoveHandler",
+  "outcome": "blocker",
+  "reason": "removes the PHP handler (no OLS equivalent; a wrong translation would allow code execution in uploads) and sets Content-Disposition per file"
+ },
+ "litespeed-cache/root-browser-cache.htaccess": {
+  "outcome": "translated",
+  "reason": "mod_expires block becomes enableExpires and expiresByType"
+ },
+ "litespeed-cache/root-cache-rules.htaccess": {
+  "outcome": "translated",
+  "reason": "LiteSpeed Cache sections (regression, FV-01)"
+ },
+ "litespeed-cache/wp-content/litespeed/.htaccess": {
+  "outcome": "translated",
+  "reason": "Options -Indexes, nosniff header and the rewrite whitelist"
+ },
+ "litespeed-cache/wp-content/litespeed/debug/.htaccess": {
+  "outcome": "translated",
+  "reason": "mod_authz_core block with Require all denied"
+ },
+ "really-simple-ssl/root-hsts.htaccess": {
+  "blocker": "unsupported conditional Header",
+  "outcome": "blocker",
+  "reason": "HSTS header carries env=HTTPS, which OLS parses but never evaluates"
+ },
+ "really-simple-ssl/root-https-redirect.htaccess": {
+  "outcome": "translated",
+  "reason": "https redirect rewrite"
+ },
+ "redirection/root-redirects.htaccess": {
+  "outcome": "translated",
+  "reason": "redirect rewrite rules next to WordPress's block"
+ },
+ "solid-security/root-system-tweaks.htaccess": {
+  "outcome": "translated",
+  "reason": "Files denies, Options -Indexes and request filtering rewrites"
+ },
+ "updraftplus/wp-content/updraft/.htaccess": {
+  "outcome": "translated",
+  "reason": "directory deny through mod_authz_core"
+ },
+ "w3-total-cache/root-browser-cache.htaccess": {
+  "blocker": "with unsupported body",
+  "outcome": "blocker",
+  "reason": "FilesMatch body with FileETag, Header append, mod_deflate output filters and a quoted RewriteRule target"
+ },
+ "w3-total-cache/wp-content/cache/page_enhanced/.htaccess": {
+  "blocker": "unsupported directive '<IfModule mod_mime.c>'",
+  "outcome": "blocker",
+  "reason": "AddType/AddEncoding for pre-compressed files and SetEnvIfNoCase have no certain OLS mapping"
+ },
+ "woocommerce/wp-content/uploads/wc-logs/.htaccess": {
+  "outcome": "translated",
+  "reason": "directory deny through mod_authz_core"
+ },
+ "woocommerce/wp-content/uploads/woocommerce_uploads/.htaccess": {
+  "outcome": "translated",
+  "reason": "directory deny"
+ },
+ "wordfence/root-waf.htaccess": {
+  "blocker": "php_value auto_prepend_file",
+  "outcome": "blocker",
+  "reason": "PHP ini override inside LiteSpeed/lsapi sections (the WAF prepend); not expressible per directory"
+ },
+ "wordfence/wp-content/wflogs/.htaccess": {
+  "outcome": "translated",
+  "reason": "directory deny through mod_authz_core"
+ },
+ "wp-fastest-cache/root-rules.htaccess": {
+  "blocker": "unsupported directive 'AddType",
+  "outcome": "blocker",
+  "reason": "AddType and an AddDefaultCharset FilesMatch have no certain OLS mapping"
+ },
+ "wp-super-cache/root-rules.htaccess": {
+  "blocker": "unsupported RewriteRule",
+  "outcome": "blocker",
+  "reason": "quoted rewrite target (OLS splits quoted arguments differently)"
+ },
+ "wp-super-cache/wp-content/cache/.htaccess": {
+  "blocker": "with unsupported body",
+  "outcome": "blocker",
+  "reason": "ForceType/FileETag in FilesMatch, AddEncoding gzip, SetEnvIfNoCase"
+ },
+ "wpforms/wp-content/uploads/wpforms/.htaccess": {
+  "outcome": "translated",
+  "reason": "Options -Indexes and a deny Files block"
+ }
+}

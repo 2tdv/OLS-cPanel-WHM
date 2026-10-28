@@ -1,0 +1,8 @@
+# Prevent access to backups
+<IfModule !mod_authz_core.c>
+order deny,allow
+deny from all
+</IfModule>
+<IfModule mod_authz_core.c>
+Require all denied
+</IfModule>

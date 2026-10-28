@@ -1,0 +1,13 @@
+# Product unit: periodic PHP environment pass (the fallback for changes the package-transaction watcher cannot see, and
+# the retry clock for failed versions: their own back-off decides when each is tried again). Enabled by
+# `ols-cpanel install --prepare`, the PHP environment pass and `ols-cpanel php opcache install`, never by the package.
+[Unit]
+Description=OLS-cPanel PHP environment timer
+
+[Timer]
+OnBootSec=180
+OnUnitActiveSec=900
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

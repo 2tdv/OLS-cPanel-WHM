@@ -1,0 +1,24 @@
+{
+  "jobs": [
+    {
+      "job": "j1792628100-2b3c4d5e",
+      "action": "ols.plan_hybrid",
+      "state": "done",
+      "started": 1792628100,
+      "finished": 1792628160,
+      "exit_code": 0,
+      "scope": "server"
+    },
+    {
+      "job": "j1792627900-0a1b2c3d",
+      "action": "ols.plan",
+      "state": "failed",
+      "started": 1792627900,
+      "finished": 1792627950,
+      "exit_code": 1,
+      "scope": "server"
+    }
+  ],
+  "observed_at": 1792630000,
+  "running": null
+}

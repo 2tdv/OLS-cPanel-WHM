@@ -1,0 +1,12 @@
+# Product unit: periodic object cache reconciliation (the fallback for hook events that were missed, and the
+# boot-time start of every enabled instance). Enabled by `ols-cpanel objcache enable`, never by the package.
+[Unit]
+Description=OLS-cPanel object cache reconciliation timer
+
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=60
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

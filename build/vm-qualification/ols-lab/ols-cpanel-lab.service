@@ -1,0 +1,18 @@
+# Empty-lab NEXT-03 unit. Intentionally has no install section: never enabled at boot.
+[Unit]
+Description=OpenLiteSpeed (OLS-cPanel lab, loopback only)
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/usr/local/lsws/bin/openlitespeed
+
+[Service]
+Type=forking
+PIDFile=/tmp/lshttpd/lshttpd.pid
+ExecStart=/usr/local/lsws/bin/lswsctrl start
+ExecStop=/usr/local/lsws/bin/lswsctrl stop
+Restart=no
+# The OLS main process exits 255 on an orderly stop.
+SuccessExitStatus=255
+PrivateTmp=false
+TimeoutStartSec=60
+TimeoutStopSec=30

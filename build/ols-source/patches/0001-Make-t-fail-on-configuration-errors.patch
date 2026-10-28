@@ -1,0 +1,112 @@
+From 24518aea1f9abd1a2bc499b977144e8fcacf9afc Mon Sep 17 00:00:00 2001
+From: OLS-cPanel-WHM <2tdv@users.noreply.github.com>
+Date: Wed, 21 Oct 2026 23:05:07 +0000
+Subject: [PATCH 1/4] Make -t fail on configuration errors
+
+The configuration test mode exited 0 even when the plain configuration
+parser rejected directives or blocks: parser errors were only queued as
+warnings, and errors logged to TEST_CONF_LOG were lost when
+DEFAULT_TMP_DIR did not exist yet. When the log did exist, any warning
+made the test exit 1. Create that directory in test mode, count parser
+errors, echo them to stderr and return non-zero for them, print the test
+log, and exit 2 only when it contains [ERROR] lines.
+---
+ src/main/lshttpdmain.cpp | 21 +++++++++++++++++++--
+ src/main/plainconf.cpp   |  9 +++++++++
+ src/main/plainconf.h     |  2 ++
+ 3 files changed, 30 insertions(+), 2 deletions(-)
+
+diff --git a/src/main/lshttpdmain.cpp b/src/main/lshttpdmain.cpp
+index f004da0..5340198 100644
+--- a/src/main/lshttpdmain.cpp
++++ b/src/main/lshttpdmain.cpp
+@@ -847,6 +847,7 @@ void LshttpdMain::parseOpt(int argc, char *argv[])
+             m_noDaemon = 1;
+             m_noCrashGuard = 1;
+             m_iConfTestMode = 1;
++            plainconf::bEchoErrors = true;
+             break;
+         case 'v':
+             printVersion();
+@@ -945,7 +946,11 @@ int LshttpdMain::init(int argc, char *argv[])
+             return 2;
+     }
+     else
++    {
++        // The test log (TEST_CONF_LOG) lives here; without it errors are lost.
++        mkdir(DEFAULT_TMP_DIR,  0755);
+         MainServerConfig::getInstance().setConfTestMode(1);
++    }
+ 
+ #ifndef IS_LSCPD
+ 
+@@ -1025,7 +1030,18 @@ int LshttpdMain::init(int argc, char *argv[])
+ 
+ #ifndef IS_LSCPD
+     ret = config();
+-    if (ret && !m_iConfTestMode)
++    if (m_iConfTestMode)
++    {
++        if (ret || plainconf::iErrorCount > 0)
++        {
++            fprintf(stderr, "[ERROR] Configuration test failed: %d parser "
++                    "error(s), config status %d.\n", plainconf::iErrorCount, ret);
++            return 1;
++        }
++        fprintf(stdout, "[OK] Configuration test passed.\n");
++        return 0;
++    }
++    if (ret)
+     {
+         LS_ERROR("Fatal error in configuration, exit!");
+         fprintf(stderr, "[ERROR] Fatal error in configuration, shutdown!\n");
+@@ -1153,7 +1169,8 @@ int LshttpdMain::main(int argc, char *argv[])
+                 struct stat st;
+                 if (fstat(fd, &st) == 0 && st.st_size > 0)
+                 {
+-                    ret = 1;
++                    // Warnings alone do not fail the test; [ERROR] lines below do.
++                    ret = 0;
+                     unsigned char *buff  = (unsigned char *)mmap((caddr_t)0,
+                                                                  st.st_size,
+                                                                  PROT_READ,
+diff --git a/src/main/plainconf.cpp b/src/main/plainconf.cpp
+index a26821d..4ab8e92 100644
+--- a/src/main/plainconf.cpp
++++ b/src/main/plainconf.cpp
+@@ -474,6 +474,8 @@ bool plainconf::bInited = false;
+ bool plainconf::bErrorLogSetup = false;
+ AutoStr2 plainconf::rootPath = "";
+ StringList plainconf::errorLogList;
++int plainconf::iErrorCount = 0;
++bool plainconf::bEchoErrors = false;
+ GPointerList plainconf::gModuleList;
+ 
+ #ifdef ENABLE_CONF_HASH
+@@ -509,6 +511,13 @@ void plainconf::logToMem(char errorLevel, const char *format, ...)
+     int ret = vsnprintf(buf + len, MAX_LOG_LINE_LENGTH - len, format, ap);
+     va_end(ap);
+ 
++    if (errorLevel == LOG_LEVEL_ERR)
++    {
++        ++iErrorCount;
++        if (bEchoErrors)
++            fprintf(stderr, "[ERROR] %s\n", buf + 1);
++    }
++
+     if (!bErrorLogSetup)
+         errorLogList.add(buf, ret + len);
+     else
+diff --git a/src/main/plainconf.h b/src/main/plainconf.h
+index e33088a..b1bd884 100644
+--- a/src/main/plainconf.h
++++ b/src/main/plainconf.h
+@@ -124,6 +124,8 @@ public:
+     static AutoStr2 rootPath;
+     static StringList errorLogList;
+     static bool bErrorLogSetup;
++    static int iErrorCount;
++    static bool bEchoErrors;
+ #ifdef ENABLE_CONF_HASH
+     static Str2Str2HashMap m_confFileHash;
+ #endif

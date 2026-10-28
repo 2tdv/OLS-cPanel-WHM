@@ -1,0 +1,19 @@
+{
+  "observed_at": 1792630000,
+  "source": "broker audit log",
+  "total": 7,
+  "page": 1,
+  "size": 50,
+  "truncated": false,
+  "window_bytes": 4194304,
+  "events": ["cache_limits_set", "capability", "job_finish", "job_start", "notify_settings_set", "tenant_cache_purge"],
+  "records": [
+    { "time": 1792629000, "event": "tenant_cache_purge", "actor": "shopco", "action": null, "scope": null, "job": null, "result": "ok", "detail": "domain=www.shop.fixture-domain.test" },
+    { "time": 1792628000, "event": "notify_settings_set", "actor": "system", "action": null, "scope": null, "job": null, "result": "ok", "detail": "" },
+    { "time": 1792627500, "event": "job_finish", "actor": "root", "action": "ols.cache_purge", "scope": null, "job": "j1792627490-0a1b2c3d", "result": "ok", "detail": "exit_code=0 state=done" },
+    { "time": 1792627490, "event": "job_start", "actor": "root", "action": "ols.cache_purge", "scope": "account:shopco", "job": "j1792627490-0a1b2c3d", "result": "ok", "detail": "" },
+    { "time": 1792626000, "event": "cache_limits_set", "actor": "system", "action": null, "scope": null, "job": null, "result": "ok", "detail": "args=[\"--per-site-mb=512\"]" },
+    { "time": 1792620100, "event": "job_finish", "actor": "root", "action": "ols.plan_hybrid", "scope": null, "job": "j1792620000-4f5e6d7c", "result": "failed", "detail": "reason=lint failed exit_code=1 state=failed" },
+    { "time": 1792620000, "event": "job_start", "actor": "root", "action": "ols.plan_hybrid", "scope": "server", "job": "j1792620000-4f5e6d7c", "result": "ok", "detail": "" }
+  ]
+}

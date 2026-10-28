@@ -1,0 +1,24 @@
+From b57bbf70bf9cf993f346cf28184f93b16cd759a4 Mon Sep 17 00:00:00 2001
+From: OLS-cPanel-WHM <2tdv@users.noreply.github.com>
+Date: Wed, 21 Oct 2026 23:05:07 +0000
+Subject: [PATCH 2/4] Accept the autoDetectCdn server directive
+
+httpserver.cpp reads autoDetectCdn, but the plain configuration keyword
+table did not include it, so the setting was rejected as unsupported and
+CDN ranges were always added to the trusted ACL.
+---
+ src/main/plainconf.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/main/plainconf.cpp b/src/main/plainconf.cpp
+index 4ab8e92..8802f4c 100644
+--- a/src/main/plainconf.cpp
++++ b/src/main/plainconf.cpp
+@@ -72,6 +72,7 @@ plainconfKeywords plainconf::sKeywords[] =
+     {"authname",                                 NULL},
+     {"authorizer",                               NULL},
+     {"autofix503",                               NULL},
++    {"autodetectcdn",                            NULL},
+     {"autoindex",                                NULL},
+     {"autoindexuri",                             NULL},
+     {"autorestart",                              NULL},

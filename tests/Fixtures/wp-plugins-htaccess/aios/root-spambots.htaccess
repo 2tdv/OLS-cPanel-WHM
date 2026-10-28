@@ -1,0 +1,9 @@
+# Block spambots
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteCond %{REQUEST_METHOD} POST
+RewriteCond %{REQUEST_URI} ^(.*)?wp-comments-post\.php(.*)$
+RewriteCond %{HTTP_REFERER} !^http(s)?://(.*)?example\.com [NC]
+RewriteCond %{HTTP_REFERER} ^$
+RewriteRule .* http://127.0.0.1 [L]
+</IfModule>

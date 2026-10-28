@@ -1,0 +1,23 @@
+{
+  "name": "ols-cpanel-ui",
+  "private": true,
+  "version": "0.1.0",
+  "description": "WHM and cPanel interfaces for OLS-cPanel (plan sections 21.3-21.5)",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "test": "node tests/run.mjs",
+    "dev:fixtures": "OLS_UI_FIXTURES=1 vite --mode fixtures --host 0.0.0.0",
+    "build:fixtures": "OLS_UI_FIXTURES=1 vite build --mode fixtures"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "2.3.1",
+    "element-plus": "2.9.1",
+    "vue": "3.5.13",
+    "vue-i18n": "10.0.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "5.2.1",
+    "vite": "6.0.3"
+  }
+}

@@ -1,0 +1,22 @@
+# Product unit: cPanel log accounting for OLS (OLS-18). Started before ols-cpanel.service.
+[Unit]
+Description=OLS-cPanel log shipping into cPanel domlogs
+Before=ols-cpanel.service
+
+[Service]
+Type=simple
+# systemd owns /run/ols-cpanel/logs: kept across this unit's own restarts (OLS holds the FIFOs open),
+# removed when it stops, so no stale FIFO survives an uninstall.
+RuntimeDirectory=ols-cpanel ols-cpanel/logs
+RuntimeDirectoryMode=0711
+RuntimeDirectoryPreserve=restart
+# FIFOs exist before ExecStart, so ols-cpanel.service (After=) never opens a missing path.
+# Only root and the OLS workers (group nobody) may write: a tenant must not forge another domain's
+# access or bandwidth records (independent review F-01). Mode and owner are enforced on every start.
+ExecStartPre=/bin/sh -c 'for n in access bytes; do f=/run/ols-cpanel/logs/$n.fifo; [ -L "$f" ] && rm -f "$f"; [ -p "$f" ] || mkfifo -m 0620 "$f"; chown root:nobody "$f"; chmod 0620 "$f"; done'
+ExecStart=/usr/libexec/ols-cpanel/ols-cpanel-logship
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

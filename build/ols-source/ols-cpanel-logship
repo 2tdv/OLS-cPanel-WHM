@@ -1,0 +1,21 @@
+#!/bin/sh
+# Feeds OLS access and byte logs into cPanel's own splitlogs, as Apache's piped CustomLog does.
+# OLS workers run as nobody and cannot write cPanel's root-owned domlogs, so each vhost writes
+# to a write-only FIFO here and this root service owns the splitlogs processes (OLS-18).
+set -eu
+DIR=/run/ols-cpanel/logs
+DOMLOGS=/etc/apache2/logs/domlogs
+HOST=$(/usr/bin/hostname -f)
+install -d -m 0711 "$DIR"
+# Only root and the OLS workers (group nobody) may write; tenants must not forge records (review F-01).
+for name in access bytes; do
+    f="$DIR/$name.fifo"
+    [ -L "$f" ] && rm -f "$f"
+    [ -p "$f" ] || mkfifo -m 0620 "$f"
+    chown root:nobody "$f"
+    chmod 0620 "$f"
+done
+# Opened read-write so the reader never sees EOF when OLS restarts.
+/usr/local/cpanel/bin/splitlogs --dir="$DOMLOGS" --main="$HOST" --mainout=/etc/apache2/logs/access_log <>"$DIR/access.fifo" &
+/usr/local/cpanel/bin/splitlogs --dir="$DOMLOGS" --main="$HOST" --suffix=-bytes_log <>"$DIR/bytes.fifo" &
+wait

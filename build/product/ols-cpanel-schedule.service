@@ -1,0 +1,29 @@
+# Product unit: starts the maintenance windows that are due (docs/product-interfaces.md, "Operations"). One pass of
+# `ols-cpanel schedule run`: a scheduled switch or return whose time has come is started through the broker's own capability flow
+# (cap.issue, cap.execute on the admin socket), so its checks, digests and audit records are those of a click in the Switch center.
+# A switch runs only on the plan the operator approved; a window that passed is marked missed. Run by ols-cpanel-schedule.timer;
+# enabled by `install --prepare` and by `upgrade`, never started by the package.
+[Unit]
+Description=OLS-cPanel maintenance windows
+After=local-fs.target
+ConditionPathExists=/usr/local/ols-cpanel/bin/ols-cpanel
+
+[Service]
+Type=oneshot
+# Root: the admin socket is root-only and the schedule is a root-only file. The job itself runs in the broker.
+ExecStart=/usr/local/ols-cpanel/bin/ols-cpanel schedule run --format=json
+TimeoutStartSec=120
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/ols-cpanel
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX

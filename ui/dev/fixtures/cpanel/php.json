@@ -1,0 +1,29 @@
+{
+  "user": "legacy",
+  "observed_at": 1792630000,
+  "source": "ols-cpanel php status",
+  "sites": [
+    { "domain": "legacy.fixture-domain.test", "type": "main", "vhost": "legacy.fixture-domain.test", "engine": "ols", "php_version": "ea-php82", "php_handler": "fpm" },
+    { "domain": "store.fixture-domain.test", "type": "sub", "vhost": "store.fixture-domain.test", "engine": "ols", "php_version": "ea-php82", "php_handler": "fpm" },
+    { "domain": "old.fixture-domain.test", "type": "sub", "vhost": "old.fixture-domain.test", "engine": "ols", "php_version": "ea-php74", "php_handler": "cgi" }
+  ],
+  "opcache": [
+    { "version": "ea-php74", "php": "7.4", "loaded": false, "tuned": false },
+    { "version": "ea-php82", "php": "8.2", "loaded": true, "tuned": true }
+  ],
+  "processes": {
+    "account": "legacy",
+    "parents": 1,
+    "children": 2,
+    "rss_kb": 168960,
+    "cpu_percent": 1.4,
+    "runaway": 0,
+    "processes": [
+      { "pid": 4101, "ppid": 1200, "role": "parent", "children": 2, "cpu_percent": 0.2, "cpu_seconds": 12, "rss_kb": 40960, "elapsed_seconds": 86400, "state": "S", "runaway": [] },
+      { "pid": 4102, "ppid": 4101, "role": "child", "children": 0, "cpu_percent": 1.0, "cpu_seconds": 81, "rss_kb": 61440, "elapsed_seconds": 7200, "state": "S", "runaway": [] },
+      { "pid": 4103, "ppid": 4101, "role": "child", "children": 0, "cpu_percent": 0.2, "cpu_seconds": 30, "rss_kb": 66560, "elapsed_seconds": 5400, "state": "R", "runaway": [] }
+    ]
+  },
+  "thresholds": { "cpu_seconds": 900, "rss_mb": 1024, "min_age_seconds": 120 },
+  "limits": { "children": 5, "max_conns": 5, "mem_soft": 0, "mem_hard": 0, "proc_soft": 400, "proc_hard": 500 }
+}

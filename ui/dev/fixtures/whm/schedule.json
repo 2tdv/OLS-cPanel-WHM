@@ -1,0 +1,14 @@
+{
+  "observed_at": 1792630000,
+  "source": "ols-cpanel schedule list --format=json",
+  "exit_code": 0,
+  "output": {
+    "command": "schedule list",
+    "now": 1792630000,
+    "entries": [
+      { "id": "s20261020020000-0a1b2c", "action": "ols.cutover", "scope": "p20261022120000-a1b2c3", "at": 1792000000, "window_minutes": 60, "state": "missed",
+        "created": 1791900000, "updated": 1792003600, "job": null, "note": "the window ended before the job could start" }
+    ],
+    "limits": { "window_minutes": [15, 720], "default_window": 60, "max_pending": 10, "max_days_ahead": 90 }
+  }
+}

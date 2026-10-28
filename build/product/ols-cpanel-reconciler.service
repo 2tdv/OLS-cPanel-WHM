@@ -1,0 +1,44 @@
+# Product unit: the reconciler (plan 5.2, 14.1). Consumes the event spool and runs the periodic pass:
+# compiles through the engine and asks the broker to stage, validate and activate. Installed disabled;
+# enabled and started by `ols-cpanel install --prepare` / cutover, never by the package.
+[Unit]
+Description=OLS-cPanel reconciler
+# Every privileged step goes through the broker; without it the reconciler has nothing it may do.
+Requires=ols-cpanel-broker.service
+After=ols-cpanel-broker.service
+
+[Service]
+Type=simple
+# Dedicated unprivileged identity from /usr/lib/sysusers.d/ols-cpanel.conf (created by systemd-sysusers,
+# which `ols-cpanel install --prepare` runs; the package itself has no scriptlet that creates accounts).
+# The broker authorizes this identity by its kernel peer credentials, never by anything it sends.
+User=olscpanel
+Group=olscpanel
+ExecStart=/usr/local/ols-cpanel/bin/ols-cpanel sync --watch
+Restart=on-failure
+RestartSec=5
+UMask=0077
+
+# Hardening. The reconciler needs no writable path of its own: spool consumption, staging and activation
+# are broker operations, and cPanel inputs and tenant files are read by the broker.
+NoNewPrivileges=yes
+ProtectSystem=strict
+# Homes are hidden entirely: tenant .htaccess files are read by the broker as the tenant, never here.
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+# Only the broker's Unix socket.
+RestrictAddressFamilies=AF_UNIX
+# Not set on purpose: MemoryDenyWriteExecute (PHP's PCRE JIT needs writable-executable memory; under it
+# every preg_* call degrades with a warning). ProtectClock/ProtectKernelLogs/ProtectHostname are not
+# available in systemd 239 (EL8).
+
+[Install]
+WantedBy=multi-user.target

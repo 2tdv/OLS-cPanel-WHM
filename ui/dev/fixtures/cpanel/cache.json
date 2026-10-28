@@ -1,0 +1,50 @@
+{
+  "user": "legacy",
+  "observed_at": 1792630000,
+  "source": "ols-cpanel cache stats",
+  "generation": "r20261021183000-0f9e8d",
+  "stores": [
+    {
+      "store": "legacy@store.fixture-domain.test",
+      "account": "legacy",
+      "vhost": "store.fixture-domain.test",
+      "domains": [
+        "store.fixture-domain.test",
+        "www.store.fixture-domain.test"
+      ],
+      "enabled": true,
+      "present": true,
+      "public_entries": 218,
+      "public_bytes": 14680064,
+      "private_entries": 6,
+      "private_bytes": 98304,
+      "entries": 224,
+      "bytes": 14778368,
+      "last_purge": 1792626400
+    },
+    {
+      "store": "legacy@dev.legacy.fixture-domain.test",
+      "account": "legacy",
+      "vhost": "dev.legacy.fixture-domain.test",
+      "domains": [
+        "dev.legacy.fixture-domain.test"
+      ],
+      "enabled": true,
+      "present": true,
+      "public_entries": 9,
+      "public_bytes": 262144,
+      "private_entries": 0,
+      "private_bytes": 0,
+      "entries": 9,
+      "bytes": 262144,
+      "last_purge": null
+    }
+  ],
+  "totals": {
+    "stores": 2,
+    "entries": 233,
+    "bytes": 15040512,
+    "private_entries": 6,
+    "private_bytes": 98304
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "archives": {
+    "libxml2-2.15.3.tar.xz": "78262a6e7ac170d6528ebfe2efccdf220191a5af6a6cd61ea4a9a9a5042c7a07",
+    "yajl-2.1.0.tar.gz": "3fb73364a5a30efe615046d07e6db9d09fd2b41c763c5f7d3bfb121cd5c5ac5a"
+  },
+  "git": {
+    "src/ModSecurity": {
+      "commit": "0fb4aff98b4980cf6426697d5605c424e3d5bb60",
+      "url": "https://github.com/SpiderLabs/ModSecurity"
+    },
+    "src/ModSecurity/bindings/python": {
+      "commit": "bc625d5bb0bac6a64bcce8dc9902208612399348",
+      "url": "https://github.com/owasp-modsecurity/ModSecurity-Python-bindings.git"
+    },
+    "src/ModSecurity/others/libinjection": {
+      "commit": "211782219663f889f471650150df12b623c5766e",
+      "url": "https://github.com/libinjection/libinjection.git"
+    },
+    "src/ModSecurity/others/mbedtls": {
+      "commit": "0fe989b6b514192783c469039edd325fd0989806",
+      "url": "https://github.com/Mbed-TLS/mbedtls.git"
+    },
+    "src/ModSecurity/others/mbedtls/framework": {
+      "commit": "dff9da04438d712f7647fd995bc90fadd0c0e2ce",
+      "url": "https://github.com/Mbed-TLS/mbedtls-framework"
+    },
+    "src/ModSecurity/others/mbedtls/tf-psa-crypto": {
+      "commit": "29160dd877d29658279fd683b2ae57b320ddcf09",
+      "url": "https://github.com/Mbed-TLS/TF-PSA-Crypto.git"
+    },
+    "src/ModSecurity/others/mbedtls/tf-psa-crypto/framework": {
+      "commit": "dff9da04438d712f7647fd995bc90fadd0c0e2ce",
+      "url": "https://github.com/Mbed-TLS/mbedtls-framework"
+    },
+    "src/ModSecurity/test/test-cases/secrules-language-tests": {
+      "commit": "a3d4405e5a2c90488c387e589c5534974575e35b",
+      "url": "https://github.com/owasp-modsecurity/secrules-language-tests"
+    },
+    "src/boringssl": {
+      "commit": "8b43ff0f72137b31b23d482f0b2344186d797b03",
+      "url": "https://github.com/google/boringssl.git"
+    },
+    "src/brotli": {
+      "commit": "d6d98957ca8ccb1ef45922e978bb10efca0ea541",
+      "url": "https://github.com/google/brotli.git"
+    },
+    "src/curl": {
+      "commit": "046209e561b7e9b5aab1aef7daebf29ee6e6e8c7",
+      "url": "https://github.com/curl/curl.git"
+    },
+    "src/ip2loc": {
+      "commit": "f58223fdfa6045250d0349f80db44b99b6da6257",
+      "url": "https://github.com/chrislim2888/IP2Location-C-Library.git"
+    },
+    "src/libbcrypt": {
+      "commit": "55ff64349dec3012cfbbb1c4f92d4dbd46920213",
+      "url": "https://github.com/litespeedtech/libbcrypt.git"
+    },
+    "src/libexpat": {
+      "commit": "a7bc26b69768f7fb24f0c7976fae24b157b85b13",
+      "url": "https://github.com/libexpat/libexpat.git"
+    },
+    "src/libmaxminddb": {
+      "commit": "cba618d6581b7dbe83478c798d9e58faeaa6b582",
+      "url": "https://github.com/maxmind/libmaxminddb.git"
+    },
+    "src/lmdb": {
+      "commit": "e1726e30fd0f102c1d5347de31c464e86a5541f2",
+      "url": "https://git.openldap.org/openldap/openldap.git"
+    },
+    "src/luajit": {
+      "commit": "5c8cee3dffdb3bc6239ecdf48ce9afeb0fb68250",
+      "url": "https://github.com/LuaJIT/LuaJIT.git"
+    },
+    "src/udns": {
+      "commit": "e0148dfba90ce0d17a8e2cae15f218b5ab99ad62",
+      "url": "https://github.com/ortclib/udns.git"
+    },
+    "src/unittest-cpp": {
+      "commit": "24216b25566fac1612fe71c7e12bb60be151d057",
+      "url": "https://github.com/unittest-cpp/unittest-cpp.git"
+    },
+    "src/zlib": {
+      "commit": "767c4c947852e143f582c85f14cf573411df1b35",
+      "url": "https://github.com/madler/zlib.git"
+    }
+  },
+  "unversioned_dirs": [
+    "libxml2",
+    "libxml2-2.15.3",
+    "pcre-8.45",
+    "pcre2-10.45",
+    "yajl-2.1.0"
+  ]
+}

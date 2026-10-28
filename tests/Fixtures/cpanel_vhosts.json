@@ -1,0 +1,9 @@
+{
+  "_source": "Captured from the lab (cPanel 11.138) after adding a subdomain, an addon domain and a parked domain.",
+  "rows": "olscp-a.test: olscpa==root==main==olscp-a.test==/home/olscpa/public_html==172.16.0.4:80==172.16.0.4:443====0==ea-php83\nolscpc.olscp-a.test: olscpa==root==sub==olscp-a.test==/home/olscpa/public_html/olscp-c.test==172.16.0.4:80==172.16.0.4:443====0==ea-php83\nolscp-b.test: olscpb==root==main==olscp-b.test==/home/olscpb/public_html==172.16.0.4:80==172.16.0.4:443====0==ea-php82\nblog.olscp-a.test: olscpa==root==sub==olscp-a.test==/home/olscpa/public_html/blog==172.16.0.4:80==172.16.0.4:443====0==ea-php83\nolscp-c.test: olscpa==root==addon==olscpc.olscp-a.test==/home/olscpa/public_html/olscp-c.test==172.16.0.4:80==172.16.0.4:443====0==ea-php83\nolscp-alias.test: olscpa==root==parked==olscp-a.test==/home/olscpa/public_html==172.16.0.4:80==172.16.0.4:443====0==ea-php83\n",
+  "userdata": {
+    "olscp-a.test": "documentroot: /home/olscpa/public_html\nip: 172.16.0.4\nphpversion: ea-php83\nserveralias: mail.olscp-a.test mail.olscp-alias.test olscp-alias.test www.olscp-a.test www.olscp-alias.test\nservername: olscp-a.test\n",
+    "blog.olscp-a.test": "documentroot: /home/olscpa/public_html/blog\nip: 172.16.0.4\nphpversion: ea-php83\nserveralias: www.blog.olscp-a.test\nservername: blog.olscp-a.test\n",
+    "olscpc.olscp-a.test": "documentroot: /home/olscpa/public_html/olscp-c.test\nip: 172.16.0.4\nphpversion: ea-php83\nserveralias: mail.olscp-c.test olscp-c.test www.olscp-c.test www.olscpc.olscp-a.test\nservername: olscpc.olscp-a.test\n"
+  }
+}

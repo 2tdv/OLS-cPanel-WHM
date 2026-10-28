@@ -1,0 +1,63 @@
+x tail of an earlier transaction cut by the bounded read
+---Q7vZt2Lp---Z--
+
+---a1B2c3D4---A--
+[27/Oct/2026:14:05:09 +0330] 176155950935.811741 10.250.0.2 51874 10.250.0.1 8088
+---a1B2c3D4---B--
+GET /?q=%3Cscript%3Ealert(1)%3C/script%3E HTTP/1.1
+Host: olstest1.example.test:8088
+User-Agent: curl/7.76.1
+Cookie: session=secret-value-never-reported
+Authorization: Basic c2VjcmV0
+
+---a1B2c3D4---F--
+HTTP/1.1 403
+Content-Type: text/html
+
+---a1B2c3D4---H--
+ModSecurity: Warning. detected XSS using libinjection. [file "/etc/apache2/conf.d/modsec_vendor_configs/OWASP3/rules/REQUEST-941-APPLICATION-ATTACK-XSS.conf"] [line "2"] [id "941100"] [rev ""] [msg "XSS Attack Detected via libinjection"] [data "Matched Data: XSS data found within ARGS:q: <script>alert(1)</script>"] [severity "2"] [ver ""] [maturity "0"] [accuracy "0"] [tag "attack-xss"] [hostname "10.250.0.1"] [uri "/"] [unique_id "176155950935.811741"] [ref "v8,25t:utf8toUnicode"]
+ModSecurity: Access denied with code 403 (phase 2). Matched "Operator `Ge' with parameter `5' against variable `TX:ANOMALY_SCORE_PL1' (Value: `5' ) [file "/etc/apache2/conf.d/modsec_vendor_configs/OWASP3/rules/REQUEST-949-BLOCKING-EVALUATION.conf"] [line "4"] [id "949110"] [rev ""] [msg "Inbound Anomaly Score Exceeded (Total Score: 5)"] [data ""] [severity "0"] [ver ""] [maturity "0"] [accuracy "0"] [tag "anomaly-evaluation"] [hostname "10.250.0.1"] [uri "/"] [unique_id "176155950935.811741"] [ref ""]
+
+---a1B2c3D4---Z--
+
+---e5F6g7H8---A--
+[27/Oct/2026:10:35:10 +0000] 176156131012.000001 2001:db8::7 40000 2001:db8::1 443
+---e5F6g7H8---B--
+POST /wp-login.php HTTP/2.0
+host: OLSTEST2.EXAMPLE.TEST
+
+---e5F6g7H8---H--
+ModSecurity: Warning. Matched "Operator `PmFromFile' with parameter `scanners-user-agents.data' against variable `REQUEST_HEADERS:User-Agent' (Value: `nikto' ) [file "x"] [line "20"] [id "913100"] [msg "Found User-Agent associated with security scanner"] [hostname "olstest2.example.test"] [uri "/wp-login.php"]
+
+---e5F6g7H8---Z--
+
+---i9J0k1L2---A--
+[31/Feb/2026:10:35:10 +0000] 176156131012.000002 10.250.0.2 40001 10.250.0.1 8088
+---i9J0k1L2---H--
+ModSecurity: Access denied with code 403 (phase 2). [id "949110"] [msg "impossible date"]
+
+---i9J0k1L2---Z--
+
+---m3N4o5P6---A--
+[27/Oct/2026:10:36:00 -0130] 176156131012.000003 10.250.0.9 40002 10.250.0.1 8088
+---m3N4o5P6---B--
+GET /static.txt HTTP/1.1
+Host: olstest1.example.test
+
+---m3N4o5P6---Z--
+
+---q7R8s9T0---A--
+[27/Oct/2026:10:37:00 -0130] 176156131012.000004 10.250.0.10 40003 10.250.0.1 8088
+---q7R8s9T0---B--
+GET /x?a=	b HTTP/1.1
+Host: evil.example/../
+
+---q7R8s9T0---H--
+ModSecurity: Access denied with code 406 (phase 1). [file "/etc/apache2/conf.d/modsec/modsec2.user.conf"] [id "1000001"] [msg "Local rule	with a tab and a \"quote\""] [uri "/x"]
+
+---q7R8s9T0---Z--
+
+---u1V2w3X4---A--
+[27/Oct/2026:10:38:00 +0000] 176156131012.000005 10.250.0.11 40004 10.250.0.1 8088
+---u1V2w3X4---H--
+ModSecurity: Warning. [id "941100"] [msg "cut before its end"]

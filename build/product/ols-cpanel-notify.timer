@@ -1,0 +1,13 @@
+# Product unit: runs the notification pass every five minutes (ols-cpanel-notify.service). Enabled by `install --prepare` and by
+# `upgrade`; the random delay keeps the hosts of a fleet from sending at the same second.
+[Unit]
+Description=OLS-cPanel notifications timer
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

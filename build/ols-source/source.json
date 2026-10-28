@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "upstream": "https://github.com/litespeedtech/openlitespeed.git",
+  "tag": "v1.9.3",
+  "commit": "edbe7f7db12577e905291955a6d416200942fb8b",
+  "lsquic_commit": "d5929af7cec6fd74f1cfea2cb1c07c27ce9102b1",
+  "third_party": "https://github.com/litespeedtech/third-party.git",
+  "third_party_commit": "d6100ae1573cdacb8d75cf2204600ff55ee2545a",
+  "builder_image": "docker.io/library/almalinux@sha256:dc973f4dffd28a1e6ae4d1662086d83bac34cd26f3b701e7ba51f4dcb300c80d",
+  "patches": [
+    "0001-Make-t-fail-on-configuration-errors.patch",
+    "0002-Accept-the-autoDetectCdn-server-directive.patch",
+    "0003-Make-periodic-update-and-QUIC.cloud-fetches-configur.patch",
+    "0004-Do-not-require-the-lsadm-account.patch",
+    "0005-Keep-the-query-string-on-WebSocket-proxy-rewrites.patch",
+    "0006-Add-a-context-satisfy-directive.patch",
+    "0007-Ignore-SIGUSR1-until-the-graceful-restart-handler-is.patch",
+    "0008-Run-suEXEC-children-with-the-user-s-primary-group.patch",
+    "0009-Keep-runtime-state-out-of-world-writable-tmp.patch",
+    "0010-Send-the-client-address-to-proxy-backends-in-a-heade.patch",
+    "0011-Use-a-configured-shared-memory-directory-alone.patch"
+  ],
+  "third_party_patches": [
+    "0001-Link-curl-configure-checks-with-libstdc.patch"
+  ],
+  "product_release": 10,
+  "release_inputs_sha256": "f28081a70c559b919234f39031a67cb1578397bbdf689aaa1fdf7e8893a3f883"
+}

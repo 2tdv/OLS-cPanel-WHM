@@ -1,0 +1,34 @@
+{
+  "observed_at": 1792630000,
+  "source": "ols-cpanel generation list --format=json",
+  "exit_code": 0,
+  "output": {
+    "active": "r20261021183000-0f9e8d",
+    "generations": [
+      {
+        "generation": "r20261020090000-1a2b3c",
+        "active": false,
+        "committed": true,
+        "epoch": 1,
+        "valid": true,
+        "source_sha256": "1111aaaa2222bbbb3333cccc4444dddd5555eeee6666ffff7777000088889999"
+      },
+      {
+        "generation": "r20261021120000-4d5e6f",
+        "active": false,
+        "committed": false,
+        "epoch": 2,
+        "valid": false,
+        "source_sha256": null
+      },
+      {
+        "generation": "r20261021183000-0f9e8d",
+        "active": true,
+        "committed": true,
+        "epoch": 3,
+        "valid": true,
+        "source_sha256": "aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff66660000777788889999"
+      }
+    ]
+  }
+}

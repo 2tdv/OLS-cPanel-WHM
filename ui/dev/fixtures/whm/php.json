@@ -1,0 +1,218 @@
+{
+  "observed_at": 1792630000,
+  "source": "ols-cpanel php status --format=json",
+  "exit_code": 0,
+  "output": {
+    "command": "php status",
+    "result": "status",
+    "observed_at": 1792630000,
+    "account": null,
+    "opcache": {
+      "result": "status",
+      "auto": true,
+      "timer": true,
+      "versions": [
+        {
+          "version": "ea-php74",
+          "php": "7.4",
+          "package": "ea-php74-php-opcache",
+          "package_installed": false,
+          "loaded": false,
+          "settings": {
+            "enable": null,
+            "validate_root": null,
+            "validate_permission": null,
+            "memory_consumption": null,
+            "max_accelerated_files": null,
+            "revalidate_freq": null
+          },
+          "wanted": {
+            "validate_root": "1",
+            "validate_permission": "1",
+            "memory_consumption": "96",
+            "max_accelerated_files": "20000",
+            "revalidate_freq": "2"
+          },
+          "tuned": false,
+          "ini_file": false,
+          "accounts": 1
+        },
+        {
+          "version": "ea-php82",
+          "php": "8.2",
+          "package": "ea-php82-php-opcache",
+          "package_installed": true,
+          "loaded": true,
+          "settings": {
+            "enable": "On",
+            "validate_root": "On",
+            "validate_permission": "On",
+            "memory_consumption": "128",
+            "max_accelerated_files": "20000",
+            "revalidate_freq": "2"
+          },
+          "wanted": {
+            "validate_root": "1",
+            "validate_permission": "1",
+            "memory_consumption": "128",
+            "max_accelerated_files": "20000",
+            "revalidate_freq": "2"
+          },
+          "tuned": true,
+          "ini_file": true,
+          "accounts": 2
+        },
+        {
+          "version": "ea-php83",
+          "php": "8.3",
+          "package": "ea-php83-php-opcache",
+          "package_installed": true,
+          "loaded": true,
+          "settings": {
+            "enable": "On",
+            "validate_root": "Off",
+            "validate_permission": "On",
+            "memory_consumption": "128",
+            "max_accelerated_files": "10000",
+            "revalidate_freq": "2"
+          },
+          "wanted": {
+            "validate_root": "1",
+            "validate_permission": "1",
+            "memory_consumption": "128",
+            "max_accelerated_files": "20000",
+            "revalidate_freq": "2"
+          },
+          "tuned": false,
+          "ini_file": false,
+          "accounts": 3
+        }
+      ],
+      "watcher": true
+    },
+    "processes": {
+      "result": "processes",
+      "observed_at": 1792630000,
+      "account": null,
+      "process": "lsphp",
+      "thresholds": {
+        "cpu_seconds": 900,
+        "rss_mb": 1024,
+        "min_age_seconds": 120
+      },
+      "totals": {
+        "accounts": 3,
+        "processes": 11,
+        "children": 8,
+        "rss_kb": 1204224,
+        "runaway": 1
+      },
+      "accounts": [
+        {
+          "account": "legacy",
+          "parents": 1,
+          "children": 2,
+          "rss_kb": 168960,
+          "cpu_percent": 1.4,
+          "runaway": 0
+        },
+        {
+          "account": "newbie",
+          "parents": 1,
+          "children": 1,
+          "rss_kb": 61440,
+          "cpu_percent": 0.1,
+          "runaway": 0
+        },
+        {
+          "account": "shopco",
+          "parents": 1,
+          "children": 5,
+          "rss_kb": 973824,
+          "cpu_percent": 96.3,
+          "runaway": 1
+        }
+      ]
+    },
+    "limits": {
+      "builtin": {
+        "children": 5,
+        "max_conns": 5,
+        "mem_soft": 0,
+        "mem_hard": 0,
+        "proc_soft": 400,
+        "proc_hard": 500
+      },
+      "overrides": true,
+      "accounts": {
+        "shopco": {
+          "children": 12,
+          "max_conns": 12,
+          "mem_soft": 536870912,
+          "mem_hard": 1073741824,
+          "proc_soft": 600,
+          "proc_hard": 800
+        }
+      },
+      "runaway": {
+        "cpu_seconds": 900,
+        "rss_mb": 1024,
+        "min_age_seconds": 120
+      },
+      "file": "/var/lib/ols-cpanel/php-limits.json",
+      "error": null
+    },
+    "environment": {
+      "result": "status",
+      "checked_at": 1792629900,
+      "opcache_auto": true,
+      "units": {
+        "watcher": true,
+        "timer": true
+      },
+      "profile": {
+        "file": "/etc/cpanel/ea4/profiles/custom/ols-cpanel-recommended.json",
+        "present": true,
+        "error": null
+      },
+      "versions": [
+        {
+          "version": "ea-php74",
+          "php": "7.4",
+          "status": "failed",
+          "checked_at": 1792629900,
+          "lsphp": false,
+          "opcache": "failed",
+          "redis": "pending",
+          "error": "dnf could not install ea-php74-php-litespeed: Error: Unable to find a match: ea-php74-php-litespeed",
+          "attempts": 2,
+          "retry_at": 1792630300
+        },
+        {
+          "version": "ea-php82",
+          "php": "8.2",
+          "status": "complete",
+          "checked_at": 1792629900,
+          "lsphp": true,
+          "opcache": "ok",
+          "redis": "active",
+          "error": null,
+          "attempts": 0,
+          "retry_at": null
+        },
+        {
+          "version": "ea-php83",
+          "php": "8.3",
+          "status": "complete",
+          "checked_at": 1792629900,
+          "lsphp": true,
+          "opcache": "repaired",
+          "redis": "active",
+          "error": null,
+          "attempts": 0,
+          "retry_at": null
+        }
+      ]
+    }
+  }
+}

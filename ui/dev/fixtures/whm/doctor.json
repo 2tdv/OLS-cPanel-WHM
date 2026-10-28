@@ -1,0 +1,56 @@
+{
+  "observed_at": 1792630000,
+  "source": "ols-cpanel doctor --read-only --format=json",
+  "exit_code": 2,
+  "output": {
+    "schema_version": 1,
+    "mode": "audit-only",
+    "synthetic": true,
+    "observed_at": "2026-10-22T10:15:00+00:00",
+    "scope": "platform-baseline-only",
+    "observation_complete": true,
+    "platform": {
+      "os": {
+        "source": "fixture",
+        "status": "observed",
+        "value": {
+          "ID": "almalinux",
+          "VERSION_ID": "9.8"
+        }
+      },
+      "cpanel": {
+        "source": "fixture",
+        "status": "observed",
+        "value": "11.138.0.17"
+      },
+      "httpd_monitor": {
+        "source": "fixture",
+        "status": "observed",
+        "value": true
+      },
+      "apache_service": {
+        "source": "fixture",
+        "status": "observed",
+        "value": {
+          "ActiveState": "active",
+          "SubState": "running"
+        }
+      }
+    },
+    "runtime": {
+      "php": "8.4.27",
+      "sapi": "cli",
+      "architecture": "x86_64",
+      "kernel": "5.14.0-fixture"
+    },
+    "compatibility": {
+      "status": "supported",
+      "supported": true,
+      "production_activation_allowed": true,
+      "supported_platforms": [
+        "AlmaLinux 9 (x86_64) with cPanel/WHM"
+      ]
+    },
+    "blockers": []
+  }
+}

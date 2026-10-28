@@ -1,0 +1,15 @@
+Options -Indexes
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+</IfModule>
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule (^|/)\.[^/]+$ - [F,L]
+    RewriteRule ^robots\.txt$ - [L]
+    RewriteRule ^(css|js|ucss|ccss|lqip|optimax|crawler)(/|$) - [L]
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^(avatar|localres)(/|$) - [L]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^(avatar|localres)/.+ /wp/index.php [L]
+    RewriteRule .* - [F,L]
+</IfModule>

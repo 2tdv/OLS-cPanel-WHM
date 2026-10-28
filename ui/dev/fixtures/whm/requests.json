@@ -1,0 +1,25 @@
+{
+  "observed_at": 0,
+  "open": 1,
+  "total": 2,
+  "requests": [
+    {
+      "id": "r1792627000-0a1b2c3d",
+      "user": "legacy",
+      "subject": "php",
+      "text": "Please raise the PHP memory limit for my shop.",
+      "created_at": 1792627000,
+      "status": "open",
+      "done_at": null
+    },
+    {
+      "id": "r1792620000-1b2c3d4e",
+      "user": "shopco",
+      "subject": "ssl",
+      "text": "The certificate of my new domain is missing.",
+      "created_at": 1792620000,
+      "status": "done",
+      "done_at": 1792621000
+    }
+  ]
+}

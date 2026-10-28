@@ -1,0 +1,27 @@
+# Product unit: keeps the hybrid profile's Apache trusting every local address of this server (docs/product-interfaces.md,
+# "Hybrid trust refresh"). One pass of `ols-cpanel hybrid refresh-trust`: when the server gained or lost an IP address, or an
+# account moved to another one, the mod_remoteip include is rewritten with all local addresses, checked with Apache's
+# configuration test (the previous text is restored when it fails) and Apache is reloaded gracefully. Without the hybrid
+# profile the command does nothing. Started by ols-cpanel-hybrid-trust.timer and by the reconciler (a compiled address the
+# include does not trust yet). Installed disabled (the timer is enabled by `ols-cpanel install --prepare`); never started by the package.
+[Unit]
+Description=OLS-cPanel hybrid trust (Apache trusts every local address of this server)
+After=local-fs.target network-online.target
+ConditionPathExists=/usr/local/ols-cpanel/bin/ols-cpanel
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+# Root: the include is below /etc/apache2 and Apache is reloaded; the reconciler service (olscpanel) only asks for this
+# unit to start through one allowlisted broker command.
+ExecStart=/usr/local/ols-cpanel/bin/ols-cpanel hybrid refresh-trust --format=json
+TimeoutStartSec=300
+Nice=10
+UMask=0022
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native

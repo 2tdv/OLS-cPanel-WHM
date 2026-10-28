@@ -1,0 +1,19 @@
+# Created by Redirection
+# Redirection 5.4.2 - https://redirection.me
+# Apache redirects
+<IfModule mod_rewrite.c>
+RewriteRule ^/?old-page/?$ /new-page/ [R=301,L]
+RewriteRule ^/?blog/([0-9]+)/?$ /archive/$1/ [R=302,L]
+</IfModule>
+# End of Redirection
+
+# BEGIN WordPress
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteBase /
+RewriteRule ^index\.php$ - [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.php [L]
+</IfModule>
+# END WordPress

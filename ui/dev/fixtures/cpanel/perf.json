@@ -1,0 +1,37 @@
+{
+  "user": "legacy",
+  "domain": "store.fixture-domain.test",
+  "observed_at": 0,
+  "reachable": true,
+  "status": 200,
+  "http_version": "2",
+  "server": "LiteSpeed",
+  "time_first_ms": 240,
+  "time_second_ms": 35,
+  "tls": {
+    "verified": true,
+    "verify_code": 0
+  },
+  "compression": {
+    "state": "on",
+    "encoding": "br",
+    "html": true
+  },
+  "cache": {
+    "state": "hit",
+    "litespeed": "hit",
+    "cache_control": "public, max-age=3600",
+    "expires": null,
+    "etag": true,
+    "last_modified": null
+  },
+  "http3": {
+    "advertised": true,
+    "alt_svc": "h3=\":443\"; ma=86400"
+  },
+  "slow_urls": {
+    "available": false,
+    "reason": "The access log format does not record how long a request took, so slow URLs cannot be listed."
+  },
+  "cache_subsites": []
+}

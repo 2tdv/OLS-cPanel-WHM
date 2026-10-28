@@ -1,0 +1,105 @@
+[
+  {
+    "type": "group",
+    "id": "ols_cpanel_group",
+    "name": "OpenLiteSpeed",
+    "order": 3,
+    "icon": "ols_cpanel_group.svg"
+  },
+  {
+    "type": "link",
+    "id": "ols_cpanel",
+    "group_id": "ols_cpanel_group",
+    "name": "Website performance",
+    "uri": "ols_cpanel/index.live.php",
+    "order": 1,
+    "icon": "ols_cpanel.svg",
+    "featuremanager": true,
+    "feature": "ols_cpanel",
+    "searchtext": "OpenLiteSpeed LiteSpeed performance cache htaccess"
+  },
+  {
+    "type": "link",
+    "id": "ols_cpanel_purge",
+    "group_id": "ols_cpanel_group",
+    "name": "Clear cache",
+    "uri": "ols_cpanel/index.live.php?view=purge",
+    "order": 2,
+    "icon": "ols_cpanel_purge.svg",
+    "featuremanager": false,
+    "feature": "ols_cpanel",
+    "searchtext": "OpenLiteSpeed clear purge flush cache LSCache"
+  },
+  {
+    "type": "link",
+    "id": "ols_cpanel_cache",
+    "group_id": "ols_cpanel_group",
+    "name": "Page cache",
+    "uri": "ols_cpanel/index.live.php?view=cache",
+    "order": 3,
+    "icon": "ols_cpanel_cache.svg",
+    "featuremanager": false,
+    "feature": "ols_cpanel",
+    "searchtext": "OpenLiteSpeed LSCache page cache purge clear"
+  },
+  {
+    "type": "link",
+    "id": "ols_cpanel_php",
+    "group_id": "ols_cpanel_group",
+    "name": "PHP performance",
+    "uri": "ols_cpanel/index.live.php?view=php",
+    "order": 4,
+    "icon": "ols_cpanel_php.svg",
+    "featuremanager": false,
+    "feature": "ols_cpanel",
+    "searchtext": "OpenLiteSpeed PHP OPcache lsphp processes restart"
+  },
+  {
+    "type": "link",
+    "id": "ols_cpanel_objcache",
+    "group_id": "ols_cpanel_group",
+    "name": "Object cache",
+    "uri": "ols_cpanel/index.live.php?view=objcache",
+    "order": 5,
+    "icon": "ols_cpanel_objcache.svg",
+    "featuremanager": false,
+    "feature": "ols_cpanel",
+    "searchtext": "OpenLiteSpeed object cache Redis Valkey WordPress"
+  },
+  {
+    "type": "link",
+    "id": "ols_cpanel_speed",
+    "group_id": "ols_cpanel_group",
+    "name": "Speed check",
+    "uri": "ols_cpanel/index.live.php?view=perf",
+    "order": 6,
+    "icon": "ols_cpanel_speed.svg",
+    "featuremanager": false,
+    "feature": "ols_cpanel",
+    "searchtext": "OpenLiteSpeed speed check compression HTTP/3 certificate"
+  },
+  {
+    "type": "link",
+    "id": "ols_cpanel_logs",
+    "group_id": "ols_cpanel_group",
+    "name": "Site logs",
+    "uri": "ols_cpanel/index.live.php?view=logs",
+    "order": 7,
+    "icon": "ols_cpanel_logs.svg",
+    "featuremanager": false,
+    "feature": "ols_cpanel",
+    "searchtext": "OpenLiteSpeed logs access error PHP errors"
+  },
+  {
+    "type": "link",
+    "id": "ols_cpanel_traffic",
+    "group_id": "ols_cpanel_group",
+    "name": "Traffic history",
+    "uri": "ols_cpanel/index.live.php?view=history",
+    "order": 8,
+    "icon": "ols_cpanel_traffic.svg",
+    "featuremanager": false,
+    "feature": "ols_cpanel",
+    "searchtext": "OpenLiteSpeed traffic history requests statistics"
+  }
+]

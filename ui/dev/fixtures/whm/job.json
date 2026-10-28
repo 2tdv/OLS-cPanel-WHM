@@ -1,0 +1,22 @@
+{
+  "job": "j1792627900-0a1b2c3d",
+  "action": "ols.plan",
+  "state": "failed",
+  "started": 1792627900,
+  "finished": 1792627950,
+  "exit_code": 1,
+  "log": [
+    "preflight: platform almalinux 9",
+    "compile: 14 vhosts",
+    "refused: untranslatable .htaccess in legacy.fixture-domain.test"
+  ],
+  "output": {
+    "command": "install --prepare",
+    "result": "refused",
+    "reason": "untranslatable .htaccess in legacy.fixture-domain.test, blog.fixture-domain.test (domain must stay on Apache)"
+  },
+  "scope": "server",
+  "principal": "root",
+  "reason": null,
+  "observed_at": 1792630000
+}

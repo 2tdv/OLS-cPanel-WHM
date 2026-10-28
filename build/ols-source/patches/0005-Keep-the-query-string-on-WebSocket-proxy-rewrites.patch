@@ -1,0 +1,90 @@
+From c17d8f73a577230bb4700c2e2434306d886e672d Mon Sep 17 00:00:00 2001
+From: OLS-cPanel-WHM <2tdv@users.noreply.github.com>
+Date: Thu, 22 Oct 2026 02:50:48 +0000
+Subject: [PATCH] Keep the query string on WebSocket proxy rewrites
+
+A RewriteRule [P] to a ws:// or wss:// target built the backend request
+line from the rewritten path only, so the query string was dropped,
+unlike a [P] rule to http:// and unlike Apache. Append the (possibly
+rewritten) query string unless the target already carries one.
+---
+ src/http/httpsession.cpp | 17 ++++++++++++++---
+ src/http/httpsession.h   |  3 ++-
+ src/http/rewriteengine.h |  2 ++
+ 3 files changed, 18 insertions(+), 4 deletions(-)
+
+diff --git a/src/http/httpsession.cpp b/src/http/httpsession.cpp
+index ceb73c1..91a7dc5 100644
+--- a/src/http/httpsession.cpp
++++ b/src/http/httpsession.cpp
+@@ -1396,10 +1396,17 @@ void HttpSession::clearDeferredWebSocket()
+ }
+ 
+ 
+-int HttpSession::deferWebSocketUpgrade(const char *pUrl, int len)
++int HttpSession::deferWebSocketUpgrade(const char *pUrl, int len,
++                                       const char *pQs, int qsLen)
+ {
+     if (len <= 0 || m_sWebSocketUrl.setStr(pUrl, len) != len)
+         return SC_500;
++    //Like a [P] rule to http://, keep the (possibly rewritten) query string.
++    if (pQs && qsLen > 0 && !memchr(pUrl, '?', len))
++    {
++        m_sWebSocketUrl.append("?", 1);
++        m_sWebSocketUrl.append(pQs, qsLen);
++    }
+     return 0;
+ }
+ 
+@@ -2080,7 +2087,9 @@ int HttpSession::processVHostRewrite()
+         {
+             ret = deferWebSocketUpgrade(
+                       RewriteEngine::getInstance().getResultURI(),
+-                      RewriteEngine::getInstance().getResultURILen());
++                      RewriteEngine::getInstance().getResultURILen(),
++                      RewriteEngine::getInstance().getResultQS(),
++                      RewriteEngine::getInstance().getResultQSLen());
+             if (ret)
+                 return ret;
+             const HttpContext *pWsContext = m_request.getVHost()->bestMatch(
+@@ -2463,7 +2472,9 @@ int HttpSession::processContextRewrite()
+     {
+         ret = deferWebSocketUpgrade(
+                   RewriteEngine::getInstance().getResultURI(),
+-                  RewriteEngine::getInstance().getResultURILen());
++                  RewriteEngine::getInstance().getResultURILen(),
++                  RewriteEngine::getInstance().getResultQS(),
++                  RewriteEngine::getInstance().getResultQSLen());
+         if (ret)
+             return ret;
+         return authWebSocketUpgrade(m_request.getContext());
+diff --git a/src/http/httpsession.h b/src/http/httpsession.h
+index 72875d5..fb11db8 100644
+--- a/src/http/httpsession.h
++++ b/src/http/httpsession.h
+@@ -474,7 +474,8 @@ private:
+     int chunkSendfile(int fdSrc, off_t off, size_t size);
+     int processWebSocketUpgrade(HttpVHost *pVHost,
+                                 const HttpContext *pContext);
+-    int deferWebSocketUpgrade(const char *pUrl, int len);
++    int deferWebSocketUpgrade(const char *pUrl, int len,
++                              const char *pQs = NULL, int qsLen = 0);
+     int mapAndAuthWebSocketUpgrade(const HttpContext *pBackendContext);
+     int authWebSocketUpgrade(const HttpContext *pContext);
+     bool shouldUpgradeWebSocket(const HttpContext *pContext) const;
+diff --git a/src/http/rewriteengine.h b/src/http/rewriteengine.h
+index fdc3354..5c3da21 100644
+--- a/src/http/rewriteengine.h
++++ b/src/http/rewriteengine.h
+@@ -113,6 +113,8 @@ public:
+                        const HttpContext *pContext, const HttpContext *pRootContext);
+     const char *getResultURI()     {   return m_pSourceURL;    }
+     int          getResultURILen()  {   return m_sourceURLLen;  }
++    const char *getResultQS()      {   return m_pQS;           }
++    int          getResultQSLen()   {   return m_qsLen;         }
+ 
+     void clearUnparsedRuleBuf()     {   m_qsLen = 0;            }
+     int appendUnparsedRule(AutoStr2 &sDirective, char *pBegin,
+-- 
+2.56.0
+

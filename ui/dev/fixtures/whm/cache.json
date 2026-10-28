@@ -1,0 +1,124 @@
+{
+  "observed_at": 1792630000,
+  "source": "ols-cpanel cache stats --format=json",
+  "exit_code": 0,
+  "output": {
+    "scope": {
+      "scope": "server",
+      "account": null,
+      "domain": null
+    },
+    "observed_at": 1792630000,
+    "generation": "r20261021183000-0f9e8d",
+    "stores": [
+      {
+        "store": "shopco@shop.fixture-domain.test",
+        "account": "shopco",
+        "vhost": "shop.fixture-domain.test",
+        "domains": [
+          "shop.fixture-domain.test",
+          "www.shop.fixture-domain.test"
+        ],
+        "enabled": true,
+        "present": true,
+        "public_entries": 1840,
+        "public_bytes": 96468992,
+        "private_entries": 12,
+        "private_bytes": 311296,
+        "entries": 1852,
+        "bytes": 96780288,
+        "last_purge": 1792622800
+      },
+      {
+        "store": "shopco@cdn.shop.fixture-domain.test",
+        "account": "shopco",
+        "vhost": "cdn.shop.fixture-domain.test",
+        "domains": [
+          "cdn.shop.fixture-domain.test"
+        ],
+        "enabled": true,
+        "present": true,
+        "public_entries": 412,
+        "public_bytes": 28311552,
+        "private_entries": 0,
+        "private_bytes": 0,
+        "entries": 412,
+        "bytes": 28311552,
+        "last_purge": null
+      },
+      {
+        "store": "dormant@dormant.fixture-domain.test",
+        "account": "dormant",
+        "vhost": "dormant.fixture-domain.test",
+        "domains": [
+          "dormant.fixture-domain.test"
+        ],
+        "enabled": false,
+        "present": true,
+        "public_entries": 0,
+        "public_bytes": 0,
+        "private_entries": 0,
+        "private_bytes": 0,
+        "entries": 0,
+        "bytes": 0,
+        "last_purge": 1792370800
+      },
+      {
+        "store": "newbie@newbie.fixture-domain.test",
+        "account": "newbie",
+        "vhost": "newbie.fixture-domain.test",
+        "domains": [
+          "newbie.fixture-domain.test"
+        ],
+        "enabled": true,
+        "present": true,
+        "public_entries": 37,
+        "public_bytes": 1048576,
+        "private_entries": 2,
+        "private_bytes": 20480,
+        "entries": 39,
+        "bytes": 1069056,
+        "last_purge": null
+      },
+      {
+        "store": "gone@gone.fixture-domain.test",
+        "account": "gone",
+        "vhost": "gone.fixture-domain.test",
+        "domains": [
+          "gone.fixture-domain.test"
+        ],
+        "enabled": null,
+        "present": true,
+        "public_entries": 5,
+        "public_bytes": 40960,
+        "private_entries": 0,
+        "private_bytes": 0,
+        "entries": 5,
+        "bytes": 40960,
+        "last_purge": null
+      },
+      {
+        "store": "server",
+        "account": null,
+        "vhost": null,
+        "domains": [],
+        "enabled": false,
+        "present": true,
+        "public_entries": 0,
+        "public_bytes": 0,
+        "private_entries": 0,
+        "private_bytes": 0,
+        "entries": 0,
+        "bytes": 0,
+        "last_purge": null
+      }
+    ],
+    "totals": {
+      "stores": 6,
+      "entries": 2308,
+      "bytes": 126201856,
+      "private_entries": 14,
+      "private_bytes": 331776
+    }
+  }
+}

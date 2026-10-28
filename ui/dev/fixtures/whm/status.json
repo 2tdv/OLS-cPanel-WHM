@@ -1,0 +1,26 @@
+{
+  "ols_installed": true,
+  "ols_active": false,
+  "apache_active": true,
+  "observed_at": 1792630000,
+  "ports": {
+    "80": [
+      "httpd"
+    ],
+    "443": [
+      "httpd"
+    ]
+  },
+  "cut_over": false,
+  "profile": null,
+  "active_generation": null,
+  "epoch": 3,
+  "pending_events": 2,
+  "hybrid_vhosts": [],
+  "digest": "5f2c8e0d4b7a91c3e6f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3",
+  "cli": {
+    "status": "ok",
+    "exit_code": 0,
+    "error": null
+  }
+}

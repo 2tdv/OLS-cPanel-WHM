@@ -1,0 +1,91 @@
+{
+  "observed_at": 1792630000,
+  "status": "ok",
+  "source": "/run/ols-cpanel/lshttpd/.rtreport*",
+  "server": {
+    "requests_per_second": 184.6,
+    "connections": 312,
+    "bytes_per_second": 7340032,
+    "version": "LiteSpeed Web Server/Open/1.8.3",
+    "uptime": "02:13:44",
+    "requests_processing": 7,
+    "tls_connections": 240,
+    "plain_connections": 72,
+    "cache_hits_per_second": 0,
+    "static_hits_per_second": 40.2,
+    "extapp": {
+      "pools": 12,
+      "in_use": 9,
+      "idle": 15,
+      "waiting": 1,
+      "requests_per_second": 120.4
+    }
+  },
+  "vhosts": [
+    {
+      "vhost": "shop.fixture-domain.test",
+      "requests_per_second": 92.1,
+      "requests_processing": 1,
+      "cache_hits_per_second": 0,
+      "extapp": {
+        "pools": 1,
+        "in_use": 2,
+        "idle": 1,
+        "waiting": 0,
+        "requests_per_second": 92.1
+      }
+    },
+    {
+      "vhost": "blog.fixture-domain.test",
+      "requests_per_second": 41.7,
+      "requests_processing": 1,
+      "cache_hits_per_second": 0,
+      "extapp": {
+        "pools": 1,
+        "in_use": 2,
+        "idle": 1,
+        "waiting": 0,
+        "requests_per_second": 41.7
+      }
+    },
+    {
+      "vhost": "news.fixture-domain.test",
+      "requests_per_second": 30.2,
+      "requests_processing": 1,
+      "cache_hits_per_second": 0,
+      "extapp": {
+        "pools": 1,
+        "in_use": 2,
+        "idle": 1,
+        "waiting": 0,
+        "requests_per_second": 30.2
+      }
+    },
+    {
+      "vhost": "tls.legacy.fixture-domain.test",
+      "requests_per_second": 12.4,
+      "requests_processing": 1,
+      "cache_hits_per_second": 0,
+      "extapp": {
+        "pools": 1,
+        "in_use": 2,
+        "idle": 1,
+        "waiting": 0,
+        "requests_per_second": 12.4
+      }
+    },
+    {
+      "vhost": "docs.fixture-domain.test",
+      "requests_per_second": 8.2,
+      "requests_processing": 1,
+      "cache_hits_per_second": 0,
+      "extapp": {
+        "pools": 1,
+        "in_use": 2,
+        "idle": 1,
+        "waiting": 0,
+        "requests_per_second": 8.2
+      }
+    }
+  ]
+}

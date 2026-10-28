@@ -1,0 +1,33 @@
+# Product unit: sends the operator's notifications (docs/product-interfaces.md, "Operations"). One pass of `ols-cpanel notify run`:
+# reads the product's own state and result files (finished switch, return and recovery jobs, held or Apache-served sites, PHP
+# environment failures, a failed upgrade, the page cache emergency trim, nearly full disks), and sends what is new through the local
+# mail system (sendmail -t -oi) and/or the configured https webhook. Opt-in: without an address or webhook it does nothing. At most
+# one message per event key per six hours and twenty per day. Run by ols-cpanel-notify.timer; enabled by `install --prepare` and by
+# `upgrade`, never started by the package.
+[Unit]
+Description=OLS-cPanel notifications
+After=local-fs.target
+ConditionPathExists=/usr/local/ols-cpanel/bin/ols-cpanel
+
+[Service]
+Type=oneshot
+# Root: it reads root-only state and the webhook setting (root 0600), and hands the message to the local mail system.
+ExecStart=/usr/local/ols-cpanel/bin/ols-cpanel notify run --format=json
+TimeoutStartSec=300
+Nice=10
+UMask=0077
+NoNewPrivileges=yes
+# full, not strict: the mail system (Exim) writes its spool and logs below /var.
+ProtectSystem=full
+ReadWritePaths=/var/lib/ols-cpanel
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+# The webhook (https) and the mail system's own sockets.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
