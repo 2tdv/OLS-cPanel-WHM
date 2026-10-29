@@ -8,6 +8,8 @@
 ![Platform](https://img.shields.io/badge/platform-AlmaLinux%209%20%7C%20cPanel%20%26%20WHM-orange)
 ![Release](https://img.shields.io/badge/release-0.2.10-brightgreen)
 
+**[Website and screenshots](https://2tdv.github.io/OLS-cPanel-WHM/)** · [Install](https://2tdv.github.io/OLS-cPanel-WHM/install.html) · [FAQ](https://2tdv.github.io/OLS-cPanel-WHM/faq.html)
+
 </div>
 
 OLS-cPanel-WHM replaces Apache with [OpenLiteSpeed](https://openlitespeed.org) on a cPanel/WHM server and keeps
