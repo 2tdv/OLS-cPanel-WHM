@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Safe switch from Apache to OpenLiteSpeed - OLS-cPanel-WHM</title>
+<meta name="description" content="How OLS-cPanel-WHM keeps a switch safe: planned approval, per-site checks, automatic return to Apache, hybrid standby and account isolation.">
+<meta name="color-scheme" content="light dark">
+<link rel="canonical" href="https://2tdv.github.io/OLS-cPanel-WHM/safety.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OLS-cPanel-WHM">
+<meta property="og:title" content="Safe switch from Apache to OpenLiteSpeed - OLS-cPanel-WHM">
+<meta property="og:description" content="How OLS-cPanel-WHM keeps a switch safe: planned approval, per-site checks, automatic return to Apache, hybrid standby and account isolation.">
+<meta property="og:url" content="https://2tdv.github.io/OLS-cPanel-WHM/safety.html">
+<meta property="og:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="800">
+<meta property="og:image:alt" content="The OLS-cPanel-WHM plugin in WHM: the web server at a glance">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Safe switch from Apache to OpenLiteSpeed - OLS-cPanel-WHM">
+<meta name="twitter:description" content="How OLS-cPanel-WHM keeps a switch safe: planned approval, per-site checks, automatic return to Apache, hybrid standby and account isolation.">
+<meta name="twitter:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0b5394">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "OLS-cPanel-WHM", "item": "https://2tdv.github.io/OLS-cPanel-WHM/"}, {"@type": "ListItem", "position": 2, "name": "Safe switch from Apache to OpenLiteSpeed", "item": "https://2tdv.github.io/OLS-cPanel-WHM/safety.html"}]}</script>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to the content</a>
+<header class="site-header"><div class="wrap">
+<a class="brand" href="index.html"><img class="logo" src="favicon.svg" width="32" height="32" alt=""><span class="wordmark">OLS-cPanel-WHM</span></a>
+<nav class="main" aria-label="Main"><ul><li><a href="index.html">Home</a></li><li><a href="install.html">Install</a></li><li><a href="whm.html">WHM plugin</a></li><li><a href="cpanel.html">cPanel plugin</a></li><li><a href="object-cache.html">Object cache</a></li><li><a href="updates.html">Updates</a></li><li><a href="safety.html" aria-current="page">Safety</a></li><li><a href="uninstall.html">Going back</a></li><li><a href="faq.html">FAQ</a></li><li><a href="changelog.html">Changelog</a></li></ul></nav>
+<a class="gh" href="https://github.com/2tdv/OLS-cPanel-WHM">GitHub</a>
+</div></header>
+<main id="content"><div class="narrow">
+
+<h1>Safety</h1>
+<p class="lead">Changing a production web server should never be a leap of faith. These are the safeguards built into the switch and into daily operation.</p>
+
+<h2>A planned switch</h2>
+<p>Nothing is switched until you have seen the plan and approved it. The plan lists which sites move to OpenLiteSpeed, which (if any) stay on Apache, which services are affected and how to recover. You can run the switch right away or schedule it in a maintenance window.</p>
+<figure class="shot"><a href="assets/screenshots/whm-maintenance.png"><img src="assets/screenshots/whm-maintenance.png" width="1280" height="800" loading="lazy" alt="The WHM Maintenance windows view for scheduling the switch or the return at a chosen time."></a><figcaption>Maintenance windows: choose when the switch or the return runs (example data).</figcaption></figure>
+
+<h2>Checks site by site</h2>
+<p>Before the switch, the product records how every site answers under Apache. After it, every site is checked and has to answer as it did before.</p>
+
+<h2>Automatic return to Apache</h2>
+<ul>
+<li>A backup and a recovery script are written first.</li>
+<li>A safety timer is armed: unless the cutover completes, it returns the host to Apache after 45 minutes.</li>
+<li>Any failed check returns the server to Apache at once.</li>
+</ul>
+
+<h2>Hybrid: Apache on standby behind OpenLiteSpeed</h2>
+<p>Some sites use <code>.htaccess</code> rules or PHP handlers that OpenLiteSpeed cannot reproduce exactly. In the default hybrid profile those sites stay on Apache, which runs in standby behind OpenLiteSpeed on ports 81 and 444, closed to the outside. Visitors still reach everything through OpenLiteSpeed. The product decides this itself, site by site, and the <a href="whm.html#whm-v-compat">Compatibility</a> view shows why.</p>
+<p>The firewall that closes Apache's standby ports is restored at every boot, before Apache and OpenLiteSpeed start, and checked every 15 minutes (release 0.2.5). Updating repairs existing installations by itself.</p>
+
+<h2>Account isolation</h2>
+<ul>
+<li>PHP runs as the account user with the account's own group, so one account cannot read another's files.</li>
+<li>The cPanel plugin runs as the account and can only see that account's own sites.</li>
+<li>Each account's object cache is a private socket in its own home directory. There is no shared cache.</li>
+</ul>
+
+<h2>A small privileged broker</h2>
+<p>The plugins reach the system through one small privileged component. Its administrator socket is root-only. The account socket identifies the caller from the kernel, never from the request. It offers fixed operations, no shell and bounded requests.</p>
+
+<h2>Verified before it changes anything</h2>
+<p>The installer verifies the signed release and every package digest before installing. See <a href="updates.html">Updates</a> for the key.</p>
+
+<h2>Reporting a vulnerability</h2>
+<p>Please do not open a public issue. Use GitHub's <a href="https://github.com/2tdv/OLS-cPanel-WHM/security/advisories/new">Report a vulnerability</a> form with the affected component, the version, steps to reproduce and the impact. A fix is released before any details are published. Only the latest release receives security fixes. Read the <a href="https://github.com/2tdv/OLS-cPanel-WHM/security/policy">security policy</a>.</p>
+
+<nav class="pager" aria-label="Previous and next page"><a href="updates.html">&larr; Updates</a><a href="uninstall.html">Going back &rarr;</a></nav>
+</div></main>
+<footer class="site-footer"><div class="wrap">
+<ul>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM">Source code</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/releases">Releases</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/issues">Issues</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/security/policy">Security policy</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/blob/main/LICENSE">GPLv3 license</a></li>
+</ul>
+<p>OLS-cPanel-WHM is free software under the GNU General Public License v3. OpenLiteSpeed is GPLv3 as well. Screenshots show the interface with example data.</p>
+<p class="notice">cPanel and WHM are registered trademarks of cPanel, L.L.C. OpenLiteSpeed and LiteSpeed are trademarks of LiteSpeed Technologies Inc. This project is independent and not affiliated with or endorsed by them.</p>
+</div></footer>
+<script src="assets/app.js" defer></script>
+</body>
+</html>

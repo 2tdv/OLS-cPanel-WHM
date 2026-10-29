@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Changelog - OLS-cPanel-WHM</title>
+<meta name="description" content="Release history of OLS-cPanel-WHM, OpenLiteSpeed for cPanel &amp; WHM: what changed in every release, fixes and new features.">
+<meta name="color-scheme" content="light dark">
+<link rel="canonical" href="https://2tdv.github.io/OLS-cPanel-WHM/changelog.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OLS-cPanel-WHM">
+<meta property="og:title" content="Changelog - OLS-cPanel-WHM">
+<meta property="og:description" content="Release history of OLS-cPanel-WHM, OpenLiteSpeed for cPanel &amp; WHM: what changed in every release, fixes and new features.">
+<meta property="og:url" content="https://2tdv.github.io/OLS-cPanel-WHM/changelog.html">
+<meta property="og:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="800">
+<meta property="og:image:alt" content="The OLS-cPanel-WHM plugin in WHM: the web server at a glance">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Changelog - OLS-cPanel-WHM">
+<meta name="twitter:description" content="Release history of OLS-cPanel-WHM, OpenLiteSpeed for cPanel &amp; WHM: what changed in every release, fixes and new features.">
+<meta name="twitter:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0b5394">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "OLS-cPanel-WHM", "item": "https://2tdv.github.io/OLS-cPanel-WHM/"}, {"@type": "ListItem", "position": 2, "name": "Changelog", "item": "https://2tdv.github.io/OLS-cPanel-WHM/changelog.html"}]}</script>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to the content</a>
+<header class="site-header"><div class="wrap">
+<a class="brand" href="index.html"><img class="logo" src="favicon.svg" width="32" height="32" alt=""><span class="wordmark">OLS-cPanel-WHM</span></a>
+<nav class="main" aria-label="Main"><ul><li><a href="index.html">Home</a></li><li><a href="install.html">Install</a></li><li><a href="whm.html">WHM plugin</a></li><li><a href="cpanel.html">cPanel plugin</a></li><li><a href="object-cache.html">Object cache</a></li><li><a href="updates.html">Updates</a></li><li><a href="safety.html">Safety</a></li><li><a href="uninstall.html">Going back</a></li><li><a href="faq.html">FAQ</a></li><li><a href="changelog.html" aria-current="page">Changelog</a></li></ul></nav>
+<a class="gh" href="https://github.com/2tdv/OLS-cPanel-WHM">GitHub</a>
+</div></header>
+<main id="content"><div class="narrow">
+
+<h1>Changelog</h1>
+<p class="lead">What changed in each release. Releases and their notes are on <a href="https://github.com/2tdv/OLS-cPanel-WHM/releases">GitHub</a>.</p>
+<section class="version" aria-labelledby="v0-2-10"><h2 id="v0-2-10">0.2.10</h2><ul><li>Uninstall leaves nothing of the product behind: OpenLiteSpeed's runtime files in <code>/usr/local/lsws</code>, the state directory with its lock, the cutover backups (kept with <code>--keep-backups</code>), the <code>olscpanel</code> user, and the <code>valkey</code> user when Valkey was removed with the product.</li></ul></section><section class="version" aria-labelledby="v0-2-9"><h2 id="v0-2-9">0.2.9</h2><ul><li>ModSecurity: the current OWASP Core Rule Set (3.3.x, as cPanel installs it today) loads in OpenLiteSpeed. Its rule 901181 was refused by the ModSecurity library, and the switch returned to Apache; the library fix from the ModSecurity project is included until it is released upstream.</li><li>Preparation runs OpenLiteSpeed's own configuration test on a private copy before anything is changed, so a configuration OpenLiteSpeed cannot load is reported there, with the file and line, instead of at the switch.</li><li>A refused switch names the actual cause; only the last, harmless lines of the check were shown before.</li></ul></section><section class="version" aria-labelledby="v0-2-8"><h2 id="v0-2-8">0.2.8</h2><ul><li>Installer: an Enter pressed while the preparation runs no longer cancels the approval; keys typed before the question are ignored, and an empty answer asks again.</li></ul></section><section class="version" aria-labelledby="v0-2-7"><h2 id="v0-2-7">0.2.7</h2><ul><li>Installer: when an earlier installation stopped before the switch (for example a refused preparation), running the install command of a newer release continues with the preparation and the switch instead of stopping after the packages.</li></ul></section><section class="version" aria-labelledby="v0-2-6"><h2 id="v0-2-6">0.2.6</h2><ul><li>ModSecurity: servers using cPanel's OWASP Core Rule Set (WHM, ModSecurity Vendors) can now be switched; the rule set runs on OpenLiteSpeed and blocks the same attacks as under Apache. Its commented examples and its optional country rule (which needs a geolocation database that is not configured) no longer stop the preparation.</li></ul></section><section class="version" aria-labelledby="v0-2-5"><h2 id="v0-2-5">0.2.5</h2><ul><li>Security: the firewall that closes Apache's standby ports (behind OpenLiteSpeed) is restored at every boot, before Apache and OpenLiteSpeed start, and checked every 15 minutes; it was lost after a reboot. Updating repairs existing installations by itself.</li></ul></section><section class="version" aria-labelledby="v0-2-4"><h2 id="v0-2-4">0.2.4</h2><ul><li>Installer: running the install command again for the release that is already installed and serving says so and changes nothing.</li><li>Object cache: right after an installation, WordPress sites are connected within about a minute (they waited five).</li></ul></section><section class="version" aria-labelledby="v0-2-3"><h2 id="v0-2-3">0.2.3</h2><ul><li>Updates from WHM: the Updates page finds a new release on GitHub, and <strong>Update now</strong> installs it after verifying it with the project's signing key; sites keep being served and the product applies the update by itself.</li><li>Release packages are signed (rpm signatures), and the installer adds the project key to the system.</li><li>Uninstalling also removes the project key and the installer's report.</li></ul></section><section class="version" aria-labelledby="v0-2-2"><h2 id="v0-2-2">0.2.2</h2><ul><li>Object cache works out of the box: every account with WordPress and LiteSpeed Cache automatically gets its own private object cache (Valkey), and the plugin's default settings are switched to it by themselves. WHM shows which accounts use it and can turn the automatic mode off; an administrator's decision for an account always wins.</li><li>Uninstalling leaves nothing behind.</li><li>Guide: what to enter in LiteSpeed Cache by hand, for anyone who prefers to (docs/object-cache.md).</li></ul></section><section class="version" aria-labelledby="v0-2-1"><h2 id="v0-2-1">0.2.1</h2><ul><li>Fix: on a fresh installation the cPanel plugin was disabled for every account (cPanel's plugin registration files were created readable by root only). Installing 0.2.1 over 0.2.0 repairs it.</li><li>Fix: a WordPress site with the current Akismet plugin was moved to Apache (an "@" in a file name of its <code>.htaccess</code> was not understood); it is served by OpenLiteSpeed and its page cache works.</li><li>Fix: the object cache engine (Valkey) is installed with the product, so turning on an account's object cache in WHM works without anything else.</li><li>Installer: clear stage headings, a short summary instead of a long report, and approval by typing "yes".</li></ul></section><section class="version" aria-labelledby="v0-2-0"><h2 id="v0-2-0">0.2.0 - first release</h2><ul><li>OpenLiteSpeed for cPanel &amp; WHM on AlmaLinux 9 (x86_64): planned switch from Apache with per-site checks and automatic return to Apache; sites OpenLiteSpeed cannot reproduce stay on Apache behind it.</li><li>Automatic application of cPanel changes (accounts, domains, certificates, PHP versions, suspensions) and of product upgrades.</li><li>LSCache page cache, HTTP/3, OPcache, per-account object cache (Valkey) with automatic WordPress configuration, ModSecurity rules.</li><li>WHM plugin and cPanel plugin (WCAG 2.1 AA checked).</li><li>Signed one-command installer.</li></ul></section>
+
+<nav class="pager" aria-label="Previous and next page"><a href="faq.html">&larr; FAQ</a><span></span></nav>
+</div></main>
+<footer class="site-footer"><div class="wrap">
+<ul>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM">Source code</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/releases">Releases</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/issues">Issues</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/security/policy">Security policy</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/blob/main/LICENSE">GPLv3 license</a></li>
+</ul>
+<p>OLS-cPanel-WHM is free software under the GNU General Public License v3. OpenLiteSpeed is GPLv3 as well. Screenshots show the interface with example data.</p>
+<p class="notice">cPanel and WHM are registered trademarks of cPanel, L.L.C. OpenLiteSpeed and LiteSpeed are trademarks of LiteSpeed Technologies Inc. This project is independent and not affiliated with or endorsed by them.</p>
+</div></footer>
+<script src="assets/app.js" defer></script>
+</body>
+</html>

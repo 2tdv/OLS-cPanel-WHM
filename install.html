@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install OpenLiteSpeed on cPanel &amp; WHM - OLS-cPanel-WHM</title>
+<meta name="description" content="How to install OLS-cPanel-WHM with one command on AlmaLinux 9 and cPanel/WHM, what each stage does, and how the switch is approved.">
+<meta name="color-scheme" content="light dark">
+<link rel="canonical" href="https://2tdv.github.io/OLS-cPanel-WHM/install.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OLS-cPanel-WHM">
+<meta property="og:title" content="Install OpenLiteSpeed on cPanel &amp; WHM - OLS-cPanel-WHM">
+<meta property="og:description" content="How to install OLS-cPanel-WHM with one command on AlmaLinux 9 and cPanel/WHM, what each stage does, and how the switch is approved.">
+<meta property="og:url" content="https://2tdv.github.io/OLS-cPanel-WHM/install.html">
+<meta property="og:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="800">
+<meta property="og:image:alt" content="The OLS-cPanel-WHM plugin in WHM: the web server at a glance">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Install OpenLiteSpeed on cPanel &amp; WHM - OLS-cPanel-WHM">
+<meta name="twitter:description" content="How to install OLS-cPanel-WHM with one command on AlmaLinux 9 and cPanel/WHM, what each stage does, and how the switch is approved.">
+<meta name="twitter:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0b5394">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "OLS-cPanel-WHM", "item": "https://2tdv.github.io/OLS-cPanel-WHM/"}, {"@type": "ListItem", "position": 2, "name": "Install OpenLiteSpeed on cPanel & WHM", "item": "https://2tdv.github.io/OLS-cPanel-WHM/install.html"}]}</script>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to the content</a>
+<header class="site-header"><div class="wrap">
+<a class="brand" href="index.html"><img class="logo" src="favicon.svg" width="32" height="32" alt=""><span class="wordmark">OLS-cPanel-WHM</span></a>
+<nav class="main" aria-label="Main"><ul><li><a href="index.html">Home</a></li><li><a href="install.html" aria-current="page">Install</a></li><li><a href="whm.html">WHM plugin</a></li><li><a href="cpanel.html">cPanel plugin</a></li><li><a href="object-cache.html">Object cache</a></li><li><a href="updates.html">Updates</a></li><li><a href="safety.html">Safety</a></li><li><a href="uninstall.html">Going back</a></li><li><a href="faq.html">FAQ</a></li><li><a href="changelog.html">Changelog</a></li></ul></nav>
+<a class="gh" href="https://github.com/2tdv/OLS-cPanel-WHM">GitHub</a>
+</div></header>
+<main id="content"><div class="narrow">
+
+<h1>Install</h1>
+<p class="lead">One command, run as root. The installer checks everything before it changes anything, prepares the server while Apache keeps serving, and asks for your approval before the switch.</p>
+
+<h2>Before you start</h2>
+<ul>
+<li>AlmaLinux 9 (x86_64) with a licensed, working cPanel &amp; WHM, and root access.</li>
+<li>Console access to the server that does not depend on SSH or the web server.</li>
+<li>A current backup kept somewhere else. The installer backs up the cPanel and Apache configuration it changes, but that is not a backup of your sites, mail or databases.</li>
+<li>The tools of a standard cPanel server: <code>curl</code>, <code>gpg</code>, <code>sha256sum</code>, <code>mktemp</code>, <code>dnf</code>.</li>
+<li>A maintenance window for the final switch. Until then your sites keep running on Apache.</li>
+</ul>
+
+<h2>The one command</h2>
+<p>This is the command from the release notes of release 0.2.10. It downloads the installer of exactly this release into a private temporary directory, stops if it does not match the published SHA-256 digest, runs it, and removes the directory. Nothing downloaded is piped into a shell.</p>
+<div class="codeblock"><pre><code>d=$(mktemp -d) &amp;&amp; curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.10/install.sh" &amp;&amp; echo "d080965caf7a32e1495eddbf7349dc25b53e55b6307520e7e0e076935649ee20  $d/install.sh" | sha256sum -c - &amp;&amp; sh "$d/install.sh"; rm -rf "$d"</code></pre></div>
+<p>Installer SHA-256: <code>d080965caf7a32e1495eddbf7349dc25b53e55b6307520e7e0e076935649ee20</code></p>
+<div class="callout warn"><p><strong>Use the command from the release notes.</strong> For a newer release, take the command from that release's notes on the <a href="https://github.com/2tdv/OLS-cPanel-WHM/releases">releases page</a>, and compare the digest with the one shown there.</p></div>
+<p>From a non-root account with <code>sudo</code>, replace <code>sh "$d/install.sh"</code> with <code>sudo sh "$d/install.sh"</code>. To prepare only and switch later, add <code>--prepare-only</code> to the installer call.</p>
+
+<h2>Stricter: check the installer's signature first</h2>
+<p>This variant fetches the project's release key from keyserver.ubuntu.com by its fingerprint and verifies the installer's signature before running it, so it does not depend on the digest shown on the release page.</p>
+<div class="codeblock"><pre><code>d=$(mktemp -d) &amp;&amp; mkdir -m 700 "$d/g" &amp;&amp; export GNUPGHOME="$d/g" &amp;&amp; curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.10/install.sh" &amp;&amp; curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh.asc" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.10/install.sh.asc" &amp;&amp; gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys 118DFA42F66A585D176C0B5148E26833CB82EAD1 &amp;&amp; gpg --verify "$d/install.sh.asc" "$d/install.sh" &amp;&amp; sh "$d/install.sh"; unset GNUPGHOME; rm -rf "$d"</code></pre></div>
+<p>Release signing key fingerprint: <code>118DFA42F66A585D176C0B5148E26833CB82EAD1</code>. Its public key is also in the repository as <code>build/release/ols-cpanel-release-key.asc</code>.</p>
+
+<h2>What the installer prints</h2>
+<div class="terminal" role="img" aria-label="Example installer output: stage headings in blue, success lines in green, and a yellow question asking you to type yes to approve the switch.">
+<div class="bar" aria-hidden="true">root@server: the installer (example output)</div>
+<pre aria-hidden="true"><span class="stage">==&gt; Checking this server (operating system, cPanel, required tools)</span>
+
+<span class="stage">==&gt; Downloading release 0.2.10 and checking its signature</span>
+
+<span class="stage">==&gt; Downloading the packages (OpenLiteSpeed, PHP redis extension, OLS-cPanel) and verifying each one</span>
+
+<span class="stage">==&gt; Installing the packages: OpenLiteSpeed, the PHP redis extension, the Valkey object cache engine, OLS-cPanel</span>
+<span class="ok">    ✓ packages installed (nothing is started yet; Apache keeps serving)</span>
+
+<span class="stage">==&gt; Preparing the server: checks, backup, OpenLiteSpeed configuration, PHP (lsphp, OPcache, redis), WHM and cPanel plugins</span>
+<span class="ok">    ✓ server prepared: 14 sites ready for OpenLiteSpeed (full report: /root/ols-cpanel-prepare.json)</span>
+
+<span class="stage">==&gt; Switching your sites from Apache to OpenLiteSpeed (you approve the plan first)</span>
+Cutover plan p20261028120000-ab12cd (prepared 2026-10-28T12:00:00Z)
+  vhosts: 14, OLS package: ols-cpanel-openlitespeed
+  host changes: ...
+  HTTP/3: enabled, firewall ...
+  Apache stays in standby behind OpenLiteSpeed for sites that need it (ports 81/444, closed to the outside)
+  sites served by Apache automatically today: none
+  a backup and recover.sh are written first; a recovery timer returns the host to Apache in 45 minutes unless the cutover completes; any failed check returns it at once
+
+<span class="ask">&gt;&gt;&gt; Type yes and press Enter to approve the cutover (anything else cancels and changes nothing):</span> <span class="typed">yes</span>
+<span class="ok">    ✓ Pre-checks passed</span>
+<span class="ok">    ✓ Backup and recovery script written</span>
+<span class="ok">    ✓ Safety timer armed (returns to Apache if anything goes wrong)</span>
+<span class="ok">    ✓ OpenLiteSpeed is serving ports 80 and 443</span>
+<span class="ok">    ✓ Every site answers as it did under Apache</span>
+<span class="ok">    ✓ Safety timer disarmed</span>
+
+Done: OpenLiteSpeed is serving your sites. Apache stays in standby for any site that needs it.
+<span class="ok">    ✓ OpenLiteSpeed is serving your sites. Manage it in WHM: Plugins -&gt; OLS-cPanel.</span></pre></div>
+<p class="muted">The output above is an example: the numbers, plan id and some lines (shown as "...") differ on a real server, and the cutover lists more steps.</p>
+
+<h2>What happens, stage by stage</h2>
+<p>Stages 1 to 3 change nothing on the server.</p>
+<ol class="steps">
+<li><strong>Checks.</strong> Root access, operating system, version and architecture, cPanel and its PHP runtime, and the required tools. An unsupported system is refused.</li>
+<li><strong>Download.</strong> The signed release manifest, its signature and the packages are downloaded over HTTPS into a private temporary directory readable only by root.</li>
+<li><strong>Verification.</strong> The manifest signature is checked against the release key built into the installer, using a separate temporary keyring. Every package must match its digest from the manifest. If anything does not match, the installer stops and the server is unchanged.</li>
+<li><strong>Package installation.</strong> The release key is imported into the rpm database and the verified packages are installed with <code>dnf</code>. The packages only place files; nothing is started yet. Running the same command again is safe.</li>
+<li><strong>Preparation.</strong> A read-only report of the server, a backup of the cPanel and Apache configuration the product will touch, the first OpenLiteSpeed configuration generated from cPanel's data and validated, and the WHM and cPanel plugins. OpenLiteSpeed does not take over any public port yet, and <strong>Apache keeps serving your sites</strong>.</li>
+<li><strong>Cutover.</strong> Only in an interactive terminal without <code>--prepare-only</code>. The installer shows the plan: which sites move to OpenLiteSpeed, which stay on Apache behind it, which services are affected and how to recover.</li>
+</ol>
+
+<h2>The approval: type yes</h2>
+<p>Nothing is switched until you approve the plan. The installer asks in bold yellow and waits. Type <code>yes</code> and press Enter to approve; anything else cancels and changes nothing. After approval OpenLiteSpeed takes over ports 80 and 443 and every site is checked. If a check fails, the server returns to Apache automatically.</p>
+<p>If the installer is not attached to a terminal, or you used <code>--prepare-only</code>, it stops after the preparation and prints the command to run when you are ready.</p>
+
+<h2>Switching later, from WHM</h2>
+<p>You do not have to switch during the install. Open <strong>WHM &rarr; Plugins &rarr; OLS-cPanel &rarr; Switch center</strong> to review the plan and switch when it suits you, or schedule it in a maintenance window.</p>
+<figure class="shot"><a href="assets/screenshots/whm-switch-center.png"><img src="assets/screenshots/whm-switch-center.png" width="1280" height="800" loading="lazy" alt="The Switch center in WHM: the plan for moving from Apache to OpenLiteSpeed, ready to review and approve."></a><figcaption>The Switch center (example data).</figcaption></figure>
+
+<h2>Cancelling</h2>
+<ul>
+<li>During stages 1 to 3: press Ctrl+C. Nothing was changed.</li>
+<li>During stage 4: <code>dnf</code> completes or rolls back its own transaction. Run the same command again to finish.</li>
+<li>After stage 5: Apache is still serving. Leave the preparation in place, or remove it (see <a href="uninstall.html">Going back</a>).</li>
+<li>At the approval: decline. Apache keeps serving and nothing is switched.</li>
+</ul>
+
+<h2>Exit status</h2>
+<div class="table-scroll"><table><thead><tr><th>Code</th><th>Meaning</th></tr></thead><tbody>
+<tr><td>0</td><td>Finished (prepared, or cut over after your approval)</td></tr>
+<tr><td>64</td><td>Unknown option</td></tr>
+<tr><td>65</td><td>Verification failed (signature, release, platform or package digest); nothing was changed</td></tr>
+<tr><td>69</td><td>Unsupported system, or an installer that was not prepared for a release</td></tr>
+<tr><td>70</td><td>A download, package installation, preparation or cutover step failed</td></tr>
+<tr><td>77</td><td>Not run as root</td></tr>
+</tbody></table></div>
+<p>A verification failure is never a reason to bypass the checks. Report it, and do not install packages from that location.</p>
+
+<nav class="pager" aria-label="Previous and next page"><a href="index.html">&larr; Home</a><a href="whm.html">WHM plugin &rarr;</a></nav>
+</div></main>
+<footer class="site-footer"><div class="wrap">
+<ul>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM">Source code</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/releases">Releases</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/issues">Issues</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/security/policy">Security policy</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/blob/main/LICENSE">GPLv3 license</a></li>
+</ul>
+<p>OLS-cPanel-WHM is free software under the GNU General Public License v3. OpenLiteSpeed is GPLv3 as well. Screenshots show the interface with example data.</p>
+<p class="notice">cPanel and WHM are registered trademarks of cPanel, L.L.C. OpenLiteSpeed and LiteSpeed are trademarks of LiteSpeed Technologies Inc. This project is independent and not affiliated with or endorsed by them.</p>
+</div></footer>
+<script src="assets/app.js" defer></script>
+</body>
+</html>

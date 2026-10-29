@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WordPress object cache (Redis/Valkey) on cPanel - OLS-cPanel-WHM</title>
+<meta name="description" content="How the per-account Valkey object cache is set up automatically for WordPress with LiteSpeed Cache, the manual values, and settings for other CMSs.">
+<meta name="color-scheme" content="light dark">
+<link rel="canonical" href="https://2tdv.github.io/OLS-cPanel-WHM/object-cache.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OLS-cPanel-WHM">
+<meta property="og:title" content="WordPress object cache (Redis/Valkey) on cPanel - OLS-cPanel-WHM">
+<meta property="og:description" content="How the per-account Valkey object cache is set up automatically for WordPress with LiteSpeed Cache, the manual values, and settings for other CMSs.">
+<meta property="og:url" content="https://2tdv.github.io/OLS-cPanel-WHM/object-cache.html">
+<meta property="og:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="800">
+<meta property="og:image:alt" content="The OLS-cPanel-WHM plugin in WHM: the web server at a glance">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="WordPress object cache (Redis/Valkey) on cPanel - OLS-cPanel-WHM">
+<meta name="twitter:description" content="How the per-account Valkey object cache is set up automatically for WordPress with LiteSpeed Cache, the manual values, and settings for other CMSs.">
+<meta name="twitter:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0b5394">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "OLS-cPanel-WHM", "item": "https://2tdv.github.io/OLS-cPanel-WHM/"}, {"@type": "ListItem", "position": 2, "name": "WordPress object cache (Redis/Valkey) on cPanel", "item": "https://2tdv.github.io/OLS-cPanel-WHM/object-cache.html"}]}</script>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to the content</a>
+<header class="site-header"><div class="wrap">
+<a class="brand" href="index.html"><img class="logo" src="favicon.svg" width="32" height="32" alt=""><span class="wordmark">OLS-cPanel-WHM</span></a>
+<nav class="main" aria-label="Main"><ul><li><a href="index.html">Home</a></li><li><a href="install.html">Install</a></li><li><a href="whm.html">WHM plugin</a></li><li><a href="cpanel.html">cPanel plugin</a></li><li><a href="object-cache.html" aria-current="page">Object cache</a></li><li><a href="updates.html">Updates</a></li><li><a href="safety.html">Safety</a></li><li><a href="uninstall.html">Going back</a></li><li><a href="faq.html">FAQ</a></li><li><a href="changelog.html">Changelog</a></li></ul></nav>
+<a class="gh" href="https://github.com/2tdv/OLS-cPanel-WHM">GitHub</a>
+</div></header>
+<main id="content"><div class="narrow">
+
+<h1>Object cache and WordPress</h1>
+<p class="lead">Every cPanel account can have its own private object cache (Valkey, compatible with Redis). It runs on a Unix socket inside the account's home directory, so only that account's sites can reach it. No password is needed.</p>
+
+<h2>Automatic for WordPress with LiteSpeed Cache</h2>
+<p>Nobody has to turn it on. Every few minutes the product looks through the accounts, a few at a time so the server is not loaded. An account with a WordPress installation and the LiteSpeed Cache plugin gets its own cache, and the plugin's object cache settings are set for it: method Redis, the host and port below, object cache on.</p>
+<p>If the site owner already switched the object cache on with the plugin's defaults (host <code>localhost</code>, port <code>6379</code>, which shows "Connection Test: Failed" because there is no shared Redis), the product replaces those defaults with the account's own socket and the test passes. A site added later, or a plugin activated later, is set up too.</p>
+<figure class="shot"><a href="assets/screenshots/cpanel-object-cache.png"><img src="assets/screenshots/cpanel-object-cache.png" width="1280" height="800" loading="lazy" alt="The cPanel Object cache view: the cache is running and the connection values are shown with a copy button."></a><figcaption>The cPanel Object cache page shows when the cache is ready and the exact values (example data).</figcaption></figure>
+<ul>
+<li>A host or port the site owner chose is never changed. The page lists such a site as "Configured by the site owner".</li>
+<li>If the cache is switched off for the account or the account is suspended, the plugin's object cache is switched off again, but only on sites where the product had switched it on.</li>
+<li>Your hosting provider can turn the cache off for an account or a package, or turn the automatic mode off for the whole server in WHM. The administrator's decision always wins.</li>
+</ul>
+<figure class="shot"><a href="assets/screenshots/whm-object-cache.png"><img src="assets/screenshots/whm-object-cache.png" width="1280" height="800" loading="lazy" alt="The WHM Object cache view with the automatic mode switch and the accounts with an object cache decision."></a><figcaption>In WHM: the automatic mode and the accounts it covers (example data).</figcaption></figure>
+
+<h2>Connection values</h2>
+<div class="table-scroll"><table><thead><tr><th>Setting</th><th>Value</th></tr></thead><tbody>
+<tr><td>Type</td><td>Redis</td></tr>
+<tr><td>Host</td><td><code>/home/&lt;cPanel user&gt;/.ols-objcache/valkey.sock</code> (the account's home directory; an absolute path)</td></tr>
+<tr><td>Port</td><td><code>0</code> (a Unix socket has no port)</td></tr>
+<tr><td>Password / username</td><td>empty</td></tr>
+<tr><td>Database</td><td><code>0</code> (any of <code>0</code> to <code>15</code> works)</td></tr>
+</tbody></table></div>
+<p>Example for the account <code>exampleuser</code>: host <code>/home/exampleuser/.ols-objcache/valkey.sock</code>, port <code>0</code>. If the home directory is not under <code>/home</code> (for example <code>/home2</code>), use that directory instead.</p>
+
+<h2>Setting it by hand in LiteSpeed Cache</h2>
+<p>Only needed if you prefer to set it yourself. First make sure the cPanel page <strong>Object cache</strong> says it is running. Then, in WordPress, open <strong>LiteSpeed Cache &rarr; Cache &rarr; [6] Object</strong>:</p>
+<div class="table-scroll"><table><thead><tr><th>Field in LiteSpeed Cache</th><th>Enter</th></tr></thead><tbody>
+<tr><td>Object Cache</td><td><strong>ON</strong></td></tr>
+<tr><td>Method</td><td><strong>Redis</strong></td></tr>
+<tr><td>Host</td><td><code>/home/&lt;your cPanel user&gt;/.ols-objcache/valkey.sock</code> (the full path, not <code>localhost</code>)</td></tr>
+<tr><td>Port</td><td><strong><code>0</code></strong> (not <code>6379</code>)</td></tr>
+<tr><td>Default Object Lifetime</td><td>leave as it is (360)</td></tr>
+<tr><td>Username / Password</td><td>empty</td></tr>
+<tr><td>Redis Database ID</td><td><code>0</code></td></tr>
+<tr><td>Global Groups, Do Not Cache Groups</td><td>leave as they are</td></tr>
+<tr><td>Persistent Connection</td><td><strong>ON</strong></td></tr>
+<tr><td>Cache Wp-Admin</td><td>ON or OFF, as you like</td></tr>
+</tbody></table></div>
+<p>Press <strong>Save Changes</strong>. The Status box then shows <em>Redis Extension: Enabled</em> and <em>Connection Test: Passed</em>.</p>
+<div class="callout"><p>Why not <code>localhost</code> and <code>6379</code>? Each account has its own private cache that only that account can reach, through the socket file in its home directory. A shared cache on <code>localhost:6379</code> would let every account see every other account's data, so there is none.</p></div>
+
+<h2>Other applications</h2>
+<p>The product does not change the settings of other applications. Enter the values above once in the application's own cache settings.</p>
+<ul>
+<li><strong>Joomla:</strong> System &rarr; Global Configuration &rarr; System &rarr; Cache: Cache Handler "Redis", Redis Server Host the socket path, Port <code>0</code>.</li>
+<li><strong>Drupal:</strong> the <code>redis</code> module; in <code>settings.php</code> set the host to the socket path and the port to <code>0</code>.</li>
+<li><strong>Magento 2:</strong> in <code>app/etc/env.php</code>, cache and session backends <code>redis</code> with <code>server</code> the socket path and <code>port</code> <code>0</code>.</li>
+<li><strong>WordPress without LiteSpeed Cache</strong> (for example the Redis Object Cache plugin): in <code>wp-config.php</code> add <code>define('WP_REDIS_SCHEME', 'unix');</code> and <code>define('WP_REDIS_PATH', '/home/&lt;cPanel user&gt;/.ols-objcache/valkey.sock');</code></li>
+<li><strong>Any other application with Redis support:</strong> the same host (socket path) and port <code>0</code>.</li>
+</ul>
+<p>The PHP <code>redis</code> extension these need is installed and kept active by the product on every EA4 PHP version.</p>
+
+<h2>Good to know</h2>
+<ul>
+<li>The cache is limited in memory; the oldest entries are removed first when it is full. Nothing is lost that the site cannot rebuild.</li>
+<li>When the account is suspended the cache stops, and it starts again when the account is unsuspended.</li>
+<li>When the account is removed, the cache and its files are removed with it.</li>
+</ul>
+
+<nav class="pager" aria-label="Previous and next page"><a href="cpanel.html">&larr; cPanel plugin</a><a href="updates.html">Updates &rarr;</a></nav>
+</div></main>
+<footer class="site-footer"><div class="wrap">
+<ul>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM">Source code</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/releases">Releases</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/issues">Issues</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/security/policy">Security policy</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/blob/main/LICENSE">GPLv3 license</a></li>
+</ul>
+<p>OLS-cPanel-WHM is free software under the GNU General Public License v3. OpenLiteSpeed is GPLv3 as well. Screenshots show the interface with example data.</p>
+<p class="notice">cPanel and WHM are registered trademarks of cPanel, L.L.C. OpenLiteSpeed and LiteSpeed are trademarks of LiteSpeed Technologies Inc. This project is independent and not affiliated with or endorsed by them.</p>
+</div></footer>
+<script src="assets/app.js" defer></script>
+</body>
+</html>

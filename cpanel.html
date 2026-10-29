@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenLiteSpeed and LSCache in cPanel: plugin tour - OLS-cPanel-WHM</title>
+<meta name="description" content="A tour of every view of the OLS-cPanel cPanel plugin for site owners: sites, page cache, PHP, logs, speed check, object cache and traffic.">
+<meta name="color-scheme" content="light dark">
+<link rel="canonical" href="https://2tdv.github.io/OLS-cPanel-WHM/cpanel.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OLS-cPanel-WHM">
+<meta property="og:title" content="OpenLiteSpeed and LSCache in cPanel: plugin tour - OLS-cPanel-WHM">
+<meta property="og:description" content="A tour of every view of the OLS-cPanel cPanel plugin for site owners: sites, page cache, PHP, logs, speed check, object cache and traffic.">
+<meta property="og:url" content="https://2tdv.github.io/OLS-cPanel-WHM/cpanel.html">
+<meta property="og:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="800">
+<meta property="og:image:alt" content="The OLS-cPanel-WHM plugin in WHM: the web server at a glance">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="OpenLiteSpeed and LSCache in cPanel: plugin tour - OLS-cPanel-WHM">
+<meta name="twitter:description" content="A tour of every view of the OLS-cPanel cPanel plugin for site owners: sites, page cache, PHP, logs, speed check, object cache and traffic.">
+<meta name="twitter:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0b5394">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "OLS-cPanel-WHM", "item": "https://2tdv.github.io/OLS-cPanel-WHM/"}, {"@type": "ListItem", "position": 2, "name": "OpenLiteSpeed and LSCache in cPanel: plugin tour", "item": "https://2tdv.github.io/OLS-cPanel-WHM/cpanel.html"}]}</script>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to the content</a>
+<header class="site-header"><div class="wrap">
+<a class="brand" href="index.html"><img class="logo" src="favicon.svg" width="32" height="32" alt=""><span class="wordmark">OLS-cPanel-WHM</span></a>
+<nav class="main" aria-label="Main"><ul><li><a href="index.html">Home</a></li><li><a href="install.html">Install</a></li><li><a href="whm.html">WHM plugin</a></li><li><a href="cpanel.html" aria-current="page">cPanel plugin</a></li><li><a href="object-cache.html">Object cache</a></li><li><a href="updates.html">Updates</a></li><li><a href="safety.html">Safety</a></li><li><a href="uninstall.html">Going back</a></li><li><a href="faq.html">FAQ</a></li><li><a href="changelog.html">Changelog</a></li></ul></nav>
+<a class="gh" href="https://github.com/2tdv/OLS-cPanel-WHM">GitHub</a>
+</div></header>
+<main id="content"><div class="narrow">
+
+<h1>cPanel plugin tour</h1>
+<p class="lead">For site owners. Every hosting account gets <strong>Website performance (OpenLiteSpeed)</strong> in cPanel. It runs as the account and can only see that account's own sites. Every screenshot is an example; click one to enlarge it.</p>
+<nav aria-label="On this page"><ul class="badges"><li><a href="#cp-v-sites">My sites</a></li><li><a href="#cp-v-htaccess">.htaccess advisor</a></li><li><a href="#cp-v-cache">Page cache</a></li><li><a href="#cp-v-php">PHP</a></li><li><a href="#cp-v-logs">Logs</a></li><li><a href="#cp-v-speed">Speed check</a></li><li><a href="#cp-v-contact">Contact my host</a></li><li><a href="#cp-v-objcache">Object cache</a></li><li><a href="#cp-v-traffic">Traffic</a></li><li><a href="#cp-v-purge">Clear cache</a></li></ul></nav>
+<section class="view" aria-labelledby="cp-v-sites"><h3 id="cp-v-sites">My sites</h3><p>Your domains, how they are served, their PHP version and certificates. A warning appears when a certificate has expired or is about to.</p><figure class="shot"><a href="assets/screenshots/cpanel-sites.png"><img src="assets/screenshots/cpanel-sites.png" width="1280" height="800" loading="lazy" alt="cPanel My sites view with the account&#x27;s domains, how each is served, PHP version and certificates."></a><figcaption>Screenshot: My sites (example data).</figcaption></figure></section><section class="view" aria-labelledby="cp-v-htaccess"><h3 id="cp-v-htaccess">.htaccess advisor</h3><p>Nothing needs to be done. Your <code>.htaccess</code> settings are handled automatically; if one cannot be matched exactly, the site stays on Apache and keeps working. The advisor shows what was checked and why.</p><figure class="shot"><a href="assets/screenshots/cpanel-htaccess.png"><img src="assets/screenshots/cpanel-htaccess.png" width="1280" height="800" loading="lazy" alt="cPanel .htaccess advisor listing files and the settings that Apache keeps handling."></a><figcaption>Screenshot: .htaccess advisor (example data).</figcaption></figure></section><section class="view" aria-labelledby="cp-v-cache"><h3 id="cp-v-cache">Page cache</h3><p>The LiteSpeed page cache of your sites: how much is stored, and a button to clear it for one site or all of them. Old cached pages are removed automatically.</p><figure class="shot"><a href="assets/screenshots/cpanel-page-cache.png"><img src="assets/screenshots/cpanel-page-cache.png" width="1280" height="800" loading="lazy" alt="cPanel Page cache view with the number of cached pages per site and a Clear cache button."></a><figcaption>Screenshot: Page cache (example data).</figcaption></figure></section><section class="view" aria-labelledby="cp-v-php"><h3 id="cp-v-php">PHP</h3><p>The PHP version of each site, whether the PHP accelerator (OPcache) is active, your PHP processes and a restart button.</p><figure class="shot"><a href="assets/screenshots/cpanel-php.png"><img src="assets/screenshots/cpanel-php.png" width="1280" height="800" loading="lazy" alt="cPanel PHP view with the PHP version of each site, OPcache status and a restart button."></a><figcaption>Screenshot: PHP (example data).</figcaption></figure></section><section class="view" aria-labelledby="cp-v-logs"><h3 id="cp-v-logs">Logs</h3><p>The access and error logs of your own sites, and the PHP errors they contain, grouped by message.</p><figure class="shot"><a href="assets/screenshots/cpanel-logs.png"><img src="assets/screenshots/cpanel-logs.png" width="1280" height="800" loading="lazy" alt="cPanel Logs view with access and error logs and PHP errors grouped by message."></a><figcaption>Screenshot: Logs (example data).</figcaption></figure></section><section class="view" aria-labelledby="cp-v-speed"><h3 id="cp-v-speed">Speed check</h3><p>Checks that one of your sites is compressed, cached and offered over the fastest connection, and that its certificate is valid.</p><figure class="shot"><a href="assets/screenshots/cpanel-speed-check.png"><img src="assets/screenshots/cpanel-speed-check.png" width="1280" height="800" loading="lazy" alt="cPanel Speed check view testing compression, caching, connection and certificate of one site."></a><figcaption>Screenshot: Speed check (example data).</figcaption></figure></section><section class="view" aria-labelledby="cp-v-contact"><h3 id="cp-v-contact">Contact my host</h3><p>Send a message to your hosting provider about your sites. It arrives in the administrator's Requests view.</p><figure class="shot"><a href="assets/screenshots/cpanel-contact-host.png"><img src="assets/screenshots/cpanel-contact-host.png" width="1280" height="800" loading="lazy" alt="cPanel Contact my host form for sending a message to the hosting provider."></a><figcaption>Screenshot: Contact my host (example data).</figcaption></figure></section><section class="view" aria-labelledby="cp-v-objcache"><h3 id="cp-v-objcache">Object cache</h3><p>A private cache for your applications (Valkey, Redis compatible) that keeps database results in memory so dynamic pages are built faster. It shows your connection values with a copy button and the state of each WordPress site. See <a href="object-cache.html">Object cache</a>.</p><figure class="shot"><a href="assets/screenshots/cpanel-object-cache.png"><img src="assets/screenshots/cpanel-object-cache.png" width="1280" height="800" loading="lazy" alt="cPanel Object cache view with the connection values and the status of each WordPress site."></a><figcaption>Screenshot: Object cache (example data).</figcaption></figure></section><section class="view" aria-labelledby="cp-v-traffic"><h3 id="cp-v-traffic">Traffic</h3><p>How busy your sites were over the last hour, day or week: requests, cache hits and PHP use.</p><figure class="shot"><a href="assets/screenshots/cpanel-traffic.png"><img src="assets/screenshots/cpanel-traffic.png" width="1280" height="800" loading="lazy" alt="cPanel Traffic view with charts of requests, cache hits and PHP use."></a><figcaption>Screenshot: Traffic (example data).</figcaption></figure></section><section class="view" aria-labelledby="cp-v-purge"><h3 id="cp-v-purge">Clear cache</h3><p>The one-click Clear cache icon on the cPanel home clears the page cache of all your sites at once and takes you back.</p><figure class="shot"><a href="assets/screenshots/cpanel-clear-cache.png"><img src="assets/screenshots/cpanel-clear-cache.png" width="1280" height="800" loading="lazy" alt="cPanel Clear cache confirmation showing how many cached pages were removed."></a><figcaption>Screenshot: Clear cache (example data).</figcaption></figure></section>
+<h2>Light and dark</h2>
+<figure class="shot"><a href="assets/screenshots/cpanel-object-cache-dark.png"><img src="assets/screenshots/cpanel-object-cache-dark.png" width="1280" height="800" loading="lazy" alt="The cPanel Object cache view in the dark theme."></a><figcaption>Object cache, dark theme.</figcaption></figure>
+
+<nav class="pager" aria-label="Previous and next page"><a href="whm.html">&larr; WHM plugin</a><a href="object-cache.html">Object cache &rarr;</a></nav>
+</div></main>
+<footer class="site-footer"><div class="wrap">
+<ul>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM">Source code</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/releases">Releases</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/issues">Issues</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/security/policy">Security policy</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/blob/main/LICENSE">GPLv3 license</a></li>
+</ul>
+<p>OLS-cPanel-WHM is free software under the GNU General Public License v3. OpenLiteSpeed is GPLv3 as well. Screenshots show the interface with example data.</p>
+<p class="notice">cPanel and WHM are registered trademarks of cPanel, L.L.C. OpenLiteSpeed and LiteSpeed are trademarks of LiteSpeed Technologies Inc. This project is independent and not affiliated with or endorsed by them.</p>
+</div></footer>
+<script src="assets/app.js" defer></script>
+</body>
+</html>

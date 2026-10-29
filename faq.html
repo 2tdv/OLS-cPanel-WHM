@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenLiteSpeed for cPanel FAQ - OLS-cPanel-WHM</title>
+<meta name="description" content="Answers to common questions about OLS-cPanel-WHM: requirements, safety, updates, the object cache and going back to Apache.">
+<meta name="color-scheme" content="light dark">
+<link rel="canonical" href="https://2tdv.github.io/OLS-cPanel-WHM/faq.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OLS-cPanel-WHM">
+<meta property="og:title" content="OpenLiteSpeed for cPanel FAQ - OLS-cPanel-WHM">
+<meta property="og:description" content="Answers to common questions about OLS-cPanel-WHM: requirements, safety, updates, the object cache and going back to Apache.">
+<meta property="og:url" content="https://2tdv.github.io/OLS-cPanel-WHM/faq.html">
+<meta property="og:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="800">
+<meta property="og:image:alt" content="The OLS-cPanel-WHM plugin in WHM: the web server at a glance">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="OpenLiteSpeed for cPanel FAQ - OLS-cPanel-WHM">
+<meta name="twitter:description" content="Answers to common questions about OLS-cPanel-WHM: requirements, safety, updates, the object cache and going back to Apache.">
+<meta name="twitter:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0b5394">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Which systems are supported?", "acceptedAnswer": {"@type": "Answer", "text": "AlmaLinux 9 on x86_64 with a licensed, working cPanel & WHM. This first public release supports AlmaLinux 9 only. The installer refuses an unsupported system before changing anything."}}, {"@type": "Question", "name": "Does it install or license cPanel?", "acceptedAnswer": {"@type": "Answer", "text": "No. It works on a server that already runs a licensed cPanel & WHM."}}, {"@type": "Question", "name": "Will my sites go offline during the install?", "acceptedAnswer": {"@type": "Answer", "text": "No. The installer prepares the server while Apache keeps serving. The switch happens only after you approve the plan, and every site is checked afterwards. If a check fails, the server returns to Apache automatically."}}, {"@type": "Question", "name": "Can I install it now and switch later?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Add --prepare-only to the installer call, or decline at the approval. Switch later from WHM → Plugins → OLS-cPanel → Switch center, or schedule it in a maintenance window."}}, {"@type": "Question", "name": "What about sites that use unusual .htaccess rules?", "acceptedAnswer": {"@type": "Answer", "text": "Sites OpenLiteSpeed cannot reproduce exactly stay on Apache, which runs in standby behind OpenLiteSpeed. Site owners see this in the .htaccess advisor and nothing needs to be done."}}, {"@type": "Question", "name": "Do I have to do anything when I add accounts or domains?", "acceptedAnswer": {"@type": "Answer", "text": "No. Changes in cPanel (accounts, domains, certificates, PHP versions, suspensions) apply by themselves."}}, {"@type": "Question", "name": "Do my customers have to set up the object cache?", "acceptedAnswer": {"@type": "Answer", "text": "Not for WordPress with LiteSpeed Cache: it is configured automatically. Other applications need the values entered once. See Object cache."}}, {"@type": "Question", "name": "How do I update?", "acceptedAnswer": {"@type": "Answer", "text": "In WHM, open Plugins → OLS-cPanel → Updates, press Check now and then Update now. See Updates."}}, {"@type": "Question", "name": "How do I know a release is genuine?", "acceptedAnswer": {"@type": "Answer", "text": "Releases are signed. The installer verifies the signature and every package digest before it changes anything. The key fingerprint is 118DFA42F66A585D176C0B5148E26833CB82EAD1, and the stricter install command fetches the key from keyserver.ubuntu.com by that fingerprint."}}, {"@type": "Question", "name": "Can I go back to Apache?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, at any time. See Going back. Uninstalling returns the server to Apache first and then removes everything the product added; nothing of it stays on the server."}}, {"@type": "Question", "name": "Where do I report a problem?", "acceptedAnswer": {"@type": "Answer", "text": "Open an issue on GitHub. For a security problem, do not open a public issue; use the private vulnerability report form."}}, {"@type": "Question", "name": "What is the license?", "acceptedAnswer": {"@type": "Answer", "text": "GNU General Public License v3. OpenLiteSpeed is GPLv3 as well, and the PHP redis extension package is under the PHP License 3.01."}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "OLS-cPanel-WHM", "item": "https://2tdv.github.io/OLS-cPanel-WHM/"}, {"@type": "ListItem", "position": 2, "name": "OpenLiteSpeed for cPanel FAQ", "item": "https://2tdv.github.io/OLS-cPanel-WHM/faq.html"}]}</script>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to the content</a>
+<header class="site-header"><div class="wrap">
+<a class="brand" href="index.html"><img class="logo" src="favicon.svg" width="32" height="32" alt=""><span class="wordmark">OLS-cPanel-WHM</span></a>
+<nav class="main" aria-label="Main"><ul><li><a href="index.html">Home</a></li><li><a href="install.html">Install</a></li><li><a href="whm.html">WHM plugin</a></li><li><a href="cpanel.html">cPanel plugin</a></li><li><a href="object-cache.html">Object cache</a></li><li><a href="updates.html">Updates</a></li><li><a href="safety.html">Safety</a></li><li><a href="uninstall.html">Going back</a></li><li><a href="faq.html" aria-current="page">FAQ</a></li><li><a href="changelog.html">Changelog</a></li></ul></nav>
+<a class="gh" href="https://github.com/2tdv/OLS-cPanel-WHM">GitHub</a>
+</div></header>
+<main id="content"><div class="narrow">
+
+<h1>Frequently asked questions</h1>
+<details><summary>Which systems are supported?</summary><p>AlmaLinux 9 on x86_64 with a licensed, working cPanel &amp; WHM. This first public release supports AlmaLinux 9 only. The installer refuses an unsupported system before changing anything.</p></details><details><summary>Does it install or license cPanel?</summary><p>No. It works on a server that already runs a licensed cPanel &amp; WHM.</p></details><details><summary>Will my sites go offline during the install?</summary><p>No. The installer prepares the server while Apache keeps serving. The switch happens only after you approve the plan, and every site is checked afterwards. If a check fails, the server returns to Apache automatically.</p></details><details><summary>Can I install it now and switch later?</summary><p>Yes. Add <code>--prepare-only</code> to the installer call, or decline at the approval. Switch later from WHM &rarr; Plugins &rarr; OLS-cPanel &rarr; Switch center, or schedule it in a maintenance window.</p></details><details><summary>What about sites that use unusual .htaccess rules?</summary><p>Sites OpenLiteSpeed cannot reproduce exactly stay on Apache, which runs in standby behind OpenLiteSpeed. Site owners see this in the <code>.htaccess</code> advisor and nothing needs to be done.</p></details><details><summary>Do I have to do anything when I add accounts or domains?</summary><p>No. Changes in cPanel (accounts, domains, certificates, PHP versions, suspensions) apply by themselves.</p></details><details><summary>Do my customers have to set up the object cache?</summary><p>Not for WordPress with LiteSpeed Cache: it is configured automatically. Other applications need the values entered once. See <a href="object-cache.html">Object cache</a>.</p></details><details><summary>How do I update?</summary><p>In WHM, open Plugins &rarr; OLS-cPanel &rarr; Updates, press Check now and then Update now. See <a href="updates.html">Updates</a>.</p></details><details><summary>How do I know a release is genuine?</summary><p>Releases are signed. The installer verifies the signature and every package digest before it changes anything. The key fingerprint is <code>118DFA42F66A585D176C0B5148E26833CB82EAD1</code>, and the stricter install command fetches the key from keyserver.ubuntu.com by that fingerprint.</p></details><details><summary>Can I go back to Apache?</summary><p>Yes, at any time. See <a href="uninstall.html">Going back</a>. Uninstalling returns the server to Apache first and then removes everything the product added; nothing of it stays on the server.</p></details><details><summary>Where do I report a problem?</summary><p>Open an issue on <a href="https://github.com/2tdv/OLS-cPanel-WHM/issues">GitHub</a>. For a security problem, do not open a public issue; use the private <a href="https://github.com/2tdv/OLS-cPanel-WHM/security/advisories/new">vulnerability report</a> form.</p></details><details><summary>What is the license?</summary><p>GNU General Public License v3. OpenLiteSpeed is GPLv3 as well, and the PHP redis extension package is under the PHP License 3.01.</p></details>
+<p>Something missing? Ask on <a href="https://github.com/2tdv/OLS-cPanel-WHM/issues">GitHub</a>.</p>
+
+<nav class="pager" aria-label="Previous and next page"><a href="uninstall.html">&larr; Going back</a><a href="changelog.html">Changelog &rarr;</a></nav>
+</div></main>
+<footer class="site-footer"><div class="wrap">
+<ul>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM">Source code</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/releases">Releases</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/issues">Issues</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/security/policy">Security policy</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/blob/main/LICENSE">GPLv3 license</a></li>
+</ul>
+<p>OLS-cPanel-WHM is free software under the GNU General Public License v3. OpenLiteSpeed is GPLv3 as well. Screenshots show the interface with example data.</p>
+<p class="notice">cPanel and WHM are registered trademarks of cPanel, L.L.C. OpenLiteSpeed and LiteSpeed are trademarks of LiteSpeed Technologies Inc. This project is independent and not affiliated with or endorsed by them.</p>
+</div></footer>
+<script src="assets/app.js" defer></script>
+</body>
+</html>
