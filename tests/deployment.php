@@ -31,6 +31,7 @@ use OlsCpanel\Deployment\HybridHost;
 use OlsCpanel\Deployment\Plugins;
 use OlsCpanel\Deployment\Profile;
 use OlsCpanel\Deployment\RecoveryScript;
+use OlsCpanel\Deployment\Uninstall;
 use OlsCpanel\Events\ReconcileBusy;
 use OlsCpanel\Events\ReconcileRefused;
 use OlsCpanel\Events\Reconciler;
@@ -250,6 +251,10 @@ final class FakeHost implements CommandRunner
                 }
                 return isset($this->files[$path]) ? $ok('regular file|' . $this->files[$path]['owner'] . "\n") : $no();
             case '/usr/bin/test':
+                // Entries marked 'dir' or 'link' answer -d and -L exactly; every other entry answers any test as existing.
+                if (in_array($args[0], ['-d', '-L'], true) && in_array($this->files[$args[1]]['owner'] ?? '', ['dir', 'link'], true)) {
+                    return $this->files[$args[1]]['owner'] === ($args[0] === '-d' ? 'dir' : 'link') ? $ok() : $no();
+                }
                 return isset($this->files[$args[1]]) ? $ok() : $no();
             case '/usr/bin/sha256sum':
                 $path = end($argv);
@@ -360,6 +365,10 @@ final class FakeHost implements CommandRunner
             case '/usr/sbin/runuser':
                 return $this->run($name, array_slice($argv, 4), $timeout);
             case '/usr/bin/getent':
+                if (!isset($args[1])) {
+                    return $ok(implode('', array_map(static fn(string $u, string $home): string => "$u:x:1001:1001::$home:/bin/bash\n",
+                        array_keys($this->passwd), $this->passwd)));
+                }
                 return isset($this->passwd[$args[1]]) ? $ok("{$args[1]}:x:1001:1001::{$this->passwd[$args[1]]}:/bin/bash\n") : $no(2);
             case '/usr/bin/head':
                 return isset($this->files[end($argv)]) ? $ok($this->files[end($argv)]['content']) : $no();
@@ -1107,9 +1116,9 @@ check($code === 0 && $out['result'] === 'dry_run' && $out['actions'][0]['action'
     && !changed_host($w['host']) && file_exists($w['state'] . '/profile.json') && is_dir($w['state'] . '/generations') === false
     && in_array('remove ' . $w['state'] . '/plans', array_column($out['actions'], 'action'), true), 'uninstall --dry-run only reads');
 [$code, $out] = cli($w, ['uninstall']);
-check($code === 0 && $out['result'] === 'uninstalled' && restored($w) && array_diff(scandir($w['state']), ['.', '..', 'backups', 'deployment.lock']) === []
-    && glob($w['state'] . '/backups/c*/recover.sh') !== [] && !($w['host']->enabled['ols-cpanel-broker.service'] ?? true),
-    'uninstall returns to Apache, removes hooks, units and state, keeps backups');
+check($code === 0 && $out['result'] === 'uninstalled' && restored($w) && array_diff(scandir($w['state']), ['.', '..', 'deployment.lock']) === []
+    && $out['kept'] === [] && !($w['host']->enabled['ols-cpanel-broker.service'] ?? true),
+    'uninstall returns to Apache, removes hooks, units, state and backups (the lock goes with the packages)');
 check(in_array('removed the recommended EA4 profile ' . $ea4->path(), array_column($out['actions'], 'action'), true)
     && in_array('disable and stop ols-cpanel-php.path', array_column($out['actions'], 'action'), true), 'uninstall removes the recommended EA4 profile and stops the PHP environment watcher');
 
@@ -1170,6 +1179,8 @@ function leftover_world(): array
         'frank' => [wp_site($h, 'frank', 'public_html', $socket('frank')) => ['product_set' => false] + $site],  // never set by the product
     ];
     $h->wp['/home/erin/public_html']['fail_set'] = true;
+    $h->files[ValkeyConfig::socketDir('/home/alice')] = ['owner' => 'dir', 'content' => ''];
+    $h->files[ValkeyConfig::socketDir('/home/bob')] = ['owner' => 'link', 'content' => ''];
     $state->save($w['state'] . '/objcache.json');
     // OPcache INI: ours (two versions), another file of that name, a link of that name, and another INI that must stay.
     $opt = $w['env']->phpRoot;
@@ -1241,6 +1252,10 @@ check($h->index('objcache-stop') > $h->index('objcache-as-user') && $h->index('o
     && ($by['turned off the object cache of LiteSpeed Cache in alice:/home/alice/public_html']['result'] ?? '') === 'reverted'
     && array_diff(scandir($w['state']), ['.', '..', 'backups', 'deployment.lock']) === [],
     'the failed site does not abort the uninstall: the object cache is turned off before the instances stop, the state is removed');
+check(in_array('removed ' . ValkeyConfig::socketDir('/home/alice'), $names, true) && !isset($h->files[ValkeyConfig::socketDir('/home/alice')])
+    && in_array('did not remove ' . ValkeyConfig::socketDir('/home/bob'), $names, true) && isset($h->files[ValkeyConfig::socketDir('/home/bob')])
+    && !in_array('removed ' . ValkeyConfig::socketDir('/home/carol'), $names, true),
+    "each account's ~/.ols-objcache is removed as the account; a symbolic link of that name stays; an account without it is skipped");
 check(!file_exists("$opt/ea-php74$ini") && !file_exists("$opt/ea-php83$ini") && is_file("$opt/ea-php83/root/etc/php.d/10-opcache.ini")
     && is_file("$opt/ea-php82$ini") && is_link("$opt/ea-php84$ini") && is_file("$opt/target.ini")
     && in_array('removed the OPcache INI of ea-php74', $names, true) && in_array('removed the OPcache INI of ea-php83', $names, true)
@@ -1253,9 +1268,15 @@ check(!file_exists("$units/ols-cpanel-objcache@alice.service.d") && count($reloa
     && is_dir("$units/ols-cpanel-objcache@.service.d") && is_dir("$units/other.service.d"),
     'the per-account drop-ins are removed (one daemon-reload); a link, a directory with a foreign file and other names stay');
 $remove = $h->calls[$h->index('remove-packages')][1] ?? [];
-check($remove === ['/usr/bin/systemd-run', '--unit=ols-cpanel-remove-packages', '--no-block', '--collect', '/usr/bin/dnf', '-y', 'remove', ...PRODUCT_PACKAGES]
+check($remove === ['/usr/bin/systemd-run', '--unit=ols-cpanel-remove-packages', '--no-block', '--collect', '/bin/sh', '-c', Uninstall::PURGE, 'sh',
+        $w['state'], ...PRODUCT_PACKAGES]
     && $h->index('remove-packages') === count($h->calls) - 1 && str_contains($out['next'], 'ols-cpanel-remove-packages'),
     'the product packages are removed by a transient unit, as the last step');
+
+// --keep-backups keeps the cutover backups.
+$w = leftover_world();
+[$code, $out] = cli($w, ['uninstall', '--keep-backups']);
+check($code === 0 && $out['kept'] === [$w['state'] . '/backups'] && is_dir($w['state'] . '/backups'), 'uninstall --keep-backups keeps the backups');
 
 // --keep-packages, a package that is not installed, and a failing start of the removal.
 $w = leftover_world();

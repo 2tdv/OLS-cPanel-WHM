@@ -8,13 +8,15 @@ use OlsCpanel\Php\OpcacheManager;
 use OlsCpanel\PhpExtensions\ExtensionInstaller;
 
 /**
- * `uninstall [--dry-run]`: the return to Apache when cut over, hook registrations removed, product units
- * disabled and stopped, and the state directory emptied except backups/ (the record of every cutover and its
- * recovery script). The server is left as it was before the product: LiteSpeed Cache's object cache is switched off again on the
+ * `uninstall [--dry-run] [--keep-packages] [--keep-backups]`: the return to Apache when cut over, hook registrations
+ * removed, product units disabled and stopped, and the state directory removed (backups/, the record of every cutover and
+ * its recovery script, only with --keep-backups). The server is left as it was before the product: LiteSpeed Cache's object cache is switched off again on the
  * WordPress sites where the product switched it on (only while the site still uses the product's socket), the product's OPcache INI
  * files and per-account systemd drop-ins are removed, and after a fully successful cleanup the product packages are removed by a
- * transient unit outside this process (dnf; `--keep-packages` leaves them). Kept: backups/, the logs, the olscpanel system user,
- * the OPcache and other packages the product installed. A dry run only reads.
+ * transient unit outside this process (dnf; `--keep-packages` leaves them), which then removes what the packages leave
+ * behind: OpenLiteSpeed's runtime files in /usr/local/lsws, the state directory, the olscpanel system user and the valkey
+ * user of a Valkey that dnf removed with them (PURGE). Nothing of the product stays (an owner's test on a second server,
+ * 2026-10-29, found those leftovers). Kept: the OPcache packages and everything the product did not install. A dry run only reads.
  *
  * Review RV-29: nothing is removed unless Apache is verified serving (enabled, monitored and running, the only
  * owner of 80/443, answering) under the deployment lock, whatever profile.json says: a recovery interrupted
@@ -42,13 +44,29 @@ final class Uninstall
     public const RPM = '/usr/bin/rpm';
     public const SYSTEMD_RUN = '/usr/bin/systemd-run';
     public const DNF = '/usr/bin/dnf';
+    /**
+     * Run by the transient unit: `sh -c PURGE sh <state dir> <packages...>`. After dnf, only what no package owns any more:
+     * /usr/local/lsws when no package owns it and no other LiteSpeed is there (bin/), the state directory's lock (and the
+     * directory when nothing else is in it), the olscpanel user and group, and the valkey user and group when Valkey is no
+     * longer installed (dnf removes it with the product when the product brought it) and runs nothing.
+     */
+    public const PURGE = 'state=$1; shift; /usr/bin/dnf -y remove "$@" || exit 1; '
+        . 'if ! /usr/bin/rpm -q ols-cpanel-openlitespeed >/dev/null 2>&1 && ! /usr/bin/rpm -qf /usr/local/lsws >/dev/null 2>&1 '
+        . '&& [ ! -e /usr/local/lsws/bin ]; then /usr/bin/rm -rf -- /usr/local/lsws; fi; '
+        . '/usr/bin/rm -f -- "$state/deployment.lock"; /usr/bin/rmdir -- "$state" 2>/dev/null; '
+        . 'for u in olscpanel valkey; do '
+        . 'if [ "$u" = valkey ] && /usr/bin/rpm -q valkey >/dev/null 2>&1; then continue; fi; '
+        . 'if [ "$u" = olscpanel ] && /usr/bin/rpm -q ols-cpanel >/dev/null 2>&1; then continue; fi; '
+        . 'if /usr/bin/getent passwd "$u" >/dev/null && ! /usr/bin/pgrep -u "$u" >/dev/null; then /usr/sbin/userdel "$u"; fi; '
+        . 'if /usr/bin/getent group "$u" >/dev/null; then /usr/sbin/groupdel "$u" 2>/dev/null; fi; '
+        . 'done; exit 0';
 
     public function __construct(private Environment $env)
     {
     }
 
     /** @return array<string,mixed> actions done (or, with $dryRun, that would be done) */
-    public function run(bool $dryRun, bool $keepPackages = false): array
+    public function run(bool $dryRun, bool $keepPackages = false, bool $keepBackups = false): array
     {
         $this->env->requireRoot();
         if (!is_dir($this->env->state)) {
@@ -58,7 +76,7 @@ final class Uninstall
         }
         $lock = $dryRun ? null : $this->env->lock(Environment::DRAIN_SECONDS);
         try {
-            return $this->locked($dryRun, $keepPackages);
+            return $this->locked($dryRun, $keepPackages, $keepBackups);
         } finally {
             if ($lock !== null) {
                 fclose($lock);
@@ -67,7 +85,7 @@ final class Uninstall
     }
 
     /** @return array<string,mixed> */
-    private function locked(bool $dryRun, bool $keepPackages): array
+    private function locked(bool $dryRun, bool $keepPackages, bool $keepBackups): array
     {
         $actions = [];
         $return = new ApacheReturn($this->env);
@@ -154,6 +172,11 @@ final class Uninstall
             $actions[] = ['action' => ($dryRun ? 'remove' : ($dropIn['result'] === 'removed' ? 'removed' : 'did not remove')) . ' the systemd drop-in ' . $dropIn['path']]
                 + (isset($dropIn['reason']) ? ['reason' => $dropIn['reason']] : []) + ($dropIn['result'] === 'error' ? ['ok' => false] : []);
         }
+        // Each account's ~/.ols-objcache (the socket directory, recreated by the wp-cli runs of the revert above), as the account.
+        foreach ($objcache->removeSocketDirs($dryRun) as $dir) {
+            $actions[] = ['action' => ($dryRun ? 'remove' : ($dir['result'] === 'removed' ? 'removed' : 'did not remove')) . ' ' . $dir['path']]
+                + (isset($dir['reason']) ? ['reason' => $dir['reason']] : []) + ($dir['result'] === 'error' ? ['ok' => false] : []);
+        }
         // The PHP redis extension: only the INI files this product wrote below /opt/cpanel (never another file).
         $extensions = new ExtensionInstaller($this->env->runner, phpRoot: $this->env->phpRoot, stateRoot: $this->env->state . '/php-ext');
         $inis = $dryRun ? $extensions->ownInis() : array_column($extensions->removeInis()['versions'], 'php');
@@ -179,7 +202,8 @@ final class Uninstall
         }
         $remove = [];
         foreach (scandir($this->env->state) ?: [] as $name) {
-            if (!in_array($name, ['.', '..', 'backups', 'deployment.lock'], true)) {
+            // The lock is held until the end; the package removal's PURGE removes it with the directory.
+            if (!in_array($name, ['.', '..', 'deployment.lock', ...($keepBackups ? ['backups'] : [])], true)) {
                 $remove[] = $this->env->state . "/$name";
             }
         }
@@ -202,7 +226,8 @@ final class Uninstall
             $this->env->host->run('prepare-report-remove', ['/usr/bin/rm', '-f', '--', '/root/ols-cpanel-prepare.json']);
         }
         $next = $this->packages($dryRun, $keepPackages, $actions);
-        return ['result' => $dryRun ? 'dry_run' : 'uninstalled', 'actions' => $actions, 'kept' => [$this->env->backupsDir()], 'next' => $next];
+        return ['result' => $dryRun ? 'dry_run' : 'uninstalled', 'actions' => $actions, 'kept' => $keepBackups ? [$this->env->backupsDir()] : [],
+            'next' => $next];
     }
 
     /**
@@ -222,9 +247,12 @@ final class Uninstall
         if ($keep) {
             return $manual . ' (kept because of --keep-packages)';
         }
-        $argv = [self::SYSTEMD_RUN, '--unit=' . self::REMOVE_UNIT, '--no-block', '--collect', self::DNF, '-y', 'remove', ...$installed];
+        $argv = [self::SYSTEMD_RUN, '--unit=' . self::REMOVE_UNIT, '--no-block', '--collect', '/bin/sh', '-c', self::PURGE, 'sh',
+            $this->env->state, ...$installed];
         if ($dryRun) {
             $actions[] = ['action' => 'remove the packages ' . implode(', ', $installed) . ' (dnf, in the unit ' . self::REMOVE_UNIT . ')'];
+            $actions[] = ['action' => 'then remove what they leave: OpenLiteSpeed runtime files in /usr/local/lsws, ' . $this->env->state
+                . ', the olscpanel user, and the valkey user if Valkey was removed with them'];
             return 'the packages would be removed; --keep-packages leaves them';
         }
         $record = $this->env->host->run('remove-packages', $argv, 60);

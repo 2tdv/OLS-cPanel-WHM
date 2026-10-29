@@ -203,7 +203,7 @@ Uninstall first returns the server to Apache if OLS is still serving, and verifi
 - the per-account object cache instances, their systemd drop-ins
   (`/etc/systemd/system/ols-cpanel-objcache@<account>.service.d/50-account.conf`, followed by one
   `systemctl daemon-reload`), and the product's state directory `/var/lib/ols-cpanel` (plans, generations,
-  object cache and PHP environment records) except `backups/`;
+  object cache and PHP environment records), including `backups/` (kept with `--keep-backups`);
 - the INI files the product wrote: `zz-ols-cpanel-opcache.ini` and the PHP redis extension INI in
   `/opt/cpanel/ea-php*/root/etc/php.d/`. Only a file that carries the product's own first line is removed;
   another file of that name, a link, or any other INI stays. The `ea-php*-php-opcache` packages stay installed;
@@ -213,11 +213,12 @@ Uninstall first returns the server to Apache if OLS is still serving, and verifi
   transient unit `ols-cpanel-remove-packages` (`dnf -y remove ...`), outside the uninstall process, which runs
   from one of those packages. Follow it with `journalctl -u ols-cpanel-remove-packages`. The packages have no
   scriptlets, so their removal never calls uninstall again. `--keep-packages` skips this step and prints the
-  `dnf remove` command instead.
+  `dnf remove` command instead;
+- after the packages, what they leave behind: OpenLiteSpeed's runtime files in `/usr/local/lsws` (only when no
+  package owns that directory any more and no other LiteSpeed is installed there), the state directory, the
+  `olscpanel` system user and group, and the `valkey` user and group when dnf removed Valkey with the product.
 
-What is kept: `/var/lib/ols-cpanel/backups/` (every cutover backup and its recovery script), the logs
-(including `/usr/local/lsws/logs`), the `olscpanel` system user and group, the OPcache packages, and
-everything the product did not create. It never removes your sites' files, cPanel's certificates, packages
+What is kept: the OPcache packages, the system journal, and everything the product did not create. It never removes your sites' files, cPanel's certificates, packages
 the product did not install, or changes made by an administrator. It can be run again if it is interrupted.
 
 `uninstall --dry-run` lists every action above, including the sites it would switch off and the package

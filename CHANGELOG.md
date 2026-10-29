@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.10
+
+- Uninstall leaves nothing of the product behind: OpenLiteSpeed's runtime files in `/usr/local/lsws`, the state
+  directory with its lock, the cutover backups (kept with `--keep-backups`), the `olscpanel` user, and the `valkey` user
+  when Valkey was removed with the product.
+
 ## 0.2.9
 
 - ModSecurity: the current OWASP Core Rule Set (3.3.x, as cPanel installs it today) loads in OpenLiteSpeed. Its rule

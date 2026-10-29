@@ -372,6 +372,39 @@ final class ObjectCacheManager
      * the product's 50-account.conf only; a link, a directory with another file or another name is never touched), then one daemon-reload.
      * @return list<array{path:string, result:string, reason?:string}> result: removed, would_remove, kept, error
      */
+    /**
+     * Uninstall: every account's socket directory (~/.ols-objcache, which also holds wp-cli's cache of the product's runs,
+     * so the WordPress revert itself recreates it), removed as the account once the instances are stopped. A symbolic link
+     * is left alone.
+     * @return list<array{path:string, result:string, reason?:string}> result: removed, would_remove, kept, error
+     */
+    public function removeSocketDirs(bool $dryRun): array
+    {
+        $rows = [];
+        foreach ($this->passwd() as $user => $entry) {
+            if ($entry['uid'] < self::MIN_UID || HomePath::homeOf($entry['home'], (string) $user) !== $entry['home']) {
+                continue;
+            }
+            $dir = ValkeyConfig::socketDir($entry['home']);
+            // Checked as the account, like socketDir() creates it (a home root cannot always look into).
+            if ($this->asUser((string) $user, [self::TEST, '-L', $dir])['exit_code'] === 0) {
+                $rows[] = ['path' => $dir, 'result' => 'kept', 'reason' => 'a symbolic link'];
+                continue;
+            }
+            if ($this->asUser((string) $user, [self::TEST, '-d', $dir])['exit_code'] !== 0) {
+                continue;
+            }
+            if ($dryRun) {
+                $rows[] = ['path' => $dir, 'result' => 'would_remove'];
+                continue;
+            }
+            $removed = $this->asUser((string) $user, [self::RM, '-rf', '--', $dir]);
+            $rows[] = $removed['exit_code'] === 0 ? ['path' => $dir, 'result' => 'removed']
+                : ['path' => $dir, 'result' => 'error', 'reason' => self::tail($removed)];
+        }
+        return $rows;
+    }
+
     public function removeDropIns(bool $dryRun): array
     {
         $rows = [];
