@@ -23,7 +23,7 @@
 <meta name="twitter:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
 <meta name="robots" content="index, follow">
 <meta name="theme-color" content="#0b5394">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "OLS-cPanel-WHM", "alternateName": "OpenLiteSpeed for cPanel and WHM", "url": "https://2tdv.github.io/OLS-cPanel-WHM/", "description": "Free, open-source replacement of Apache with OpenLiteSpeed on cPanel and WHM servers: LSCache page cache, HTTP/3, per-account object cache, WHM and cPanel plugins, a planned switch with an automatic way back.", "applicationCategory": "DeveloperApplication", "applicationSubCategory": "Web server", "operatingSystem": "AlmaLinux 9 (x86_64) with cPanel & WHM", "softwareVersion": "0.2.11", "license": "https://www.gnu.org/licenses/gpl-3.0.html", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "downloadUrl": "https://github.com/2tdv/OLS-cPanel-WHM/releases/tag/0.2.11", "installUrl": "https://2tdv.github.io/OLS-cPanel-WHM/install.html", "releaseNotes": "https://2tdv.github.io/OLS-cPanel-WHM/changelog.html", "codeRepository": "https://github.com/2tdv/OLS-cPanel-WHM", "screenshot": ["https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png", "https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/cpanel-sites.png"]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "OLS-cPanel-WHM", "alternateName": "OpenLiteSpeed for cPanel and WHM", "url": "https://2tdv.github.io/OLS-cPanel-WHM/", "description": "Free, open-source replacement of Apache with OpenLiteSpeed on cPanel and WHM servers: LSCache page cache, HTTP/3, per-account object cache, WHM and cPanel plugins, a planned switch with an automatic way back.", "applicationCategory": "DeveloperApplication", "applicationSubCategory": "Web server", "operatingSystem": "AlmaLinux 9 (x86_64) with cPanel & WHM", "softwareVersion": "0.2.12", "license": "https://www.gnu.org/licenses/gpl-3.0.html", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "downloadUrl": "https://github.com/2tdv/OLS-cPanel-WHM/releases/tag/0.2.12", "installUrl": "https://2tdv.github.io/OLS-cPanel-WHM/install.html", "releaseNotes": "https://2tdv.github.io/OLS-cPanel-WHM/changelog.html", "codeRepository": "https://github.com/2tdv/OLS-cPanel-WHM", "screenshot": ["https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png", "https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/cpanel-sites.png"]}</script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebSite", "name": "OLS-cPanel-WHM", "url": "https://2tdv.github.io/OLS-cPanel-WHM/", "description": "OpenLiteSpeed for cPanel and WHM", "inLanguage": "en"}</script>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/style.css">
@@ -44,7 +44,7 @@
 <p class="lead">OLS-cPanel-WHM replaces Apache with OpenLiteSpeed on a cPanel/WHM server and keeps everything cPanel manages working, with a safe, planned switch and an automatic way back.</p>
 <div class="actions"><a class="btn primary" href="install.html">Install it</a><a class="btn secondary" href="whm.html">See the interface</a></div>
 <ul class="compat" aria-label="Compatibility"><li>Works with cPanel&reg; &amp; WHM&reg;</li><li>Powered by OpenLiteSpeed</li><li>AlmaLinux 9 (x86_64)</li></ul>
-<ul class="badges" aria-label="At a glance"><li>Release 0.2.11</li><li>GPLv3</li><li>Signed releases</li></ul>
+<ul class="badges" aria-label="At a glance"><li>Release 0.2.12</li><li>GPLv3</li><li>Signed releases</li></ul>
 </section>
 
 <figure class="shot"><a href="assets/screenshots/whm-overview.png"><img src="assets/screenshots/whm-overview.png" width="1280" height="800" loading="lazy" alt="The WHM plugin overview: server health, the serving engine (OpenLiteSpeed), ports 80 and 443, the deployment profile and the active configuration."></a><figcaption>The WHM overview: the state of the web server at a glance (example data).</figcaption></figure>
@@ -79,8 +79,8 @@
 </ul>
 
 <h2>Install in one command</h2>
-<p>Run this as root on the server. The command comes from the release notes of release 0.2.11; check them on the <a href="https://github.com/2tdv/OLS-cPanel-WHM/releases">releases page</a>.</p>
-<div class="codeblock"><pre><code>d=$(mktemp -d) &amp;&amp; curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.11/install.sh" &amp;&amp; echo "2b483993890bbf98045ab869e453bdf7e7d39fa13ab5fbbe37d57501125eef3c  $d/install.sh" | sha256sum -c - &amp;&amp; sh "$d/install.sh"; rm -rf "$d"</code></pre></div>
+<p>Run this as root on the server. The command comes from the release notes of release 0.2.12; check them on the <a href="https://github.com/2tdv/OLS-cPanel-WHM/releases">releases page</a>.</p>
+<div class="codeblock"><pre><code>d=$(mktemp -d) &amp;&amp; curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.12/install.sh" &amp;&amp; echo "83667d00c98030834aba08968cf43f1e564d646af6e7b2ba0899e574ecc1bc6f  $d/install.sh" | sha256sum -c - &amp;&amp; sh "$d/install.sh"; rm -rf "$d"</code></pre></div>
 <p>The <a href="install.html">installation page</a> explains each stage and a stricter variant that checks the installer's signature first.</p>
 
 

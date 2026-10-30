@@ -49,15 +49,15 @@
 </ul>
 
 <h2>The one command</h2>
-<p>This is the command from the release notes of release 0.2.11. It downloads the installer of exactly this release into a private temporary directory, stops if it does not match the published SHA-256 digest, runs it, and removes the directory. Nothing downloaded is piped into a shell.</p>
-<div class="codeblock"><pre><code>d=$(mktemp -d) &amp;&amp; curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.11/install.sh" &amp;&amp; echo "2b483993890bbf98045ab869e453bdf7e7d39fa13ab5fbbe37d57501125eef3c  $d/install.sh" | sha256sum -c - &amp;&amp; sh "$d/install.sh"; rm -rf "$d"</code></pre></div>
-<p>Installer SHA-256: <code>2b483993890bbf98045ab869e453bdf7e7d39fa13ab5fbbe37d57501125eef3c</code></p>
+<p>This is the command from the release notes of release 0.2.12. It downloads the installer of exactly this release into a private temporary directory, stops if it does not match the published SHA-256 digest, runs it, and removes the directory. Nothing downloaded is piped into a shell.</p>
+<div class="codeblock"><pre><code>d=$(mktemp -d) &amp;&amp; curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.12/install.sh" &amp;&amp; echo "83667d00c98030834aba08968cf43f1e564d646af6e7b2ba0899e574ecc1bc6f  $d/install.sh" | sha256sum -c - &amp;&amp; sh "$d/install.sh"; rm -rf "$d"</code></pre></div>
+<p>Installer SHA-256: <code>83667d00c98030834aba08968cf43f1e564d646af6e7b2ba0899e574ecc1bc6f</code></p>
 <div class="callout warn"><p><strong>Use the command from the release notes.</strong> For a newer release, take the command from that release's notes on the <a href="https://github.com/2tdv/OLS-cPanel-WHM/releases">releases page</a>, and compare the digest with the one shown there.</p></div>
 <p>From a non-root account with <code>sudo</code>, replace <code>sh "$d/install.sh"</code> with <code>sudo sh "$d/install.sh"</code>. To prepare only and switch later, add <code>--prepare-only</code> to the installer call.</p>
 
 <h2>Stricter: check the installer's signature first</h2>
 <p>This variant fetches the project's release key from keyserver.ubuntu.com by its fingerprint and verifies the installer's signature before running it, so it does not depend on the digest shown on the release page.</p>
-<div class="codeblock"><pre><code>d=$(mktemp -d) &amp;&amp; mkdir -m 700 "$d/g" &amp;&amp; export GNUPGHOME="$d/g" &amp;&amp; curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.11/install.sh" &amp;&amp; curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh.asc" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.11/install.sh.asc" &amp;&amp; gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys 118DFA42F66A585D176C0B5148E26833CB82EAD1 &amp;&amp; gpg --verify "$d/install.sh.asc" "$d/install.sh" &amp;&amp; sh "$d/install.sh"; unset GNUPGHOME; rm -rf "$d"</code></pre></div>
+<div class="codeblock"><pre><code>d=$(mktemp -d) &amp;&amp; mkdir -m 700 "$d/g" &amp;&amp; export GNUPGHOME="$d/g" &amp;&amp; curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.12/install.sh" &amp;&amp; curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh.asc" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.12/install.sh.asc" &amp;&amp; gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys 118DFA42F66A585D176C0B5148E26833CB82EAD1 &amp;&amp; gpg --verify "$d/install.sh.asc" "$d/install.sh" &amp;&amp; sh "$d/install.sh"; unset GNUPGHOME; rm -rf "$d"</code></pre></div>
 <p>Release signing key fingerprint: <code>118DFA42F66A585D176C0B5148E26833CB82EAD1</code>. Its public key is also in the repository as <code>build/release/ols-cpanel-release-key.asc</code>.</p>
 
 <h2>What the installer prints</h2>
@@ -65,7 +65,7 @@
 <div class="bar" aria-hidden="true">root@server: the installer (example output)</div>
 <pre aria-hidden="true"><span class="stage">==&gt; Checking this server (operating system, cPanel, required tools)</span>
 
-<span class="stage">==&gt; Downloading release 0.2.11 and checking its signature</span>
+<span class="stage">==&gt; Downloading release 0.2.12 and checking its signature</span>
 
 <span class="stage">==&gt; Downloading the packages (OpenLiteSpeed, PHP redis extension, OLS-cPanel) and verifying each one</span>
 
