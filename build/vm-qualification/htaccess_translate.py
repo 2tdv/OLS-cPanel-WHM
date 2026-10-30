@@ -80,6 +80,76 @@ def _resolve_modules(text):
             out.append(line)
     return text if stack else "\n".join(out) + "\n"
 
+IFMODULE_OPEN = re.compile(r"^<IfModule[ \t]+(!?)([^\s>]+)[ \t]*>$", re.I)
+# RV-46 (soak test 2026-10-30): with the server's own module list (`httpd -M`), every <IfModule> is decided as Apache
+# decides it at parse time: the module identifier ("rewrite_module") or its source file name ("mod_rewrite.c").
+MODULE_SOURCE = re.compile(r"mod_([A-Za-z0-9_]+)\.c", re.I)
+
+
+def _module_loaded(name, modules):
+    name = name.strip("\"'")
+    source = MODULE_SOURCE.fullmatch(name)
+    return (source.group(1) + "_module" if source else name).lower() in modules
+
+
+def _resolve_all_modules(text, modules):
+    """Every <IfModule [!]name> outside <IfModule LiteSpeed> is evaluated against the loaded modules: the body of a
+    true section is kept (wrapper removed), a false one is dropped with everything nested in it. <IfModule LiteSpeed>
+    and anything inside it stay as written (LiteSpeed evaluates those; see LITESPEED_BLOCK), as does
+    <IfModule !LiteSpeed> (refused later). Unbalanced sections leave the text unchanged (blockers follow)."""
+    out, stack = [], []
+    for line in re.split(r"\r\n|\n|\r", text):
+        stripped = line.strip()
+        section = IFMODULE_OPEN.match(stripped)
+        if section and "ls" not in stack and section.group(2).strip("\"'").lower() != "litespeed":
+            stack.append("keep" if _module_loaded(section.group(2), modules) != bool(section.group(1)) else "drop")
+        elif ANY_IFMODULE_OPEN.match(stripped):
+            if "drop" not in stack:
+                out.append(line)
+            stack.append("ls" if LITESPEED_OPEN.match(stripped) else "other")
+        elif IFMODULE_CLOSE.match(stripped):
+            if not stack:
+                return text
+            if stack.pop() in ("other", "ls") and "drop" not in stack:
+                out.append(line)
+        elif "drop" not in stack:
+            out.append(line)
+    return text if stack else "\n".join(out) + "\n"
+
+
+# Pre-compressed assets (Joomla's and Drupal's stock .htaccess): inside <IfModule mod_headers.c>, requests for .css/.js
+# are rewritten to an existing .gz/.br copy, typed with [T=...] and sent with "Content-Encoding". OLS compresses
+# static and dynamic responses itself (gzip and brotli, compressed static copies kept up to date: the compiled
+# server configuration), so the client gets the same resource compressed either way. Only this exact idiom is
+# recognised; the whole section is then left to OLS.
+PRECOMPRESSED_SECTION = re.compile(r"<IfModule[ \t]+mod_headers\.c[ \t]*>((?:(?!</?IfModule\b).)*?)</IfModule[ \t]*>", re.S | re.I)
+PRECOMPRESSED_LINES = [
+    re.compile(r'^RewriteCond[ \t]+"?%\{HTTP:Accept-encoding\}"?[ \t]+"?(gzip|br)"?$', re.I),
+    re.compile(r'^RewriteCond[ \t]+"?%\{REQUEST_FILENAME\}\\\.(gz|br)"?[ \t]+"?-s"?$', re.I),
+    re.compile(r'^RewriteRule[ \t]+"?\^\(\.\*(?:(css|js)_\[a-zA-Z0-9-_\]\+)?\)\\\.(css|js)\$?"?[ \t]+"?\$1\\\.(css|js)\\\.(gz|br)"?[ \t]+\[QSA\]$'),
+    re.compile(r'^RewriteRule[ \t]+"?\\\.(css|js)\\\.(gz|br)\$"?[ \t]+"?-"?[ \t]+'
+               r'\[T=(text/css|text/javascript|application/javascript),E=no-gzip:1,E=no-brotli:1\]$'),
+]
+PRECOMPRESSED_FILES = re.compile(r"\(\\\.js\\\.(gz|br)\|\\\.css\\\.\1\)\$")
+
+
+def _precompressed_section(body):
+    files = FILES.findall(body)
+    if not files:
+        return False
+    for kind, pattern, inner in files:
+        encoding = PRECOMPRESSED_FILES.fullmatch(pattern)
+        if kind.lower() != "filesmatch" or not encoding or [l.lower() for l in _directives(inner)] != [
+                f"header set content-encoding {'gzip' if encoding.group(1) == 'gz' else 'br'}", "header append vary accept-encoding"]:
+            return False
+    rest = _directives(FILES.sub("", body))
+    return bool(rest) and all(any(rx.match(line) for rx in PRECOMPRESSED_LINES) for line in rest)
+
+
+def _strip_precompressed(text):
+    return PRECOMPRESSED_SECTION.sub(lambda m: "" if _precompressed_section(m.group(1)) else m.group(0), text)
+
+
 def _regex_supported(pattern):
     """A FilesMatch pattern that is balanced and simple enough to embed in a group: escapes are punctuation or
     d/w/s/D/W/S (no back-references), classes hold no escapes, "(?" constructs and stacked or leading
@@ -133,6 +203,78 @@ def _grant_regex(kind, pattern):
     anchored = tail is not None and len(tail.group(1)) % 2 == 0
     return ("" if pattern.startswith("^") else "[^/]*") + "(?:" + body + ")" + ("" if anchored else "[^/]*")
 
+SEARCH_CHARS = re.compile(r"[A-Za-z0-9._@\\^$|()?*+\[\]#!=<>,~:%-]+")
+LOOKAROUND = re.compile(r"\(\?(?:[:=!]|<[=!])")
+
+
+def _basename_search(pattern):
+    """A <FilesMatch> regex (an unanchored search on the file's basename) rewritten to run inside a path regex that
+    has reached the start of the last segment: "^" becomes "(?<=/)" (the basename starts after a slash), "#" is
+    written \\x23 (it would start a comment in the OLS configuration). Groups, lookarounds ("(?:", "(?=", "(?!",
+    "(?<=", "(?<!"), classes and alternations are kept; back-references, other "(?" constructs, braces, a "<<<"
+    sequence and stacked or leading quantifiers are refused (None). "." and classes cannot cross a "/" there: the
+    path regex places it in the last segment first."""
+    if not SEARCH_CHARS.fullmatch(pattern) or "<<<" in pattern:
+        return None
+    out, i, n, depth, quantifiable = [], 0, len(pattern), 0, False
+    while i < n:
+        c = pattern[i]
+        if c == "\\":
+            if i + 1 >= n or (pattern[i + 1].isalnum() and pattern[i + 1] not in "dwsDWS"):
+                return None
+            out.append(pattern[i:i + 2])
+            quantifiable, i = True, i + 2
+        elif c == "[":
+            j = i + 1 + (1 if pattern[i + 1:i + 2] == "^" else 0)
+            start = j
+            while j < n and pattern[j] not in "]\\[":
+                j += 1
+            if j >= n or pattern[j] != "]" or j == start:
+                return None
+            out.append(pattern[i:j + 1].replace("#", "\\x23"))
+            quantifiable, i = True, j + 1
+        elif c == "(":
+            look = LOOKAROUND.match(pattern, i) if pattern[i + 1:i + 2] == "?" else None
+            if pattern[i + 1:i + 2] == "?" and not look:
+                return None
+            token = look.group(0) if look else "("
+            out.append(token)
+            depth, quantifiable, i = depth + 1, False, i + len(token)
+        elif c == ")":
+            depth -= 1
+            if depth < 0:
+                return None
+            out.append(")")
+            quantifiable, i = True, i + 1
+        elif c in "|$":
+            out.append(c)
+            quantifiable, i = False, i + 1
+        elif c == "^":
+            out.append("(?<=/)")
+            quantifiable, i = False, i + 1
+        elif c in "*+?":
+            if not quantifiable:
+                return None
+            out.append(c)
+            quantifiable, i = False, i + 1
+        else:
+            out.append("\\x23" if c == "#" else c)
+            quantifiable, i = True, i + 1
+    return "".join(out) if depth == 0 else None
+
+
+def _static_header_context(docroot, extension, headers, root):
+    """Headers for one static file type of the document root: a regex context serving the file itself. It carries
+    the "/" context's access denial, authentication, expiry and headers (its own headers after them): the lab showed
+    that such a context does not take the root context's headers by itself (soak test 2026-10-30)."""
+    lines = [f"context exp:^/((?:.*/)?[^/]*\\.{extension})$ {{", f"  location                {docroot.rstrip('/')}/$1",
+             f"  allowBrowse             {root.get('allowBrowse', '1')}"]
+    lines += [f"  {key:<23} {root[key]}" for key in ("realm", "authName", "required", "enableExpires", "expiresDefault",
+                                                    "expiresByType") if key in root]
+    lines += ["  extraHeaders            <<<END_extraHeaders", *root.get("headers", []), *headers, "END_extraHeaders", "}\n"]
+    return "\n".join(lines)
+
+
 def _expires_value(text):
     """"A<seconds>" or "M<seconds>" for an Apache expiry (short or long syntax, optionally quoted), or None."""
     text = text.strip(" \t")
@@ -161,10 +303,11 @@ def _realm_name(directory, user_file):
 DENY_ALL = [["Require all denied"], ["Deny from all"], ["Order deny,allow", "Deny from all"],
             ["Order allow,deny", "Deny from all"]]
 NOOP_OPTIONS = {"followsymlinks", "symlinksifownermatch", "-multiviews"}
-HEADER = re.compile(r"^Header\s+(?:always\s+)?(set|append|merge|add|unset)\s+([A-Za-z0-9-]+)(?:\s+(.+))?$", re.I)
+HEADER = re.compile(r"^Header\s+(?:(?:always|onsuccess)\s+)?(set|append|merge|add|unset)\s+([A-Za-z0-9-]+)(?:\s+(.+))?$", re.I)
 # OLS 1.9.3 parses a trailing env= condition but never evaluates it (the header would be applied
 # unconditionally); expr= and early have no OLS equivalent. Such lines are blockers.
-HEADER_CONDITION = re.compile(r"(^|\s)(env|expr)=|(^|\s)early$", re.I)
+# A quoted condition ("expr=...") is a condition too (soak test 2026-10-30: it was read as part of the value).
+HEADER_CONDITION = re.compile(r"(^|\s)[\"']?(env|expr)=|(^|\s)early$", re.I)
 EXPIRES_ACTIVE = re.compile(r"^ExpiresActive[ \t]+(on|off)$", re.I)
 EXPIRES_DEFAULT = re.compile(r"^ExpiresDefault[ \t]+(.+)$", re.I)
 EXPIRES_BY_TYPE = re.compile(r"^ExpiresByType[ \t]+([A-Za-z0-9][A-Za-z0-9.+_-]*/[A-Za-z0-9][A-Za-z0-9.+_-]*)[ \t]+(.+)$", re.I)
@@ -173,6 +316,26 @@ EXPIRES_LONG = re.compile(r"^(access|now|modification)(?:[ \t]+plus)?((?:[ \t]+[
 EXPIRES_UNIT = {"y": 31536000, "mo": 2592000, "w": 604800, "d": 86400, "h": 3600, "mi": 60, "s": 1}
 EXPIRES_BY_TYPE_LIMIT = 3500
 ERROR_DOCUMENT = re.compile(r"^ErrorDocument\s+([45]\d\d)\s+(/[A-Za-z0-9._/-]*)$")
+# RV-46 (soak test 2026-10-30), what the stock .htaccess of Joomla, Drupal and Laravel need:
+DIRECTORY_INDEX = re.compile(r"^DirectoryIndex((?:[ \t]+[A-Za-z0-9._-]+)+)$", re.I)
+ADD_TYPE = re.compile(r"^AddType[ \t]+([A-Za-z0-9.+/_-]+)((?:[ \t]+\.?[A-Za-z0-9]+)+)$", re.I)
+ADD_ENCODING = re.compile(r"^AddEncoding[ \t]+(gzip|x-gzip)((?:[ \t]+\.?[A-Za-z0-9]+)+)$", re.I)
+INDEX_IGNORE = re.compile(r"^IndexIgnore\b", re.I)
+# OLS answers a request carrying a Proxy header with 400 (checked on OLS 1.9.3, 2026-10-30), so the httpoxy
+# mitigation Drupal writes is already in effect.
+PROXY_UNSET = re.compile(r"^RequestHeader[ \t]+unset[ \t]+Proxy$", re.I)
+# The MIME types OLS 1.9.3 maps these extensions to by default (conf/mime.properties): an AddType naming the same
+# type changes nothing. Any other AddType is a blocker.
+OLS_DEFAULT_MIME = {"svg": "image/svg+xml", "svgz": "image/svg+xml", "webp": "image/webp"}
+# Static file types a header-only <FilesMatch> or AddEncoding may target with its own regex context (served as a
+# static file there: never a script).
+STATIC_EXTENSION = re.compile(r"\\\.([A-Za-z0-9]+)\$")
+# Drupal's "no scripts in uploads" idiom (SA-2006-006, SA-2013-003): a handler name that does not exist, so Apache
+# sends every file of the directory as it is and never runs a script. OLS: the script suffixes of that directory are
+# mapped to a static type (context addMIMEType), so nothing there reaches lsphp.
+DRUPAL_NO_SCRIPTS = re.compile(r"^SetHandler[ \t]+Drupal_Security_Do_Not_Remove_See_SA_[0-9]{4}_[0-9]{3}$")
+NO_SCRIPTS_MIME = "application/octet-stream php php3 php4 php5 php7 php8 phtml pht phar inc cgi pl py sh shtml"
+SCRIPT_EXTENSIONS = {"php", "php3", "php4", "php5", "php7", "php8", "phtml", "phar", "cgi", "pl", "py", "sh", "shtml", "asp", "aspx", "jsp"}
 # Directive names and arguments are separated by any run of blanks; OLS accepts tabs as well as spaces.
 REWRITE_SPACE = re.compile(r"[ \t]+")
 REWRITE_CONTROL = re.compile(r"[\x00-\x08\x0a-\x1f\x7f]")
@@ -249,6 +412,12 @@ def _litespeed_quoted_safe(word, rest):
                 and LITESPEED_QUOTED_ENV.match(args[2]) is not None)
     return len(args) == 2 or _flags_safe(args[2], True)
 
+# Double-quoted arguments outside <IfModule LiteSpeed> (Drupal's stock rules): Apache (ap_getword_conf) and OLS
+# (ls_parsenextarg) split them the same way and keep inner backslashes, as long as a quoted argument holds no
+# escaped quote and no escaped blank; then OLS reads the line as Apache does.
+APACHE_ARGUMENT = r'"(?:[^"\\\n]|\\[^"\s])*"|[^\s"\']+'
+QUOTED_ARGUMENTS = re.compile(rf"^({APACHE_ARGUMENT})[ \t]+({APACHE_ARGUMENT})(?:[ \t]+(\[[^\[\]]*\]))?$")
+
 def _rewrite_arguments_safe(word, rest, litespeed=False):
     """Whether a RewriteCond/RewriteRule argument list is fully understood and names no internal backend.
     ESI is not supported by OLS (plan §20.3): a LiteSpeed rule turning it on is refused."""
@@ -256,6 +425,15 @@ def _rewrite_arguments_safe(word, rest, litespeed=False):
         return False
     if litespeed and (REWRITE_ESCAPED.search(rest) or REWRITE_QUOTE.search(rest)):
         return _litespeed_quoted_safe(word, rest)
+    if REWRITE_QUOTE.search(rest) and not REWRITE_ESCAPED.search(rest):
+        quoted = QUOTED_ARGUMENTS.match(rest)
+        if not quoted:
+            return False
+        args = [a[1:-1] if a.startswith('"') else a for a in quoted.groups()[:2]] + ([quoted.group(3)] if quoted.group(3) else [])
+        if any(a.startswith("|") for a in args[:2]) or (word == "rewriterule" and (
+                args[1].startswith("[") or REWRITE_INTERNAL.match(args[1]))):
+            return False
+        return len(args) < 3 or _flags_safe(args[2], litespeed)
     args = REWRITE_SPACE.split(rest, 2)
     if len(args) < 2 or REWRITE_ESCAPED.search(rest) or any(a.startswith("|") for a in args[:2]) or (
             word == "rewriterule" and (REWRITE_QUOTE.search(rest) or args[1].startswith("[")
@@ -339,7 +517,7 @@ def _render_context(uri, location, props):
     if location:
         lines.append(f"  location                {location}")
     for key in ("allowBrowse", "autoIndex", "realm", "authName", "required", "enableExpires", "expiresDefault",
-                "expiresByType"):
+                "expiresByType", "indexFiles", "addMIMEType"):
         if key in props:
             lines.append(f"  {key:<23} {props[key]}")
     if props.get("headers"):
@@ -360,12 +538,18 @@ def _render_context(uri, location, props):
     lines.append("}\n")
     return "\n".join(lines)
 
-def translate(files, docroot):
-    """files: {relative_dir ("" or "sub/dir"): .htaccess text}.
-    Returns (realms, blocks, blockers); blocks are contexts plus vhost-level errorPage entries."""
+def translate(files, docroot, modules=None, root_headers=None):
+    """files: {relative_dir ("" or "sub/dir"): .htaccess text}; modules: the identifiers of the modules Apache has
+    loaded (`httpd -M`, e.g. "rewrite_module"), or None when unknown (then only the modules EasyApache 4 always
+    loads are assumed). Returns (realms, blocks, blockers); blocks are contexts plus vhost-level errorPage entries."""
+    loaded = None if modules is None else {m.lower() for m in modules}
     realms, regex_contexts, blockers = [], [], []
     error_pages = {}  # status -> entry; a later ErrorDocument for the same status wins, as in Apache
     contexts = {}
+    # Headers the virtual host itself sets on every response (RV-44: cPanel's technical domains): they lead the "/"
+    # context's own, and the static file contexts copy them with the rest of it.
+    if root_headers and SAFE_PATH.match(docroot.rstrip("/") + "/"):
+        contexts["/"] = {"location": docroot.rstrip("/") + "/", "headers": list(root_headers)}
     for rel, text in sorted(files.items()):
         uri = "/" + (rel.strip("/") + "/" if rel.strip("/") else "")
         location = docroot.rstrip("/") + uri
@@ -392,19 +576,47 @@ def translate(files, docroot):
             realms.append(f"realm {realm} {{\n  userDB {{\n    location              {user_file}\n  }}\n}}\n")
             props.update(realm=realm, authName=name, required="valid-user")
         remaining = PPD.sub("", remaining)
-        remaining = _resolve_modules(remaining)
-        grants, file_denies = [], 0
+        remaining = _resolve_modules(remaining) if loaded is None else _resolve_all_modules(_strip_precompressed(remaining), loaded)
+        grants, file_denies, static_headers = [], 0, []
         for match in FILES.finditer(remaining):
             kind, pattern, body = match.groups()
             if [l.lower() for l in _directives(body)] == ["require all granted"]:
                 grants.append((kind, pattern))
                 continue
+            if loaded is not None and kind.lower() == "filesmatch" and pattern == r"\.php$" and [
+                    l.lower() for l in _directives(body)] == ["expiresactive off"]:
+                # OLS sets Expires on dynamic responses from the virtual host's own setting (httpcgitool.cpp
+                # processExpires uses the root context), never from these directory contexts: already off.
+                continue
+            headers = [HEADER.match(l) for l in _directives(body)]
+            static = STATIC_EXTENSION.fullmatch(pattern)
+            if (loaded is not None and kind.lower() == "filesmatch" and headers and all(headers) and static
+                    and static.group(1).lower() not in SCRIPT_EXTENSIONS):
+                if uri != "/" or any(HEADER_CONDITION.search(h.group(3) or "") for h in headers):
+                    blockers.append(f"{uri}: <{kind} {pattern}> with unsupported body")
+                else:
+                    static_headers.append((static.group(1), ["Header " + " ".join(part for part in h.groups() if part) for h in headers]))
+                continue
+            if (loaded is not None and kind.lower() == "files" and pattern == "*" and _directives(body)
+                    and all(DRUPAL_NO_SCRIPTS.match(l) for l in _directives(body))):
+                props["addMIMEType"] = NO_SCRIPTS_MIME
+                continue
             if not _is_deny_all(_directives(body)):
                 blockers.append(f"{uri}: <{kind} {pattern}> with unsupported body")
                 continue
             # Validate what the tenant wrote; the translation below only adds "[^/]*" around it.
-            if not re.fullmatch(r"[A-Za-z0-9._@\\^$|()?*+\[\]-]+", pattern) or "/" in pattern:
-                blockers.append(f"{uri}: unsupported <{kind}> pattern {pattern!r}")
+            # The structure is checked too (soak test 2026-10-30): a back-reference or a stray quantifier ("*a") made
+            # an invalid OLS regex, and one tenant's file would have failed the whole server's configuration test.
+            if not re.fullmatch(r"[A-Za-z0-9._@\\^$|()?*+\[\]-]+", pattern) or "/" in pattern or (
+                    kind.lower() == "filesmatch" and not _regex_supported(pattern)):
+                search = _basename_search(pattern) if loaded is not None and kind.lower() == "filesmatch" else None
+                if search is None:
+                    blockers.append(f"{uri}: unsupported <{kind}> pattern {pattern!r}")
+                    continue
+                # The path reaches the start of the last segment, then the basename is searched (Drupal's pattern).
+                regex_contexts.append(f"context exp:^{re.escape(uri)}(?:.*/)?(?=[^/]*$)[^/]*?(?:{search}) {{\n"
+                                      f"  allowBrowse             0\n}}\n")
+                file_denies += 1
                 continue
             if kind.lower() == "files":
                 # <Files> takes a wildcard string, not a regex.
@@ -453,6 +665,7 @@ def translate(files, docroot):
             else:
                 blockers.append(f"{uri}: unsupported access rule combination {deny_lines!r}")
         expires_types = {}
+        index_ignore = False
         for line in lines:
             if line in deny_lines:
                 continue
@@ -479,6 +692,9 @@ def translate(files, docroot):
                         props["autoIndex"] = "0"
                     elif lowered in ("+indexes", "indexes"):
                         props["autoIndex"] = "1"
+                    elif loaded is not None and (lowered == "-includes" or (lowered == "-execcgi" and not uri.startswith("/cgi-bin/"))):
+                        # OLS has no server-side includes, and runs CGI only in its cgi-bin context: both are off already.
+                        pass
                     elif lowered.lstrip("+") not in NOOP_OPTIONS and lowered not in NOOP_OPTIONS:
                         blockers.append(f"{uri}: unsupported Options {option!r}")
             elif header and HEADER_CONDITION.search(header.group(3) or ""):
@@ -486,11 +702,33 @@ def translate(files, docroot):
             elif header and "\n" not in line:
                 props.setdefault("headers", []).append("Header " + " ".join(
                     part for part in header.groups() if part))
+            elif loaded is not None and DIRECTORY_INDEX.match(line):
+                props["indexFiles"] = ", ".join(DIRECTORY_INDEX.match(line).group(1).split())
+            elif loaded is not None and ADD_TYPE.match(line):
+                added = ADD_TYPE.match(line)
+                if any(OLS_DEFAULT_MIME.get(e.lstrip(".").lower()) != added.group(1).lower() for e in added.group(2).split()):
+                    blockers.append(f"{uri}: unsupported directive {line!r}")
+            elif loaded is not None and ADD_ENCODING.match(line):
+                extensions = [e.lstrip(".") for e in ADD_ENCODING.match(line).group(2).split()]
+                if uri != "/" or any(e.lower() in SCRIPT_EXTENSIONS for e in extensions):
+                    blockers.append(f"{uri}: unsupported directive {line!r}")
+                else:
+                    static_headers.extend((e, ["Header set Content-Encoding gzip"]) for e in extensions)
+            elif loaded is not None and DRUPAL_NO_SCRIPTS.match(line):
+                props["addMIMEType"] = NO_SCRIPTS_MIME
+            elif loaded is not None and PROXY_UNSET.match(line):
+                pass
+            elif loaded is not None and INDEX_IGNORE.match(line):
+                index_ignore = True
             elif error and uri == "/":
                 error_pages.pop(error.group(1), None)
                 error_pages[error.group(1)] = f"errorPage {error.group(1)} {{\n  url                     {error.group(2)}\n}}\n"
             else:
                 blockers.append(f"{uri}: unsupported directive {line!r}")
+        # After the directory's own lines: the static file contexts carry its final settings.
+        regex_contexts.extend(_static_header_context(docroot, extension, headers, props) for extension, headers in static_headers)
+        if index_ignore and props.get("autoIndex") != "0":
+            blockers.append(f"{uri}: IndexIgnore while directory listings are not turned off")
         if expires_types:
             listing = ",".join(f"{name}={value}" for name, value in expires_types.items())
             if len(listing) > EXPIRES_BY_TYPE_LIMIT:

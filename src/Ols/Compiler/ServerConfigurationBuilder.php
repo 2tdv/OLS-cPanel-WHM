@@ -44,6 +44,9 @@ final class ServerConfigurationBuilder
     /** A PHP version is one path component under /opt/cpanel (ea-php83, alt-php74, ...). */
     private const PHP_VERSION = '/^[a-z][a-z0-9-]*$/D';
     private const RUNUSER = '/usr/sbin/runuser';
+    /** cPanel's technical domains (temporary domains): the host test of its vhost template (RV-44). */
+    private const TECHNICAL_DOMAIN = '/^(?:(?:.*\.)?cpanel\.site)$/Di';
+    private const TECHNICAL_DOMAIN_HEADER = 'Header set X-Robots-Tag "noindex, nofollow"';
     private const VHOST_FIELDS = ['user', 'type', 'docroot', 'aliases', 'php', 'php_handler', 'pool', 'service_domains'];
 
     private CommandRunner $runner;
@@ -441,6 +444,13 @@ final class ServerConfigurationBuilder
     private function htaccessAccess(array $plan): array
     {
         $access = $rootHeaders = $blockers = [];
+        // RV-46: Apache's loaded modules decide every <IfModule>; unknown (the command failed): only the modules
+        // EasyApache 4 always loads are assumed, as before.
+        $listed = $this->run('httpd-modules', ['/usr/sbin/httpd', '-M']);
+        $modules = null;
+        if ($listed['exit_code'] === 0 && preg_match_all('/^\s*([A-Za-z0-9_]+_module)\s+\((?:static|shared)\)\s*$/m', $listed['stdout'], $found)) {
+            $modules = $found[1];
+        }
         foreach ($plan as $name => $v) {
             $user = $v['user'];
             $docroot = $v['docroot'];
@@ -490,7 +500,11 @@ final class ServerConfigurationBuilder
             if ($inherited !== []) {
                 $files[''] = implode("\n", [...$inherited, $files[''] ?? '']);
             }
-            [$realms, $contexts, $translated] = $this->htaccess->translate($files, $docroot);
+            // RV-44: cPanel marks every response of a technical domain (its temporary *.cpanel.site names) "noindex".
+            $names = [(string) $name, ...array_map('strval', $v['aliases'] ?? [])];
+            $technical = array_filter($names, static fn(string $n): bool => preg_match(self::TECHNICAL_DOMAIN, $n) === 1);
+            $vhostHeaders = count($technical) === count($names) ? [self::TECHNICAL_DOMAIN_HEADER] : [];
+            [$realms, $contexts, $translated] = $this->htaccess->translate($files, $docroot, $modules, $vhostHeaders);
             $access[$name] = implode('', [...$realms, ...$contexts]);
             $rootHeaders[$name] = $this->htaccess->rootHeaderNames($contexts);
             $blockers[$name] = [...$readBlockers, ...$translated];

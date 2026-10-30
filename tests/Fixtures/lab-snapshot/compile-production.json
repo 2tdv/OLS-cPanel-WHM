@@ -1338,6 +1338,15 @@
    "exit_code": 0,
    "name": "alias-dir",
    "stdout": ""
+  },
+  {
+   "argv": [
+    "/usr/sbin/httpd",
+    "-M"
+   ],
+   "exit_code": 0,
+   "name": "httpd-modules",
+   "stdout": "Loaded Modules:\n core_module (static)\n so_module (static)\n http_module (static)\n mpm_prefork_module (shared)\n systemd_module (shared)\n cgi_module (shared)\n access_compat_module (shared)\n actions_module (shared)\n alias_module (shared)\n auth_basic_module (shared)\n authn_core_module (shared)\n authn_file_module (shared)\n authz_core_module (shared)\n authz_groupfile_module (shared)\n authz_host_module (shared)\n authz_user_module (shared)\n autoindex_module (shared)\n deflate_module (shared)\n dir_module (shared)\n expires_module (shared)\n filter_module (shared)\n headers_module (shared)\n include_module (shared)\n log_config_module (shared)\n logio_module (shared)\n mime_module (shared)\n negotiation_module (shared)\n proxy_module (shared)\n proxy_fcgi_module (shared)\n proxy_http_module (shared)\n proxy_wstunnel_module (shared)\n remoteip_module (shared)\n rewrite_module (shared)\n setenvif_module (shared)\n slotmem_shm_module (shared)\n socache_dbm_module (shared)\n socache_shmcb_module (shared)\n status_module (shared)\n unique_id_module (shared)\n unixd_module (shared)\n userdir_module (shared)\n bwlimited_module (shared)\n ssl_module (shared)\n security2_module (shared)\n ruid2_module (shared)\n"
   }
  ],
  "compiled": {

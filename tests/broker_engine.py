@@ -57,11 +57,12 @@ for call in calls:
         assert call["argv"][1:] == ["-n", "-r", constants], call["argv"]
 assert "fn recorded_compiles_are_accepted" in allowlist and "compile-production.json" in allowlist
 for program in ("/usr/bin/cat", "/usr/local/cpanel/bin/whmapi1", "/usr/bin/test", "/usr/sbin/runuser", "/usr/bin/find",
-                "/opt/cpanel/{version}/root/usr/bin/php", "/usr/bin/hostname", "/usr/sbin/ip", "/usr/bin/sha256sum"):
+                "/opt/cpanel/{version}/root/usr/bin/php", "/usr/bin/hostname", "/usr/sbin/ip", "/usr/bin/sha256sum", "/usr/sbin/httpd"):
     assert program in allowlist, program
 for api in ("listaccts", "php_get_vhost_versions", "php_get_handlers"):
     assert f'"{api}"' in allowlist and api in contract, api
-assert len(re.findall(r"^\s*Rule \{", table, re.M)) == 19
+# RV-46 added "httpd-modules" (/usr/sbin/httpd -M, fixed arguments).
+assert len(re.findall(r"^\s*Rule \{", table, re.M)) == 20
 
 # Apply: generation grammar, tree paths, health URL prefix, the files the broker adds itself.
 for required in ('"httpd_config.conf"', '"marker/generation"', '"summary.json"', '["vhosts", vhost, "vhconf.conf"]', '["health", vhost, "id"]',

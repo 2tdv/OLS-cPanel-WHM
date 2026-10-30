@@ -437,7 +437,9 @@ $engine->log = [];
 $pass->reconcile();
 $runs = count(array_filter($engine->log, static fn(string $l): bool => $l === 'run'));
 $enforcements = count(array_filter($engine->log, static fn(string $l): bool => $l === 'enforce 300'));
-check($runs > 50 && $enforcements >= intdiv($runs * 2, 5) - 1, "enforcement during a pass: $enforcements enforcements over {$runs} commands of 2 s");
+// Enforcement is checked before each command and is due once 5 s have passed: with 2 s commands that is every third
+// command (6 s). The gap check below bounds the delay itself.
+check($runs > 50 && $enforcements >= intdiv($runs, 3) - 1, "enforcement during a pass: $enforcements enforcements over {$runs} commands of 2 s");
 $gap = 0;
 $since = 0;
 foreach ($engine->log as $entry) {

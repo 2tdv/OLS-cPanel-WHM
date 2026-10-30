@@ -99,9 +99,8 @@
     "reason": "AddType and an AddDefaultCharset FilesMatch have no certain OLS mapping"
   },
   "wp-super-cache/root-rules.htaccess": {
-    "blocker": "unsupported RewriteRule",
-    "outcome": "blocker",
-    "reason": "quoted rewrite target (OLS splits quoted arguments differently)"
+    "outcome": "translated",
+    "reason": "quoted rewrite target: Apache (mod_rewrite parseargline) and OLS (ls_parsenextarg) split it the same way when no quoted argument holds an escaped quote or blank (RV-46)"
   },
   "wp-super-cache/wp-content/cache/.htaccess": {
     "blocker": "with unsupported body",

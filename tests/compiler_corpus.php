@@ -16,7 +16,7 @@ $corpus = json_decode(file_get_contents($argv[1]), true, 64, JSON_THROW_ON_ERROR
 $out = ['htaccess' => [], 'fpm' => [], 'lint' => [], 'address' => [], 'surface' => [], 'proxy' => [], 'root_headers' => [], 'vhosts' => []];
 foreach ($corpus['htaccess'] as $case) {
     $translator = new HtaccessTranslator();
-    $result = $translator->translate($case['files'], $case['docroot']);
+    $result = $translator->translate($case['files'], $case['docroot'], $case['modules'] ?? null, $case['root_headers'] ?? []);
     $out['htaccess'][] = $result;
     $out['root_headers'][] = $translator->rootHeaderNames($result[1]);
 }

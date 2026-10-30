@@ -178,7 +178,60 @@ LINT = [{"text": TEMPLATE, "policy": True},
         {"text": "a b\nc {\n d e\n}\n", "policy": True}]
 ADDRESS = ["*:80", "[ANY]:443", "127.0.0.1:8088", "[::1]:80", "192.0.2.10:443", "", "80", "*:", "*:0", "*:65536",
            "host:80", "[::1:80", "1.2.3.4:abc", "::1:80", "[2001:db8::1]:8443", "256.1.1.1:80"]
-python = {"htaccess": [list(ht.translate(c["files"], c["docroot"])) for c in HTACCESS], "fpm": []}
+# RV-46 (soak test 2026-10-30): the stock .htaccess of Joomla 6, Drupal 11 and Laravel 13 (tests/Fixtures/cms-htaccess)
+# with the lab Apache's module list, the same without a list (the earlier behaviour: blockers), and the edges and
+# refusals of each new rule.
+CMS_DIR = ROOT / "tests/Fixtures/cms-htaccess"
+LAB_MODULES = (CMS_DIR / "apache-modules.txt").read_text().split()
+CMS = {name: (CMS_DIR / f"{name}.htaccess").read_text() for name in ("joomla", "drupal", "laravel")}
+CMS_BASE = len(HTACCESS)
+HTACCESS += [{"files": {"": text}, "docroot": f"/home/{name}/public_html", "modules": LAB_MODULES} for name, text in CMS.items()]
+HTACCESS += [{"files": {"": text}, "docroot": f"/home/{name}/public_html"} for name, text in CMS.items()]
+# Drupal's own files: the uploads directory and the Twig cache ("no scripts" idiom, and the cache denied).
+HTACCESS += [{"files": {"": CMS["drupal"], "sites/default/files": (CMS_DIR / "drupal-files.htaccess").read_text(),
+                        "sites/default/files/php/twig/x": (CMS_DIR / "drupal-twig.htaccess").read_text(),
+                        "cgi-bin": "Options -ExecCGI\n", "sub": "Options -Includes -ExecCGI\n<Files *>\nSetHandler other\n</Files>\n"},
+              "docroot": "/home/drupal/public_html", "modules": LAB_MODULES}]
+MODULE_EDGES = [
+    "<IfModule mod_rewrite.c>\n<IfModule mod_negotiation.c>\nOptions -MultiViews -Indexes\n</IfModule>\nRewriteEngine On\nRewriteRule ^a$ /b [L]\n</IfModule>\n",
+    "<IfModule !mod_rewrite.c>\n<IfModule mod_alias.c>\nRedirectMatch 302 ^/$ /index.php/\n</IfModule>\n</IfModule>\n<IfModule mod_php.c>\nphp_value a 0\n</IfModule>\n",
+    "<IfModule mod_unknown.c>\nAnything here\n</IfModule>\n<IfModule !mod_unknown.c>\nOptions -Indexes\n</IfModule>\n",
+    "<IfModule rewrite_module>\nRewriteEngine On\nRewriteRule ^a$ /b [L]\n</IfModule>\n<IfModule \"mod_headers.c\">\nHeader set X-A 1\n</IfModule>\n",
+    "<IfModule LiteSpeed>\nCacheLookup on\n<IfModule mod_headers.c>\nHeader set X 1\n</IfModule>\n</IfModule>\n<IfModule !LiteSpeed>\nOptions -Indexes\n</IfModule>\n",
+    "<IfModule mod_rewrite.c>\nRewriteEngine On\n",
+    "DirectoryIndex index.php home.html\nDirectoryIndex disabled /x\n",
+    "AddType image/svg+xml svg .svgz\nAddType image/webp webp\nAddType text/html .shtml\nAddType image/svg+xml webp\n",
+    "AddEncoding gzip svgz\nAddEncoding gzip php\n",
+    "RequestHeader unset Proxy\nRequestHeader set X 1\n",
+    "IndexIgnore *\nOptions -Indexes\n", "IndexIgnore *\n",
+    "Header onsuccess unset X-A\nHeader always set X-A b\nHeader set Cache-Control \"no-cache\" \"expr=%{REQUEST_URI} =~ m#^/a#\"\nHeader set X-B c 'env=x'\n",
+    '<FilesMatch "\\.svg$">\nHeader always set Content-Security-Policy "script-src \'none\'"\n</FilesMatch>\n',
+    '<FilesMatch "\\.svg$">\nHeader set X 1 "expr=true"\n</FilesMatch>\n',
+    '<FilesMatch "\\.php$">\nHeader set X 1\n</FilesMatch>\n<FilesMatch "\\.php$">\nExpiresActive Off\n</FilesMatch>\n<FilesMatch "\\.phtml$">\nExpiresActive Off\n</FilesMatch>\n',
+    '<FilesMatch "^(\\.(?!well-known).*|Entries.*)$|^#.*#$|\\.bak$">\nRequire all denied\n</FilesMatch>\n',
+    '<FilesMatch "^(?P<n>a)$">\nRequire all denied\n</FilesMatch>\n<FilesMatch "^(a)\\1$">\nRequire all denied\n</FilesMatch>\n'
+    '<FilesMatch "a<<<b">\nRequire all denied\n</FilesMatch>\n<FilesMatch "*a">\nRequire all denied\n</FilesMatch>\n<FilesMatch "a{2}">\nRequire all denied\n</FilesMatch>\n',
+    'RewriteEngine On\nRewriteRule "^(.+/.*|autoload)\\.php($|/)" - [F]\nRewriteRule "/\\.|^\\.(?!well-known/)" - [F]\nRewriteCond "%{HTTP:X}" "a b"\nRewriteRule ^c$ /d [L]\n',
+    'RewriteEngine On\nRewriteRule "^a\\"b" /c [L]\n', 'RewriteEngine On\nRewriteRule "^a$" "http://127.0.0.1/x" [P]\n',
+    'RewriteEngine On\nRewriteRule "^a$" "http://localhost/x"\n', "RewriteEngine On\nRewriteRule 'a' /b [L]\n",
+    '<IfModule mod_headers.c>\nRewriteCond "%{HTTP:Accept-encoding}" "gzip"\nRewriteCond "%{REQUEST_FILENAME}\\.gz" -s\n'
+    'RewriteRule "^(.*)\\.css" "$1\\.css\\.gz" [QSA]\nRewriteRule "\\.css\\.gz$" "-" [T=text/css,E=no-gzip:1,E=no-brotli:1]\n'
+    '<FilesMatch "(\\.js\\.gz|\\.css\\.gz)$">\nHeader set Content-Encoding gzip\nHeader append Vary Accept-Encoding\n</FilesMatch>\n</IfModule>\n',
+    '<IfModule mod_headers.c>\nRewriteCond "%{HTTP:Accept-encoding}" "gzip"\nRewriteRule "^(.*)\\.css" "$1\\.css\\.gz" [QSA]\n'
+    'RewriteRule ^(.*)$ /evil [L]\n<FilesMatch "(\\.js\\.gz|\\.css\\.gz)$">\nHeader set Content-Encoding gzip\nHeader append Vary Accept-Encoding\n</FilesMatch>\n</IfModule>\n',
+]
+HTACCESS += [{"files": {"": text}, "docroot": "/home/u/public_html", "modules": LAB_MODULES} for text in MODULE_EDGES]
+HTACCESS += [{"files": {"sub": MODULE_EDGES[13] + MODULE_EDGES[8]}, "docroot": "/home/u/public_html", "modules": LAB_MODULES},
+             {"files": {"": MODULE_EDGES[0]}, "docroot": "/home/u/public_html", "modules": []}]
+# RV-44: the technical domains' "noindex" header leads the root context (created when the vhost has no .htaccess) and
+# is copied into the static file contexts, which keep a denied root denied.
+ROBOTS = ['Header set X-Robots-Tag "noindex, nofollow"']
+HTACCESS += [{"files": {}, "docroot": "/home/t/public_html", "modules": LAB_MODULES, "root_headers": ROBOTS},
+             {"files": {"": CMS["joomla"]}, "docroot": "/home/t/public_html", "modules": LAB_MODULES, "root_headers": ROBOTS},
+             {"files": {"": 'Require all denied\n<FilesMatch "\\.svg$">\nHeader set X 1\n</FilesMatch>\n', "sub": "Header set Y 2\n"},
+              "docroot": "/home/t/public_html", "modules": LAB_MODULES, "root_headers": ROBOTS},
+             {"files": {}, "docroot": "/home/t/public html", "modules": LAB_MODULES, "root_headers": ROBOTS}]
+python = {"htaccess": [list(ht.translate(c["files"], c["docroot"], c.get("modules"), c.get("root_headers"))) for c in HTACCESS], "fpm": []}
 for case in FPM:
     try:
         entries = fpm.translate(case["pool"], case["constants"])

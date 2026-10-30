@@ -474,6 +474,12 @@ def compile_lab(step, summary, production=False, hybrid_ports=None, security=Non
     # directory above the docroot, so their text leads the docroot's own; unknown directives
     # are blockers.
     access, root_headers, summary["htaccess_blockers"] = {}, {}, {}
+    # RV-46: Apache's loaded modules decide every <IfModule>; unknown (the command failed): only the modules
+    # EasyApache 4 always loads are assumed, as before.
+    listed = step("httpd-modules", ["/usr/sbin/httpd", "-M"])
+    modules = None
+    if listed["exit_code"] == 0:
+        modules = re.findall(r"^\s*([A-Za-z0-9_]+_module)\s+\((?:static|shared)\)\s*$", listed["stdout"], re.M) or None
     for name, v in plan.items():
         user, docroot = v["user"], v["docroot"]
         # Fail closed (review F-03): a directory the tenant cannot list or a file it cannot read is a
@@ -508,7 +514,11 @@ def compile_lab(step, summary, production=False, hybrid_ports=None, security=Non
                 inherited.append(read["stdout"])
         if inherited:
             files[""] = "\n".join([*inherited, files.get("", "")])
-        realms, contexts, blockers = htaccess_translate.translate(files, docroot)
+        # RV-44: cPanel marks every response of a technical domain (its temporary *.cpanel.site names) "noindex".
+        names = [name, *v.get("aliases", [])]
+        technical = all(re.fullmatch(r"(?:(?:.*\.)?cpanel\.site)", n, re.I) for n in names)
+        realms, contexts, blockers = htaccess_translate.translate(files, docroot, modules,
+                                                                  ['Header set X-Robots-Tag "noindex, nofollow"'] if technical else None)
         access[name] = "".join(realms + contexts)
         root_headers[name] = htaccess_translate.root_header_names(contexts)
         summary["htaccess_blockers"][name] = read_blockers + blockers

@@ -84,6 +84,8 @@ pub const RULES: &[Rule] = &[
     },
     Rule { name: "php-constants", argv: &[Template("/opt/cpanel/{version}/root/usr/bin/php"), Is("-n"), Is("-r"), Is(CONSTANTS_CODE)] },
     Rule { name: "hostname", argv: &[Is("/usr/bin/hostname"), Is("-f")] },
+    // The modules Apache has loaded: they decide every <IfModule> of a tenant's .htaccess (RV-46). Fixed and read-only.
+    Rule { name: "httpd-modules", argv: &[Is("/usr/sbin/httpd"), Is("-M")] },
     Rule { name: "ipv6-addresses", argv: &[Is("/usr/sbin/ip"), Is("-6"), Is("-o"), Is("addr"), Is("show"), Is("scope"), Is("global")] },
     // Digests of the certificate, key and password files a configuration references (reconciler). Password
     // files live in the tenant's home: read as the tenant, so a planted symlink reveals nothing of root's.
@@ -376,6 +378,7 @@ mod tests {
                                         "-name", ".htaccess", "(", "-type", "f", "-o", "-type", "l", ")", "-printf", "%y%p\\0"]),
             ("php-constants", &["/opt/cpanel/alt-php74/root/usr/bin/php", "-n", "-r", CONSTANTS_CODE]),
             ("hostname", &["/usr/bin/hostname", "-f"]),
+            ("httpd-modules", &["/usr/sbin/httpd", "-M"]),
             ("ipv6-addresses", &["/usr/sbin/ip", "-6", "-o", "addr", "show", "scope", "global"]),
             ("sha256sum", &["/usr/bin/sha256sum", "/var/cpanel/ssl/apache_tls/a.test/combined"]),
             ("sha256sum", &["/usr/bin/sha256sum", "/var/cpanel/ssl/cpanel/mycpanel.pem"]),
@@ -484,6 +487,9 @@ mod tests {
             // fixed commands with other arguments
             &["/usr/bin/hostname", "new-name"],
             &["/usr/bin/hostname", "-f", "x"],
+            &["/usr/sbin/httpd", "-k", "stop"],
+            &["/usr/sbin/httpd", "-M", "-f", "/tmp/evil.conf"],
+            &["/usr/sbin/httpd", "-t"],
             &["/usr/sbin/ip", "-6", "addr", "add", "::1/128", "dev", "lo"],
             // sha256sum: other trees, other homes, outside .htpasswds, options
             &["/usr/bin/sha256sum", "/etc/shadow"],

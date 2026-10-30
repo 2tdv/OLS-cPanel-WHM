@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.11
+
+- Joomla, Drupal and Laravel sites are served by OpenLiteSpeed: their stock `.htaccess` files are now translated
+  (they stayed on Apache before, without the page cache). Every `<IfModule>` is decided against the modules Apache really
+  loads; `DirectoryIndex`, header rules for static file types, Drupal's file protection patterns and its "no scripts in
+  uploads" rule, quoted rewrite rules and the pre-compressed asset rules of Joomla and Drupal are handled.
+- Sites on cPanel temporary domains (`*.cpanel.site`) keep cPanel's "noindex" header under OpenLiteSpeed.
+- Security: a conditional `Header` rule written with quotes is no longer applied unconditionally, and a malformed
+  `<FilesMatch>` pattern in one account's `.htaccess` can no longer stop configuration updates for the whole server.
+
 ## 0.2.10
 
 - Uninstall leaves nothing of the product behind: OpenLiteSpeed's runtime files in `/usr/local/lsws`, the state

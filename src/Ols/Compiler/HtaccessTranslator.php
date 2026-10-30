@@ -31,10 +31,56 @@ final class HtaccessTranslator
     private const REWRITE_DIRECTIVE = '/^Rewrite(Engine|Base|Cond|Rule|Options)\b/i';
     private const FILES = '/<(Files|FilesMatch)\s+"?([^">]+)"?\s*>(.*?)<\/\1>/si';
     private const SAFE_PATH = '/^\/[A-Za-z0-9._\/@+-]*$/';
-    private const HEADER = '/^Header\s+(?:always\s+)?(set|append|merge|add|unset)\s+([A-Za-z0-9-]+)(?:\s+(.+))?$/i';
-    /** OLS parses a trailing env= but never evaluates it; expr= and early have no OLS equivalent. */
-    private const HEADER_CONDITION = '/(^|\s)(env|expr)=|(^|\s)early$/i';
+    private const HEADER = '/^Header\s+(?:(?:always|onsuccess)\s+)?(set|append|merge|add|unset)\s+([A-Za-z0-9-]+)(?:\s+(.+))?$/i';
+    /**
+     * OLS parses a trailing env= but never evaluates it; expr= and early have no OLS equivalent. A quoted condition
+     * ("expr=...") is a condition too (soak test 2026-10-30: it was read as part of the value).
+     */
+    private const HEADER_CONDITION = '/(^|\s)["\']?(env|expr)=|(^|\s)early$/i';
     private const ERROR_DOCUMENT = '/^ErrorDocument\s+([45]\d\d)\s+(\/[A-Za-z0-9._\/-]*)$/';
+    // RV-46 (soak test 2026-10-30), what the stock .htaccess of Joomla, Drupal and Laravel need.
+    private const DIRECTORY_INDEX = '/^DirectoryIndex((?:[ \t]+[A-Za-z0-9._-]+)+)$/i';
+    private const ADD_TYPE = '/^AddType[ \t]+([A-Za-z0-9.+\/_-]+)((?:[ \t]+\.?[A-Za-z0-9]+)+)$/i';
+    private const ADD_ENCODING = '/^AddEncoding[ \t]+(gzip|x-gzip)((?:[ \t]+\.?[A-Za-z0-9]+)+)$/i';
+    private const INDEX_IGNORE = '/^IndexIgnore\b/i';
+    /** OLS answers a request carrying a Proxy header with 400, so Drupal's httpoxy mitigation is already in effect. */
+    private const PROXY_UNSET = '/^RequestHeader[ \t]+unset[ \t]+Proxy$/i';
+    /** The MIME types OLS 1.9.3 maps these extensions to by default: an AddType naming the same type changes nothing. */
+    private const OLS_DEFAULT_MIME = ['svg' => 'image/svg+xml', 'svgz' => 'image/svg+xml', 'webp' => 'image/webp'];
+    /** Static file types a header-only <FilesMatch> or AddEncoding may target with its own regex context. */
+    private const STATIC_EXTENSION = '/^\\\\\.([A-Za-z0-9]+)\$$/D';
+    /**
+     * Drupal's "no scripts in uploads" idiom (SA-2006-006, SA-2013-003): a handler name that does not exist, so Apache
+     * sends every file of the directory as it is and never runs a script. OLS: the script suffixes of that directory
+     * are mapped to a static type (context addMIMEType), so nothing there reaches lsphp.
+     */
+    private const DRUPAL_NO_SCRIPTS = '/^SetHandler[ \t]+Drupal_Security_Do_Not_Remove_See_SA_[0-9]{4}_[0-9]{3}$/';
+    private const NO_SCRIPTS_MIME = 'application/octet-stream php php3 php4 php5 php7 php8 phtml pht phar inc cgi pl py sh shtml';
+    private const SCRIPT_EXTENSIONS = ['php', 'php3', 'php4', 'php5', 'php7', 'php8', 'phtml', 'phar', 'cgi', 'pl', 'py', 'sh',
+        'shtml', 'asp', 'aspx', 'jsp'];
+    private const IFMODULE_OPEN = '/^<IfModule[ \t]+(!?)([^\s>]+)[ \t]*>$/i';
+    private const MODULE_SOURCE = '/^mod_([A-Za-z0-9_]+)\.c$/Di';
+    /**
+     * Pre-compressed assets (Joomla's and Drupal's stock .htaccess): inside <IfModule mod_headers.c>, .css/.js requests
+     * are rewritten to an existing .gz/.br copy, typed with [T=...] and sent with "Content-Encoding". OLS compresses
+     * static and dynamic responses itself (gzip and brotli, compressed static copies kept up to date), so the client
+     * gets the same resource compressed either way. Only this exact idiom is recognised; the section is left to OLS.
+     */
+    private const PRECOMPRESSED_SECTION = '/<IfModule[ \t]+mod_headers\.c[ \t]*>((?:(?!<\/?IfModule\b).)*?)<\/IfModule[ \t]*>/si';
+    private const PRECOMPRESSED_LINES = [
+        '/^RewriteCond[ \t]+"?%\{HTTP:Accept-encoding\}"?[ \t]+"?(gzip|br)"?$/i',
+        '/^RewriteCond[ \t]+"?%\{REQUEST_FILENAME\}\\\\\.(gz|br)"?[ \t]+"?-s"?$/i',
+        '/^RewriteRule[ \t]+"?\^\(\.\*(?:(css|js)_\[a-zA-Z0-9-_\]\+)?\)\\\\\.(css|js)\$?"?[ \t]+"?\$1\\\\\.(css|js)\\\\\.(gz|br)"?[ \t]+\[QSA\]$/',
+        '/^RewriteRule[ \t]+"?\\\\\.(css|js)\\\\\.(gz|br)\$"?[ \t]+"?-"?[ \t]+\[T=(text\/css|text\/javascript|application\/javascript),E=no-gzip:1,E=no-brotli:1\]$/',
+    ];
+    private const PRECOMPRESSED_FILES = '/^\(\\\\\.js\\\\\.(gz|br)\|\\\\\.css\\\\\.\1\)\$$/D';
+    /**
+     * Double-quoted rewrite arguments outside <IfModule LiteSpeed> (Drupal's stock rules): Apache and OLS split them the
+     * same way and keep inner backslashes, as long as a quoted argument holds no escaped quote and no escaped blank.
+     */
+    private const APACHE_ARGUMENT = '"(?:[^"\\\\\n]|\\\\[^"\s])*"|[^\s"\']+';
+    private const SEARCH_CHARS = '/^[A-Za-z0-9._@\\\\^$|()?*+\[\]#!=<>,~:%-]+$/D';
+    private const LOOKAROUND = '/\G\(\?(?:[:=!]|<[=!])/';
     /** Directive names and arguments are separated by any run of blanks; OLS accepts tabs as well as spaces. */
     private const REWRITE_SPACE = '/[ \t]+/';
     private const REWRITE_CONTROL = '/[\x00-\x08\x0a-\x1f\x7f]/';
@@ -76,16 +122,24 @@ final class HtaccessTranslator
     private const DENY_LINES = ['require all denied', 'deny from all', 'order deny,allow', 'order allow,deny'];
     private const NOOP_OPTIONS = ['followsymlinks', 'symlinksifownermatch', '-multiviews'];
     private const CONTEXT_KEYS = ['allowBrowse', 'autoIndex', 'realm', 'authName', 'required', 'enableExpires',
-        'expiresDefault', 'expiresByType'];
+        'expiresDefault', 'expiresByType', 'indexFiles', 'addMIMEType'];
 
     /**
      * @param array<string,string> $files relative directory ("" or "sub/dir") => .htaccess text
+     * @param list<string>|null $modules the identifiers of the modules Apache has loaded (`httpd -M`, e.g. "rewrite_module"),
+     *   or null when unknown (then only the modules EasyApache 4 always loads are assumed)
      * @return array{0:list<string>,1:list<string>,2:list<string>} [realms, blocks, blockers]
      */
-    public function translate(array $files, string $docroot): array
+    public function translate(array $files, string $docroot, ?array $modules = null, array $rootHeaders = []): array
     {
+        $loaded = $modules === null ? null : array_fill_keys(array_map('strtolower', $modules), true);
         $realms = $regexContexts = $errorPages = $blockers = [];
         $contexts = [];
+        // Headers the virtual host itself sets on every response (RV-44: cPanel's technical domains): they lead the
+        // "/" context's own, and the static file contexts copy them with the rest of it.
+        if ($rootHeaders !== [] && preg_match(self::SAFE_PATH, rtrim($docroot, '/') . '/')) {
+            $contexts['/'] = ['location' => rtrim($docroot, '/') . '/', 'headers' => $rootHeaders];
+        }
         ksort($files, SORT_STRING);
         foreach ($files as $rel => $text) {
             $rel = trim((string) $rel, '/');
@@ -121,13 +175,42 @@ final class HtaccessTranslator
                 $contexts[$uri]['authName'] = $name;
                 $contexts[$uri]['required'] = 'valid-user';
             }
-            $remaining = $this->resolveModules(preg_replace(self::PPD, '', $remaining));
+            $remaining = preg_replace(self::PPD, '', $remaining);
+            $remaining = $loaded === null ? $this->resolveModules($remaining)
+                : $this->resolveAllModules($this->stripPrecompressed($remaining), $loaded);
             $grants = [];
             $fileDenies = 0;
+            $staticHeaders = [];
             preg_match_all(self::FILES, $remaining, $blocks, PREG_SET_ORDER);
             foreach ($blocks as [, $kind, $pattern, $body]) {
                 if (array_map('strtolower', $this->directives($body)) === ['require all granted']) {
                     $grants[] = [$kind, $pattern];
+                    continue;
+                }
+                if ($loaded !== null && strtolower($kind) === 'filesmatch' && $pattern === '\\.php$'
+                    && array_map('strtolower', $this->directives($body)) === ['expiresactive off']) {
+                    // OLS sets Expires on dynamic responses from the virtual host's own setting (httpcgitool.cpp
+                    // processExpires uses the root context), never from these directory contexts: already off.
+                    continue;
+                }
+                $headerLines = $this->directives($body);
+                $headers = array_map(fn(string $l): ?array => preg_match(self::HEADER, $l, $h) ? $h : null, $headerLines);
+                if ($loaded !== null && strtolower($kind) === 'filesmatch' && $headers !== [] && !in_array(null, $headers, true)
+                    && preg_match(self::STATIC_EXTENSION, $pattern, $static)
+                    && !in_array(strtolower($static[1]), self::SCRIPT_EXTENSIONS, true)) {
+                    $conditional = array_filter($headers, fn(array $h): bool => preg_match(self::HEADER_CONDITION, $h[3] ?? '') === 1);
+                    if ($uri !== '/' || $conditional !== []) {
+                        $blockers[] = "$uri: <$kind $pattern> with unsupported body";
+                    } else {
+                        $staticHeaders[] = [$static[1], array_map(static fn(array $h): string => 'Header '
+                            . implode(' ', array_filter(array_slice($h, 1), static fn(string $p): bool => $p !== '')), $headers)];
+                    }
+                    continue;
+                }
+                $bodyLines = $this->directives($body);
+                if ($loaded !== null && strtolower($kind) === 'files' && $pattern === '*' && $bodyLines !== []
+                    && !array_filter($bodyLines, fn(string $l): bool => !preg_match(self::DRUPAL_NO_SCRIPTS, $l))) {
+                    $contexts[$uri]['addMIMEType'] = self::NO_SCRIPTS_MIME;
                     continue;
                 }
                 if (!$this->isDenyAll($this->directives($body))) {
@@ -136,8 +219,19 @@ final class HtaccessTranslator
                 }
                 // Validate what the tenant wrote; the translation below only adds "[^/]*" around it.
                 // "@" is a literal in a regex (WordPress plugin files such as Akismet's logo@2x.png, lab 2026-10-28).
-                if (!preg_match('/^[A-Za-z0-9._@\\\\^$|()?*+\[\]-]+$/D', $pattern) || str_contains($pattern, '/')) {
-                    $blockers[] = "$uri: unsupported <$kind> pattern " . $this->pyRepr($pattern);
+                // The structure is checked too (soak test 2026-10-30): a back-reference or a stray quantifier ("*a") made
+                // an invalid OLS regex, and one tenant's file would have failed the whole server's configuration test.
+                if (!preg_match('/^[A-Za-z0-9._@\\\\^$|()?*+\[\]-]+$/D', $pattern) || str_contains($pattern, '/')
+                    || (strtolower($kind) === 'filesmatch' && !$this->regexSupported($pattern))) {
+                    $search = $loaded !== null && strtolower($kind) === 'filesmatch' ? $this->basenameSearch($pattern) : null;
+                    if ($search === null) {
+                        $blockers[] = "$uri: unsupported <$kind> pattern " . $this->pyRepr($pattern);
+                        continue;
+                    }
+                    // The path reaches the start of the last segment, then the basename is searched (Drupal's pattern).
+                    $regexContexts[] = 'context exp:^' . $this->pyEscape($uri) . '(?:.*/)?(?=[^/]*$)[^/]*?(?:' . $search
+                        . ") {\n  allowBrowse             0\n}\n";
+                    ++$fileDenies;
                     continue;
                 }
                 if (strtolower($kind) === 'files') {
@@ -204,6 +298,7 @@ final class HtaccessTranslator
                 }
             }
             $expiresTypes = [];
+            $indexIgnore = false;
             foreach ($lines as $line) {
                 if (in_array($line, $denyLines, true)) {
                     continue;
@@ -232,6 +327,8 @@ final class HtaccessTranslator
                             $contexts[$uri]['autoIndex'] = '0';
                         } elseif ($lowered === '+indexes' || $lowered === 'indexes') {
                             $contexts[$uri]['autoIndex'] = '1';
+                        } elseif ($loaded !== null && ($lowered === '-includes' || ($lowered === '-execcgi' && !str_starts_with($uri, '/cgi-bin/')))) {
+                            // OLS has no server-side includes, and runs CGI only in its cgi-bin context: both are off already.
                         } elseif (!in_array(ltrim($lowered, '+'), self::NOOP_OPTIONS, true)
                             && !in_array($lowered, self::NOOP_OPTIONS, true)) {
                             $blockers[] = "$uri: unsupported Options " . $this->pyRepr($option);
@@ -243,6 +340,31 @@ final class HtaccessTranslator
                 } elseif (preg_match(self::HEADER, $line, $header)) {
                     $parts = array_filter(array_slice($header, 1), static fn(string $p): bool => $p !== '');
                     $contexts[$uri]['headers'][] = 'Header ' . implode(' ', $parts);
+                } elseif ($loaded !== null && preg_match(self::DIRECTORY_INDEX, $line, $index)) {
+                    $contexts[$uri]['indexFiles'] = implode(', ', preg_split('/[ \t]+/', trim($index[1])));
+                } elseif ($loaded !== null && preg_match(self::ADD_TYPE, $line, $added)) {
+                    foreach (preg_split('/[ \t]+/', trim($added[2])) as $extension) {
+                        if ((self::OLS_DEFAULT_MIME[strtolower(ltrim($extension, '.'))] ?? null) !== strtolower($added[1])) {
+                            $blockers[] = "$uri: unsupported directive " . $this->pyRepr($line);
+                            break;
+                        }
+                    }
+                } elseif ($loaded !== null && preg_match(self::ADD_ENCODING, $line, $encoding)) {
+                    $extensions = array_map(static fn(string $e): string => ltrim($e, '.'), preg_split('/[ \t]+/', trim($encoding[2])));
+                    $scripts = array_filter($extensions, static fn(string $e): bool => in_array(strtolower($e), self::SCRIPT_EXTENSIONS, true));
+                    if ($uri !== '/' || $scripts !== []) {
+                        $blockers[] = "$uri: unsupported directive " . $this->pyRepr($line);
+                    } else {
+                        foreach ($extensions as $extension) {
+                            $staticHeaders[] = [$extension, ['Header set Content-Encoding gzip']];
+                        }
+                    }
+                } elseif ($loaded !== null && preg_match(self::DRUPAL_NO_SCRIPTS, $line)) {
+                    $contexts[$uri]['addMIMEType'] = self::NO_SCRIPTS_MIME;
+                } elseif ($loaded !== null && preg_match(self::PROXY_UNSET, $line)) {
+                    // OLS refuses requests carrying a Proxy header (400): nothing to translate.
+                } elseif ($loaded !== null && preg_match(self::INDEX_IGNORE, $line)) {
+                    $indexIgnore = true;
                 } elseif ($uri === '/' && preg_match(self::ERROR_DOCUMENT, $line, $error)) {
                     // A later ErrorDocument for the same status wins, as in Apache.
                     unset($errorPages[$error[1]]);
@@ -250,6 +372,13 @@ final class HtaccessTranslator
                 } else {
                     $blockers[] = "$uri: unsupported directive " . $this->pyRepr($line);
                 }
+            }
+            // After the directory's own lines: the static file contexts carry its final settings.
+            foreach ($staticHeaders as [$extension, $headers]) {
+                $regexContexts[] = $this->staticHeaderContext($docroot, $extension, $headers, $contexts[$uri]);
+            }
+            if ($indexIgnore && ($contexts[$uri]['autoIndex'] ?? null) !== '0') {
+                $blockers[] = "$uri: IndexIgnore while directory listings are not turned off";
             }
             if ($expiresTypes !== []) {
                 $listing = implode(',', array_map(static fn(string $name, string $v): string => "$name=$v",
@@ -382,6 +511,21 @@ final class HtaccessTranslator
         }
         if ($litespeed && (preg_match(self::REWRITE_ESCAPED, $rest) || preg_match(self::REWRITE_QUOTE, $rest))) {
             return $this->litespeedQuotedSafe($word, $rest);
+        }
+        if (preg_match(self::REWRITE_QUOTE, $rest) && !preg_match(self::REWRITE_ESCAPED, $rest)) {
+            $argument = self::APACHE_ARGUMENT;
+            if (!preg_match("/^($argument)[ \t]+($argument)(?:[ \t]+(\[[^\[\]]*\]))?$/", $rest, $quoted)) {
+                return false;
+            }
+            $args = array_map(static fn(string $a): string => str_starts_with($a, '"') ? substr($a, 1, -1) : $a, [$quoted[1], $quoted[2]]);
+            if (($quoted[3] ?? '') !== '') {
+                $args[] = $quoted[3];
+            }
+            if (str_starts_with($args[0], '|') || str_starts_with($args[1], '|')
+                || ($word === 'rewriterule' && (str_starts_with($args[1], '[') || preg_match(self::REWRITE_INTERNAL, $args[1])))) {
+                return false;
+            }
+            return count($args) < 3 || $this->flagsSafe($args[2], $litespeed);
         }
         $args = preg_split(self::REWRITE_SPACE, $rest, 3);
         if (count($args) < 2 || preg_match(self::REWRITE_ESCAPED, $rest)
@@ -568,6 +712,176 @@ final class HtaccessTranslator
             }
         }
         return $stack !== [] ? $text : implode("\n", $out) . "\n";
+    }
+
+    /** @param array<string,true> $modules */
+    private function moduleLoaded(string $name, array $modules): bool
+    {
+        $name = trim($name, '"\'');
+        return isset($modules[strtolower(preg_match(self::MODULE_SOURCE, $name, $source) ? $source[1] . '_module' : $name)]);
+    }
+
+    /**
+     * RV-46 (soak test 2026-10-30): with the server's own module list (`httpd -M`) every <IfModule [!]name> outside
+     * <IfModule LiteSpeed> is decided as Apache decides it at parse time: the body of a true section is kept (wrapper
+     * removed), a false one is dropped with everything nested in it. <IfModule LiteSpeed>, anything inside it and
+     * <IfModule !LiteSpeed> stay as written. Unbalanced sections leave the text unchanged (blockers follow).
+     * @param array<string,true> $modules
+     */
+    private function resolveAllModules(string $text, array $modules): string
+    {
+        $out = [];
+        $stack = [];
+        foreach (preg_split('/\r\n|\n|\r/', $text) as $line) {
+            $stripped = trim($line);
+            if (preg_match(self::IFMODULE_OPEN, $stripped, $section) && !in_array('ls', $stack, true)
+                && strtolower(trim($section[2], '"\'')) !== 'litespeed') {
+                $stack[] = $this->moduleLoaded($section[2], $modules) !== ($section[1] !== '') ? 'keep' : 'drop';
+            } elseif (preg_match(self::ANY_IFMODULE_OPEN, $stripped)) {
+                if (!in_array('drop', $stack, true)) {
+                    $out[] = $line;
+                }
+                $stack[] = preg_match(self::LITESPEED_OPEN, $stripped) ? 'ls' : 'other';
+            } elseif (preg_match(self::IFMODULE_CLOSE, $stripped)) {
+                if ($stack === []) {
+                    return $text;
+                }
+                if (in_array(array_pop($stack), ['other', 'ls'], true) && !in_array('drop', $stack, true)) {
+                    $out[] = $line;
+                }
+            } elseif (!in_array('drop', $stack, true)) {
+                $out[] = $line;
+            }
+        }
+        return $stack !== [] ? $text : implode("\n", $out) . "\n";
+    }
+
+    private function precompressedSection(string $body): bool
+    {
+        if (!preg_match_all(self::FILES, $body, $files, PREG_SET_ORDER)) {
+            return false;
+        }
+        foreach ($files as [, $kind, $pattern, $inner]) {
+            if (strtolower($kind) !== 'filesmatch' || !preg_match(self::PRECOMPRESSED_FILES, $pattern, $encoding)
+                || array_map('strtolower', $this->directives($inner)) !== [
+                    'header set content-encoding ' . ($encoding[1] === 'gz' ? 'gzip' : 'br'), 'header append vary accept-encoding']) {
+                return false;
+            }
+        }
+        $rest = $this->directives(preg_replace(self::FILES, '', $body));
+        foreach ($rest as $line) {
+            if (!array_filter(self::PRECOMPRESSED_LINES, static fn(string $rx): bool => preg_match($rx, $line) === 1)) {
+                return false;
+            }
+        }
+        return $rest !== [];
+    }
+
+    private function stripPrecompressed(string $text): string
+    {
+        return preg_replace_callback(self::PRECOMPRESSED_SECTION,
+            fn(array $m): string => $this->precompressedSection($m[1]) ? '' : $m[0], $text);
+    }
+
+    /**
+     * A <FilesMatch> regex (an unanchored search on the basename) rewritten to run inside a path regex that has reached
+     * the start of the last segment: "^" becomes "(?<=/)", "#" is written \x23 (it would start a comment in the OLS
+     * configuration). Groups, lookarounds, classes and alternations are kept; back-references, other "(?" constructs,
+     * braces, a "<<<" sequence and stacked or leading quantifiers are refused (null).
+     */
+    private function basenameSearch(string $pattern): ?string
+    {
+        if (!preg_match(self::SEARCH_CHARS, $pattern) || str_contains($pattern, '<<<')) {
+            return null;
+        }
+        $out = '';
+        $i = 0;
+        $n = strlen($pattern);
+        $depth = 0;
+        $quantifiable = false;
+        while ($i < $n) {
+            $c = $pattern[$i];
+            if ($c === '\\') {
+                if ($i + 1 >= $n || (ctype_alnum($pattern[$i + 1]) && !str_contains('dwsDWS', $pattern[$i + 1]))) {
+                    return null;
+                }
+                $out .= substr($pattern, $i, 2);
+                $quantifiable = true;
+                $i += 2;
+            } elseif ($c === '[') {
+                $j = $i + 1 + (substr($pattern, $i + 1, 1) === '^' ? 1 : 0);
+                $start = $j;
+                while ($j < $n && !str_contains(']\\[', $pattern[$j])) {
+                    ++$j;
+                }
+                if ($j >= $n || $pattern[$j] !== ']' || $j === $start) {
+                    return null;
+                }
+                $out .= str_replace('#', '\\x23', substr($pattern, $i, $j + 1 - $i));
+                $quantifiable = true;
+                $i = $j + 1;
+            } elseif ($c === '(') {
+                $look = null;
+                if (substr($pattern, $i + 1, 1) === '?') {
+                    if (!preg_match(self::LOOKAROUND, $pattern, $match, 0, $i)) {
+                        return null;
+                    }
+                    $look = $match[0];
+                }
+                $token = $look ?? '(';
+                $out .= $token;
+                ++$depth;
+                $quantifiable = false;
+                $i += strlen($token);
+            } elseif ($c === ')') {
+                if (--$depth < 0) {
+                    return null;
+                }
+                $out .= ')';
+                $quantifiable = true;
+                ++$i;
+            } elseif ($c === '|' || $c === '$') {
+                $out .= $c;
+                $quantifiable = false;
+                ++$i;
+            } elseif ($c === '^') {
+                $out .= '(?<=/)';
+                $quantifiable = false;
+                ++$i;
+            } elseif ($c === '*' || $c === '+' || $c === '?') {
+                if (!$quantifiable) {
+                    return null;
+                }
+                $out .= $c;
+                $quantifiable = false;
+                ++$i;
+            } else {
+                $out .= $c === '#' ? '\\x23' : $c;
+                $quantifiable = true;
+                ++$i;
+            }
+        }
+        return $depth === 0 ? $out : null;
+    }
+
+    /**
+     * Headers for one static file type of the document root: a regex context serving the file itself. It carries the
+     * "/" context's access denial, authentication, expiry and headers (its own headers after them): the lab showed that
+     * such a context does not take the root context's headers by itself (soak test 2026-10-30).
+     * @param list<string> $headers
+     * @param array<string,mixed> $root
+     */
+    private function staticHeaderContext(string $docroot, string $extension, array $headers, array $root): string
+    {
+        $lines = ['context exp:^/((?:.*/)?[^/]*\\.' . $extension . ')$ {', '  location                ' . rtrim($docroot, '/') . '/$1',
+            '  allowBrowse             ' . ($root['allowBrowse'] ?? '1')];
+        foreach (['realm', 'authName', 'required', 'enableExpires', 'expiresDefault', 'expiresByType'] as $key) {
+            if (isset($root[$key])) {
+                $lines[] = '  ' . str_pad($key, 23) . ' ' . $root[$key];
+            }
+        }
+        $lines = [...$lines, '  extraHeaders            <<<END_extraHeaders', ...($root['headers'] ?? []), ...$headers, 'END_extraHeaders', "}\n"];
+        return implode("\n", $lines);
     }
 
     /**
