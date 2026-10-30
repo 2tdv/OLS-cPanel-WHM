@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.12
+
+- Drupal sites with LiteSpeed Cache stay on OpenLiteSpeed: the PHP setting the module writes for LiteSpeed
+  (`php_value` inside `<IfModule LiteSpeed>`) is applied to that directory's PHP, as LiteSpeed does.
+
 ## 0.2.11
 
 - Joomla, Drupal and Laravel sites are served by OpenLiteSpeed: their stock `.htaccess` files are now translated

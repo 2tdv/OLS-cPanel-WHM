@@ -335,6 +335,10 @@ STATIC_EXTENSION = re.compile(r"\\\.([A-Za-z0-9]+)\$")
 # mapped to a static type (context addMIMEType), so nothing there reaches lsphp.
 DRUPAL_NO_SCRIPTS = re.compile(r"^SetHandler[ \t]+Drupal_Security_Do_Not_Remove_See_SA_[0-9]{4}_[0-9]{3}$")
 NO_SCRIPTS_MIME = "application/octet-stream php php3 php4 php5 php7 php8 phtml pht phar inc cgi pl py sh shtml"
+# A PHP setting inside <IfModule LiteSpeed> (LiteSpeed Cache for Drupal writes "php_value output_buffering Off"):
+# LiteSpeed applies it to the directory's PHP, Apache never reads the section; OLS takes it as the context's
+# phpIniOverride (httpcontext.cpp). Outside that section a php_value stays a blocker (Apache with PHP-FPM refuses it).
+LITESPEED_PHP_VALUE = re.compile(r'^php_(value|flag)[ \t]+([A-Za-z0-9_.]+)[ \t]+([A-Za-z0-9_.,:/+-]+|"[A-Za-z0-9_.,:/ +-]*")$')
 SCRIPT_EXTENSIONS = {"php", "php3", "php4", "php5", "php7", "php8", "phtml", "phar", "cgi", "pl", "py", "sh", "shtml", "asp", "aspx", "jsp"}
 # Directive names and arguments are separated by any run of blanks; OLS accepts tabs as well as spaces.
 REWRITE_SPACE = re.compile(r"[ \t]+")
@@ -524,6 +528,10 @@ def _render_context(uri, location, props):
         lines.append("  extraHeaders            <<<END_extraHeaders")
         lines.extend(props["headers"])
         lines.append("END_extraHeaders")
+    if props.get("phpIniOverride"):
+        lines.append("  phpIniOverride  {")
+        lines.extend(props["phpIniOverride"])
+        lines.append("  }")
     if "rewrite" in props:
         rewrite = props["rewrite"]
         lines.append("  rewrite  {")
@@ -638,6 +646,7 @@ def translate(files, docroot, modules=None, root_headers=None):
             if rewrite is not None:
                 props["rewrite"] = rewrite
         lines = [l for l, ls in tagged if not _is_rewrite(l, ls)]
+        litespeed_lines = {l for l, ls in tagged if ls}
         deny_lines = [l for l in lines if l.lower() in {"require all denied", "deny from all", "order deny,allow", "order allow,deny"}]
         allow_list = False
         if grants:
@@ -714,6 +723,9 @@ def translate(files, docroot, modules=None, root_headers=None):
                     blockers.append(f"{uri}: unsupported directive {line!r}")
                 else:
                     static_headers.extend((e, ["Header set Content-Encoding gzip"]) for e in extensions)
+            elif loaded is not None and line in litespeed_lines and LITESPEED_PHP_VALUE.match(line):
+                setting = LITESPEED_PHP_VALUE.match(line)
+                props.setdefault("phpIniOverride", []).append(f"php_{setting.group(1)} {setting.group(2)} {setting.group(3)}")
             elif loaded is not None and DRUPAL_NO_SCRIPTS.match(line):
                 props["addMIMEType"] = NO_SCRIPTS_MIME
             elif loaded is not None and PROXY_UNSET.match(line):

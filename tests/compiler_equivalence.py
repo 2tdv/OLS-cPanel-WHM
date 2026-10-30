@@ -220,6 +220,11 @@ MODULE_EDGES = [
     '<IfModule mod_headers.c>\nRewriteCond "%{HTTP:Accept-encoding}" "gzip"\nRewriteRule "^(.*)\\.css" "$1\\.css\\.gz" [QSA]\n'
     'RewriteRule ^(.*)$ /evil [L]\n<FilesMatch "(\\.js\\.gz|\\.css\\.gz)$">\nHeader set Content-Encoding gzip\nHeader append Vary Accept-Encoding\n</FilesMatch>\n</IfModule>\n',
 ]
+MODULE_EDGES += [
+    "### LITESPEED_CACHE_START - Do not remove this line\n<IfModule LiteSpeed>\n    CacheLookup on\n    php_value output_buffering Off\n"
+    "    php_flag display_errors \"0\"\n</IfModule>\n### LITESPEED_CACHE_END\n",
+    "<IfModule LiteSpeed>\nphp_admin_value open_basedir /\nphp_value x a{b}\n</IfModule>\nphp_value output_buffering Off\n",
+]
 HTACCESS += [{"files": {"": text}, "docroot": "/home/u/public_html", "modules": LAB_MODULES} for text in MODULE_EDGES]
 HTACCESS += [{"files": {"sub": MODULE_EDGES[13] + MODULE_EDGES[8]}, "docroot": "/home/u/public_html", "modules": LAB_MODULES},
              {"files": {"": MODULE_EDGES[0]}, "docroot": "/home/u/public_html", "modules": []}]

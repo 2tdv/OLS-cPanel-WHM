@@ -56,6 +56,12 @@ final class HtaccessTranslator
      */
     private const DRUPAL_NO_SCRIPTS = '/^SetHandler[ \t]+Drupal_Security_Do_Not_Remove_See_SA_[0-9]{4}_[0-9]{3}$/';
     private const NO_SCRIPTS_MIME = 'application/octet-stream php php3 php4 php5 php7 php8 phtml pht phar inc cgi pl py sh shtml';
+    /**
+     * A PHP setting inside <IfModule LiteSpeed> (LiteSpeed Cache for Drupal writes "php_value output_buffering Off"):
+     * LiteSpeed applies it to the directory's PHP, Apache never reads the section; OLS takes it as the context's
+     * phpIniOverride. Outside that section a php_value stays a blocker (Apache with PHP-FPM refuses it).
+     */
+    private const LITESPEED_PHP_VALUE = '/^php_(value|flag)[ \t]+([A-Za-z0-9_.]+)[ \t]+([A-Za-z0-9_.,:\/+-]+|"[A-Za-z0-9_.,:\/ +-]*")$/D';
     private const SCRIPT_EXTENSIONS = ['php', 'php3', 'php4', 'php5', 'php7', 'php8', 'phtml', 'phar', 'cgi', 'pl', 'py', 'sh',
         'shtml', 'asp', 'aspx', 'jsp'];
     private const IFMODULE_OPEN = '/^<IfModule[ \t]+(!?)([^\s>]+)[ \t]*>$/i';
@@ -262,6 +268,7 @@ final class HtaccessTranslator
             }
             $lines = array_values(array_map(static fn(array $t): string => $t[0],
                 array_filter($tagged, fn(array $t): bool => !$this->isRewrite($t[0], $t[1]))));
+            $litespeedLines = array_column(array_filter($tagged, static fn(array $t): bool => $t[1]), 0);
             $denyLines = array_values(array_filter($lines,
                 static fn(string $l): bool => in_array(strtolower($l), self::DENY_LINES, true)));
             $allowList = false;
@@ -359,6 +366,8 @@ final class HtaccessTranslator
                             $staticHeaders[] = [$extension, ['Header set Content-Encoding gzip']];
                         }
                     }
+                } elseif ($loaded !== null && in_array($line, $litespeedLines, true) && preg_match(self::LITESPEED_PHP_VALUE, $line, $setting)) {
+                    $contexts[$uri]['phpIniOverride'][] = "php_{$setting[1]} {$setting[2]} {$setting[3]}";
                 } elseif ($loaded !== null && preg_match(self::DRUPAL_NO_SCRIPTS, $line)) {
                     $contexts[$uri]['addMIMEType'] = self::NO_SCRIPTS_MIME;
                 } elseif ($loaded !== null && preg_match(self::PROXY_UNSET, $line)) {
@@ -989,6 +998,11 @@ final class HtaccessTranslator
             $lines[] = '  extraHeaders            <<<END_extraHeaders';
             array_push($lines, ...$props['headers']);
             $lines[] = 'END_extraHeaders';
+        }
+        if (!empty($props['phpIniOverride'])) {
+            $lines[] = '  phpIniOverride  {';
+            array_push($lines, ...$props['phpIniOverride']);
+            $lines[] = '  }';
         }
         if (isset($props['rewrite'])) {
             $rewrite = $props['rewrite'];
