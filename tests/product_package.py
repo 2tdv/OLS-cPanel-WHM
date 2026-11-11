@@ -151,6 +151,10 @@ for unit in ("notify", "schedule"):
     assert f"ols-cpanel-{unit}.timer" in spec and f"ols-cpanel-{unit}.service" in spec
 sysusers = directives(HERE / "ols-cpanel.sysusers")
 assert sysusers == ['u olscpanel - "OLS-cPanel reconciler"'], sysusers
+# RV-57: the ModSecurity audit log is rotated (OLS rotates its error and access logs, never this one).
+logrotate = directives(HERE / "ols-cpanel.logrotate")
+assert logrotate[0] == "/usr/local/lsws/logs/modsec_audit.log {" and "size 50M" in logrotate and "rotate 4" in logrotate
+assert "copytruncate" in logrotate and "missingok" in logrotate and "/etc/logrotate.d/ols-cpanel" in spec
 launcher = (HERE / "ols-cpanel.sh").read_text()
 assert launcher.startswith("#!/bin/sh\n") and 'exec "$PHP" -n "$CLI" "$@"' in launcher
 subprocess.run(["sh", "-n", str(HERE / "ols-cpanel.sh")], check=True)
@@ -456,6 +460,7 @@ with tempfile.TemporaryDirectory() as temp:
     for unit in UNITS:
         assert (payload / "usr/lib/systemd/system" / unit).read_bytes() == (HERE / unit).read_bytes()
     assert (payload / "usr/lib/sysusers.d/ols-cpanel.conf").is_file()
+    assert (payload / "etc/logrotate.d/ols-cpanel").read_bytes() == (HERE / "ols-cpanel.logrotate").read_bytes()
     assert all(p.stat().st_mode & 0o777 == 0o755 for p in payload.rglob("*") if p.is_dir())
     assert not [p for p in payload.rglob("*") if p.is_symlink() or p.name == "__pycache__"]
 

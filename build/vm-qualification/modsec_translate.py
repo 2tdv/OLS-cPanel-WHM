@@ -657,6 +657,11 @@ def translate_cpanel(read):
             blockers = len(checker.blockers)
             checker.directive(where, f"{name} {value}")
             if len(checker.blockers) == blockers and low(name) in PASS | OFF_ONLY:
+                # The audit log is the product's blocked-request log (FV-02), and it is only ever written for relevant
+                # transactions: "On" (every request) would grow modsec_audit.log with all traffic (RV-57).
+                if low(name) == "secauditengine" and low(value) == "on":
+                    checker.differ("product-audit-engine", where, f"{name} On is replaced by RelevantOnly: only relevant transactions are audited")
+                    value = "RelevantOnly"
                 checker.track_engine(f"{name} {value}")
                 entries.append(_inline(f"{name} {value}"))
         elif include:

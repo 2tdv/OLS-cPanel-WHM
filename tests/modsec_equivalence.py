@@ -68,6 +68,7 @@ CASES = {
     "cpanel-foreign-include": dict(files=state(cpanel=VENDOR_CPANEL.replace(V + "crs-setup.conf", "/etc/passwd.conf")), security={}),
     "cpanel-guardian": dict(files=state(cpanel=VENDOR_CPANEL.replace('SecAuditEngine "RelevantOnly"', 'SecGuardianLog "|/bin/x"')),
                             security={}),
+    "cpanel-audit-on": dict(files=state(cpanel=LAB_CPANEL.replace('SecAuditEngine "RelevantOnly"', 'SecAuditEngine "On"')), security={}),
     "cpanel-unsafe-value": dict(files=state(cpanel=VENDOR_CPANEL.replace('"RelevantOnly"', '"Relevant Only"')), security={}),
     "cpanel-connengine-off": dict(files=state(cpanel=VENDOR_CPANEL.replace('SecAuditEngine "RelevantOnly"', 'SecConnEngine "Off"')),
                                   security={}),
@@ -257,6 +258,9 @@ for name, text in (("cpanel-unexpected", "unexpected line in WHM's generated con
                    ("tag-before-rule", "modifies rule 941100, which is loaded later")):
     assert text in error(name), (name, error(name))
 assert "SecConnEngine Off" in states["cpanel-connengine-off"]["server"]
+# RV-57: an audit engine that logs every request is replaced by RelevantOnly (the audit log is the blocked-request log).
+assert "`SecAuditEngine RelevantOnly`" in states["cpanel-audit-on"]["server"] and "SecAuditEngine On" not in states["cpanel-audit-on"]["server"]
+assert "product-audit-engine" in {d["code"] for d in states["cpanel-audit-on"]["summary"]["waf"]["differences"]}
 blockers = python["checker"][0]["blockers"]
 for text in ("Apache configuration sections", "SecServerSignature is refused", "SecRuleScript is not qualified",
              "SecConnEngine is supported by libmodsecurity 3 only with Off", "unknown directive SecFoo",

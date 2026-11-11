@@ -8,7 +8,7 @@ namespace OlsCpanel\ObjectCache;
  * "Object cache"). The engine binary is one constant: Valkey from AlmaLinux 9 AppStream (valkey 8.0.x,
  * /usr/bin/valkey-server); where only Redis is available (AlmaLinux 8, or 9 without the package) change
  * SERVER and CLI to /usr/bin/redis-server and /usr/bin/redis-cli, in the unit template too. The commands used
- * (rename-command, unixsocket, maxmemory) are common to Valkey 7/8 and Redis 6/7.
+ * (rename-command, unixsocket, maxmemory, hz) are common to Valkey 7/8 and Redis 6/7; latency-tracking is Valkey 7.2+/Redis 7+.
  */
 final class ValkeyConfig
 {
@@ -82,6 +82,14 @@ final class ValkeyConfig
             'databases 16',
             'maxclients 256',
             'timeout 300',
+            // The idle timer of an instance: the default 10 wakeups a second (hz 10) cost 0.24% of a core per idle instance in the
+            // soak test, which adds up over hundreds of accounts. hz 1 with dynamic-hz (the rate rises by itself with the number of
+            // clients) keeps expiry and cleanup timely; latency-tracking only feeds per-command histograms nothing here reads.
+            // latency-tracking exists in Valkey 7.2 and later and Redis 7 (the Valkey 8.0 of AlmaLinux 9 AppStream accepts it); a
+            // Redis 6 fallback (see the class comment) has to drop that line, as an unknown directive stops the server.
+            'hz 1',
+            'dynamic-hz yes',
+            'latency-tracking no',
             "maxmemory {$memoryMb}mb",
             'maxmemory-policy allkeys-lru',
             'save ""',

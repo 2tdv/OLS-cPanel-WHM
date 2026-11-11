@@ -343,7 +343,11 @@ def vhost_config(v, pool="", constants=None, access="", tls=None, lab_rules="", 
 vhDomain                 {name}
 errorlog {error_log_dir}/{name}-error.log {{
     useServer            0
-    logLevel             INFO
+    logLevel             NOTICE
+}}
+expires {{
+    enableExpires        1
+    expiresByType        image/*=A604800, text/css=A604800, text/javascript=A604800, application/javascript=A604800, application/x-javascript=A604800, font/*=A604800, application/font-woff=A604800, application/x-font-ttf=A604800, application/vnd.ms-fontobject=A604800
 }}
 index {{
     useServer            0
@@ -363,6 +367,8 @@ extProcessor {user}-php {{
     persistConn          1
     respBuffer           0
     autoStart            2
+    runOnStartUp         3
+    extMaxIdleTime       600
     path                 /opt/cpanel/{v["php"]}/root/usr/bin/lsphp
     extUser              {user}
     extGroup             {user}

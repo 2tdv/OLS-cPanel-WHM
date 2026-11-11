@@ -125,6 +125,10 @@ print("Cache cleanup checks passed.")
 subprocess.run([PHP, "-n", str(ROOT / "tests/php_manager.php")], check=True, stdout=subprocess.DEVNULL)
 print("PHP manager checks passed.")
 
+# Demand-based PHP children (RV-53): the stderr log scan, raise, cap, memory budget, decay and the precedence of the operator's limits.
+subprocess.run([PHP, "-n", str(ROOT / "tests/php_demand.php")], check=True, stdout=subprocess.DEVNULL)
+print("PHP demand checks passed.")
+
 # Operations (FV-07): notification settings, de-duplication, the daily limit and the sent-ledger; maintenance windows through a scripted
 # broker; the update check; the support bundle's redaction with planted secrets; the root-only commands.
 subprocess.run([PHP, "-n", str(ROOT / "tests/operations.php")], check=True, stdout=subprocess.DEVNULL)

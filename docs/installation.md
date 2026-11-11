@@ -107,7 +107,10 @@ The installer prints each stage. Stages 1 to 3 change nothing on the server.
    without `--prepare-only`. The command shows what will change: which sites move to OLS, which (if any)
    stay on Apache behind OLS, which services are affected and how to recover. **Nothing is switched until
    you approve this plan.** After approval, OLS takes over ports 80 and 443 and every site is checked; if
-   the checks fail, the server is returned to Apache automatically.
+   the checks fail, the server is returned to Apache automatically. Before OLS starts serving, every page
+   cache store is emptied (step `cache-reset`): a purge made while Apache served (for example
+   `wp litespeed-purge all`) never reached the stores, and their old pages would otherwise be served again.
+   A store that cannot be emptied fails the cutover, which returns the server to Apache.
 
 If the installer is not attached to a terminal, or you used `--prepare-only`, it stops after stage 5 and
 prints the cutover command to run when you are ready.
@@ -208,6 +211,8 @@ Uninstall first returns the server to Apache if OLS is still serving, and verifi
   `/opt/cpanel/ea-php*/root/etc/php.d/`. Only a file that carries the product's own first line is removed;
   another file of that name, a link, or any other INI stays. The `ea-php*-php-opcache` packages stay installed;
 - the recommended EasyApache profile file the product added;
+- cPanel's update-check stamp of the WHM add-on, `/var/cpanel/version/addons_update/whostmgr_ols-cpanel`,
+  removed right after the WHM plugin is unregistered (a fixed path, never followed as a link; absent is fine);
 - the three product packages (`ols-cpanel`, `ols-cpanel-openlitespeed`, `ols-cpanel-php-redis`, the ones that
   are installed), as the last step and only after everything above succeeded. The removal runs in the
   transient unit `ols-cpanel-remove-packages` (`dnf -y remove ...`), outside the uninstall process, which runs

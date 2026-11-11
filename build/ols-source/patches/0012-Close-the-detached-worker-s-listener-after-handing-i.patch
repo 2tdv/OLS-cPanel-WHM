@@ -1,0 +1,35 @@
+From db870cf1cb996d17e6b6d860a7ced320e1c6fa1e Mon Sep 17 00:00:00 2001
+From: OLS-cPanel-WHM <2tdv@users.noreply.github.com>
+Date: Mon, 9 Nov 2026 01:15:11 +0000
+Subject: [PATCH] Close the detached worker's listener after handing it to
+ lscgid
+
+startDetachedWorker() creates a new listening socket for every detached
+(runOnStartUp 3) lsapi process group and passes it to lscgid, but the
+server kept its own copy open. Every group start leaked one descriptor,
+and the leaked copy kept the socket of an exiting group alive: a
+connection queued on it while the group's parent was shutting down was
+never accepted and never reset, so the request hung until the
+connection timeout ("No request delivery notification has been received
+from LSAPI application, possible dead lock"). Close it, as upstream
+1.9.4 does.
+---
+ src/extensions/localworker.cpp | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/extensions/localworker.cpp b/src/extensions/localworker.cpp
+index 56e01a6..aea6948 100644
+--- a/src/extensions/localworker.cpp
++++ b/src/extensions/localworker.cpp
+@@ -1108,6 +1108,8 @@ TRY_AGAIN:
+ 
+ 
+     pid = workerExec(config, fd);
++    // SCM_RIGHTS gives lscgid its own descriptor; do not retain the listener.
++    close(fd);
+     if (pid != 0)
+     {
+         ret = processPid(pid, service_addr.getUnix());
+-- 
+2.56.0
+

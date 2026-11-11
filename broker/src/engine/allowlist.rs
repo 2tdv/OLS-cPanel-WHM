@@ -12,6 +12,9 @@ use std::collections::HashSet;
 pub const CONSTANTS_CODE: &str =
     r#"echo json_encode(array_filter(get_defined_constants(true)["Core"], fn($k) => str_starts_with($k, "E_"), ARRAY_FILTER_USE_KEY));"#;
 
+/// The metadata line of the source digest commands (RV-48): type, inode, size, mtime, ctime, path; NUL-terminated.
+const STAT: &str = "%y %i %s %T@ %C@ %p\\0";
+
 /// In `Below`: a directory that starts with `/home*/<account>/` (any cPanel home mount).
 const HOME: &str = "~/";
 
@@ -93,6 +96,45 @@ pub const RULES: &[Rule] = &[
     Rule {
         name: "runuser-sha256sum-htpasswds",
         argv: &[RUNUSER[0], RUNUSER[1], RUNUSER[2], RUNUSER[3], Is("/usr/bin/sha256sum"), InHomeBelow("/.htpasswds/")],
+    },
+    // RV-48: the reconciler's cheap source digest (Events\InputDigest) lists the inputs of a compile as metadata only, so an
+    // unchanged configuration is not compiled again: type, inode, size, mtime, ctime and path of the files the compile reads.
+    // No file content leaves any of these commands; the roots are fixed, root-owned cPanel files and directories.
+    Rule {
+        name: "find-stat-cpanel",
+        argv: &[
+            Is("/usr/bin/find"), Is("-L"), Is("/etc/userdatadomains"), Is("/etc/trueuserdomains"), Is("/var/cpanel/users"),
+            Is("/var/cpanel/userdata"), Is("/var/cpanel/suspended"), Is("/var/cpanel/ssl/apache_tls"), Is("/etc/cpanel/ea4/php.conf"),
+            Is("/etc/apache2/conf/httpd.conf"), Is("/etc/apache2/conf.modules.d"), Is("/etc/apache2/conf.d/modsec2.conf"),
+            Is("/etc/apache2/conf.d/modsec"), Is("/etc/apache2/conf.d/modsec_vendor_configs"), Is("-printf"), Is(STAT),
+        ],
+    },
+    // The EasyApache PHP trees: pools, the PHP binary the E_* constants come from and the lsphp binary (depth 5 at most).
+    Rule {
+        name: "find-stat-php",
+        argv: &[
+            Is("/usr/bin/find"), Is("-L"), Is("/opt/cpanel"), Is("-maxdepth"), Is("5"), Is("("), Is("-path"),
+            Is("/opt/cpanel/*/root/etc/php-fpm.d/*"), Is("-o"), Is("-path"), Is("/opt/cpanel/*/root/usr/bin/*php"), Is(")"),
+            Is("-printf"), Is(STAT),
+        ],
+    },
+    // The tenant's .htaccess tree below a document root (the metadata twin of runuser-find-htaccess), and the one directory
+    // level of an ancestor of a document root inside the home (the compile reads its .htaccess too; symlinks are followed
+    // there, as `cat` does). Both as the tenant, like every read of a tenant's files.
+    Rule {
+        name: "runuser-find-htaccess-stat",
+        argv: &[
+            RUNUSER[0], RUNUSER[1], RUNUSER[2], RUNUSER[3],
+            Is("/usr/bin/find"), Is("-H"), InHome(None), Is("-name"), Is(".htaccess"),
+            Is("("), Is("-type"), Is("f"), Is("-o"), Is("-type"), Is("l"), Is(")"), Is("-printf"), Is(STAT),
+        ],
+    },
+    Rule {
+        name: "runuser-find-ancestor-stat",
+        argv: &[
+            RUNUSER[0], RUNUSER[1], RUNUSER[2], RUNUSER[3],
+            Is("/usr/bin/find"), Is("-L"), InHome(None), Is("-maxdepth"), Is("1"), Is("-name"), Is(".htaccess"), Is("-printf"), Is(STAT),
+        ],
     },
     // cPanel's ModSecurity configuration (FV-02 WAF): Apache's include, cPanel's two generated files and the
     // vendor rule and data files they reference; read-only, the compiler checks every path it names.
@@ -361,6 +403,16 @@ mod tests {
                                         "-name", ".htaccess", "(", "-type", "f", "-o", "-type", "l", ")", "-printf", "%y%p\\0"]),
             ("runuser-sha256sum-htpasswds", &["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/sha256sum",
                                               "/home_ssd/olscpa/.htpasswds/passwd"]),
+            ("find-stat-cpanel", &["/usr/bin/find", "-L", "/etc/userdatadomains", "/etc/trueuserdomains", "/var/cpanel/users",
+                                   "/var/cpanel/userdata", "/var/cpanel/suspended", "/var/cpanel/ssl/apache_tls", "/etc/cpanel/ea4/php.conf",
+                                   "/etc/apache2/conf/httpd.conf", "/etc/apache2/conf.modules.d", "/etc/apache2/conf.d/modsec2.conf",
+                                   "/etc/apache2/conf.d/modsec", "/etc/apache2/conf.d/modsec_vendor_configs", "-printf", "%y %i %s %T@ %C@ %p\\0"]),
+            ("find-stat-php", &["/usr/bin/find", "-L", "/opt/cpanel", "-maxdepth", "5", "(", "-path", "/opt/cpanel/*/root/etc/php-fpm.d/*",
+                                "-o", "-path", "/opt/cpanel/*/root/usr/bin/*php", ")", "-printf", "%y %i %s %T@ %C@ %p\\0"]),
+            ("runuser-find-htaccess-stat", &["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/find", "-H", "/home2/olscpa/public_html",
+                                             "-name", ".htaccess", "(", "-type", "f", "-o", "-type", "l", ")", "-printf", "%y %i %s %T@ %C@ %p\\0"]),
+            ("runuser-find-ancestor-stat", &["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/find", "-L", "/home/olscpa", "-maxdepth", "1",
+                                             "-name", ".htaccess", "-printf", "%y %i %s %T@ %C@ %p\\0"]),
             ("test-modsec", &["/usr/bin/test", "-e", "/etc/apache2/conf.d/modsec2.conf"]),
             ("test-modsec", &["/usr/bin/test", "-e", "/etc/apache2/conf.modules.d/800-mod_security2.conf"]),
             ("cat-modsec", &["/usr/bin/cat", "/etc/apache2/conf.d/modsec/modsec2.cpanel.conf"]),
@@ -518,6 +570,24 @@ mod tests {
             &["/usr/bin/sha256sum", "/home/bob/.htpasswds/passwd"],
             &["/usr/bin/sha256sum", "-c", "/var/cpanel/ssl/x"],
             &["/usr/bin/sha256sum", "/var/cpanel/ssl/a", "/etc/shadow"],
+            // RV-48 metadata commands: only their fixed shapes (other roots, other formats, other users' homes, extra arguments)
+            &["/usr/bin/find", "-L", "/etc", "-printf", "%y %i %s %T@ %C@ %p\\0"],
+            &["/usr/bin/find", "-L", "/etc/userdatadomains", "-printf", "%p"],
+            &["/usr/bin/find", "-L", "/etc/userdatadomains", "/etc/trueuserdomains", "-delete"],
+            &["/usr/bin/find", "-L", "/opt/cpanel", "-maxdepth", "9", "(", "-path", "/opt/cpanel/*/root/etc/php-fpm.d/*", "-o", "-path",
+              "/opt/cpanel/*/root/usr/bin/*php", ")", "-printf", "%y %i %s %T@ %C@ %p\\0"],
+            &["/usr/bin/find", "-L", "/opt/cpanel", "-maxdepth", "5", "(", "-path", "/opt/cpanel/*/root/etc/shadow", "-o", "-path",
+              "/opt/cpanel/*/root/usr/bin/*php", ")", "-printf", "%y %i %s %T@ %C@ %p\\0"],
+            &["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/find", "-H", "/home/olscpb/public_html", "-name", ".htaccess", "(",
+              "-type", "f", "-o", "-type", "l", ")", "-printf", "%y %i %s %T@ %C@ %p\\0"],
+            &["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/find", "-H", "/etc", "-name", ".htaccess", "(", "-type", "f", "-o",
+              "-type", "l", ")", "-printf", "%y %i %s %T@ %C@ %p\\0"],
+            &["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/find", "-H", "/home/olscpa/public_html", "-name", ".htaccess", "(",
+              "-type", "f", "-o", "-type", "l", ")", "-printf", "%p", "-delete"],
+            &["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/find", "-L", "/home/olscpb", "-maxdepth", "1", "-name", ".htaccess",
+              "-printf", "%y %i %s %T@ %C@ %p\\0"],
+            &["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/find", "-L", "/home/olscpa", "-maxdepth", "2", "-name", ".htaccess",
+              "-printf", "%y %i %s %T@ %C@ %p\\0"],
             // lab-only
             &["/usr/bin/curl", "-s", "http://a.test/"],
         ];

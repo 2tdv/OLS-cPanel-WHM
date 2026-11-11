@@ -6,6 +6,7 @@ namespace OlsCpanel\Deployment;
 use OlsCpanel\Infrastructure\Process\CommandRunner;
 use OlsCpanel\Ols\Compiler\CompilationRefused;
 use OlsCpanel\Ols\Compiler\ServerConfigurationBuilder;
+use OlsCpanel\Php\PhpDemand;
 use OlsCpanel\Php\PhpLimits;
 
 /**
@@ -25,7 +26,7 @@ final class BuilderCompilation implements Compilation
     public function __construct(private CommandRunner $runner, private string $templatePath = self::TEMPLATE,
                                 private string $errorLogDir = self::ERROR_LOG_DIR, ?\Closure $builder = null,
                                 private string $securityPath = SecurityInput::PATH, private string $limitsPath = PhpLimits::PATH,
-                                private string $http3Path = Http3Input::PATH)
+                                private string $http3Path = Http3Input::PATH, private ?string $demandPath = null)
     {
         $this->builder = $builder ?? static fn(CommandRunner $r, array $tenants, string $template, string $logs, ?array $ports, array $security,
                                                PhpLimits $limits, bool $http3 = true)
@@ -47,6 +48,9 @@ final class BuilderCompilation implements Compilation
         } catch (\InvalidArgumentException $error) {
             throw new CompilationRefused($error->getMessage(), [], $error);
         }
+        // RV-53: the automatic children of the accounts that reached their limit (php-demand.json, beside the limits file; absent or
+        // unreadable is the built-in value); an operator's own value always wins (PhpLimits).
+        $limits = $limits->withDemand(PhpDemand::load($this->demandPath ?? dirname($this->limitsPath) . '/php-demand.json'));
         // The operator's HTTP/3 input (FV-04): absent is enabled; a malformed file refuses the compile (fail closed).
         $http3 = Http3Input::load($this->http3Path);
         return ($this->builder)($this->runner, $this->tenants(), $template, $this->errorLogDir, $hybridPorts, $security, $limits, $http3)

@@ -152,6 +152,27 @@
           "mem_hard": 1073741824,
           "proc_soft": 600,
           "proc_hard": 800
+        },
+        "bakery": {
+          "children": 8,
+          "max_conns": 8,
+          "mem_soft": 0,
+          "mem_hard": 0,
+          "proc_soft": 400,
+          "proc_hard": 500
+        }
+      },
+      "automatic": {
+        "bakery": {
+          "children": 8,
+          "reason": "OpenLiteSpeed reported the limit reached 212 times; raised from 5 to 8 children and lowered again one step after 7 days without a report",
+          "waits": 212,
+          "last_hit": 1792629000,
+          "raised_at": 1792625400,
+          "budget_limited": false,
+          "applied": true,
+          "effective_children": 8,
+          "source": "automatic"
         }
       },
       "runaway": {

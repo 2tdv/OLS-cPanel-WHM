@@ -171,6 +171,12 @@ final class SecurityTranslator
                 $checker->directive($where, "$name $value");
                 if (count($checker->blockers) === $blockers
                     && in_array(strtolower($name), [...ModSecurityRules::PASS, ...ModSecurityRules::OFF_ONLY], true)) {
+                    // The audit log is the product's blocked-request log (FV-02), and it is only ever written for relevant
+                    // transactions: "On" (every request) would grow modsec_audit.log with all traffic (RV-57).
+                    if (strtolower($name) === 'secauditengine' && strtolower($value) === 'on') {
+                        $checker->differ('product-audit-engine', $where, "$name On is replaced by RelevantOnly: only relevant transactions are audited");
+                        $value = 'RelevantOnly';
+                    }
                     $checker->trackEngine("$name $value");
                     $entries[] = self::inline("$name $value");
                 }

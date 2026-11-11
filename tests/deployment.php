@@ -35,6 +35,7 @@ use OlsCpanel\Deployment\Uninstall;
 use OlsCpanel\Events\ReconcileBusy;
 use OlsCpanel\Events\ReconcileRefused;
 use OlsCpanel\Events\Reconciler;
+use OlsCpanel\Ols\Cache\CacheStorage;
 use OlsCpanel\Ols\Generation\Engine;
 use OlsCpanel\Ols\Generation\LocalEngine;
 use OlsCpanel\Infrastructure\Process\CommandRunner;
@@ -599,6 +600,8 @@ final class FakeActivator implements ConfigurationActivator
     public bool $olsStoppedBefore = false;
     public array $hybrid = [];
     public ?string $expected = null;
+    /** Page cache entries on disk when the activation (which starts OLS) ran. */
+    public ?int $cacheSeen = null;
 
     public function __construct(private FakeHost $host, private FakeCompilation $compilation)
     {
@@ -609,6 +612,10 @@ final class FakeActivator implements ConfigurationActivator
         $this->profileSeen = file_exists($this->host->profilePath);
         $this->olsStoppedBefore = !$this->host->olsRunning;
         $this->expected = $expectedDigest;
+        $this->cacheSeen = 0;
+        foreach (glob(dirname($this->host->profilePath) . '/cache/*/{,priv/}*/*/*/*', GLOB_BRACE) ?: [] as $entry) {
+            $this->cacheSeen += is_file($entry) ? 1 : 0;
+        }
         $profile = json_decode((string) file_get_contents($this->host->profilePath), true);
         $compiled = $this->compilation->compile($profile['hybrid_ports']);
         $files = OlsCpanel\Events\SourceDigest::referencedFiles($compiled, $this->host);
@@ -654,7 +661,8 @@ function world(bool $blocked = false): array
     mkdir("$state-units", 0755);
     $env = new Environment($host, $state, $compilation, $activator, true, static fn(): array => $report,
         static function (float $s): void {
-        }, pluginSource: plugin_fixture(), phpRoot: "$state-opt", unitDir: "$state-units");
+        }, pluginSource: plugin_fixture(), phpRoot: "$state-opt", unitDir: "$state-units", cacheOwner: posix_geteuid(),
+        cacheWorker: static fn(string $root, string $store, int $uid, int $gid): array => (new CacheStorage($root, posix_geteuid()))->purgeStore($store));
     return ['state' => $state, 'host' => $host, 'compilation' => $compilation, 'activator' => $activator, 'env' => $env];
 }
 
@@ -951,6 +959,48 @@ foreach (['remoteip-conf', 'restart-httpd', 'backend-listeners', 'activate'] as 
     check($code === 1 && restored($w), "default (standby) cutover failing at $step returns the host to Apache");
 }
 
+// RV-59: every page cache store is emptied after Apache released the ports and before the activation starts OLS.
+// The stores hold what the last OLS run cached; a purge made while Apache served never reached them.
+[$w, $id] = prepared();
+$cache = $w['state'] . '/cache';
+foreach (['alice@a.test', 'bob@b.test'] as $store) {
+    $entry = "$cache/$store/3/7/c";
+    mkdir($entry, 0770, true);
+    file_put_contents("$entry/0123456789abcdef", 'stale page');
+    file_put_contents("$cache/$store/.cacheman.index", 'index');
+}
+mkdir("$cache/alice@a.test/priv/1/2/3", 0770, true);
+file_put_contents("$cache/alice@a.test/priv/1/2/3/fedcba9876543210", 'stale private page');
+$w['activator']->cacheSeen = null;
+[$code, $out] = cli($w, ['install', '--cutover', "--plan=$id", '--yes']);
+check($code === 0 && $out['result'] === 'cut_over', 'cutover with page cache stores completes');
+check(!file_exists("$cache/alice@a.test/3/7/c/0123456789abcdef") && !file_exists("$cache/bob@b.test/3/7/c/0123456789abcdef")
+    && !file_exists("$cache/alice@a.test/priv/1/2/3/fedcba9876543210"), 'every store is empty after the cutover');
+check(is_file("$cache/alice@a.test/.cacheman.index"), 'the stores and their index stay');
+check(step_of($out, 'cache-reset') === ['step' => 'cache-reset', 'ok' => true, 'detail' => ['stores' => 2, 'entries' => 3]],
+    'the cache reset is its own recorded step with counts');
+$names = array_column($out['steps'], 'step');
+check(array_search('apache-released', $names, true) < array_search('cache-reset', $names, true)
+    && array_search('cache-reset', $names, true) < array_search('activate', $names, true), 'the cache is emptied after Apache released the ports and before the activation');
+check($w['activator']->cacheSeen === 0, 'no entry is left when OLS is activated');
+// No store yet (a first cutover): nothing to empty, still recorded.
+[$w, $id] = prepared();
+[$code, $out] = cli($w, ['install', '--cutover', "--plan=$id", '--yes']);
+check($code === 0 && step_of($out, 'cache-reset')['detail'] === ['stores' => 0, 'entries' => 0], 'no cache tree: the step records zero stores');
+// A store that cannot be emptied fails the cutover: the host returns to Apache, never a stale page served.
+[$w, $id] = prepared();
+$cache = $w['state'] . '/cache';
+mkdir("$cache/alice@a.test/3/7/c", 0770, true);
+file_put_contents("$cache/alice@a.test/3/7/c/0123456789abcdef", 'stale page');
+chmod("$cache/alice@a.test/3/7/c", 0500);
+$h = $w['host'];
+[$code, $out] = cli($w, ['install', '--cutover', "--plan=$id", '--yes']);
+chmod("$cache/alice@a.test/3/7/c", 0770);
+if (posix_geteuid() !== 0) {
+    check($code === 1 && $out['result'] === 'failed' && str_contains($out['error'], 'could not be emptied') && restored($w)
+        && $out['recovery']['recovered'] === true && $h->index('start-ols') === -1 && end($out['steps'])['step'] === 'cache-reset', 'a store that cannot be emptied fails the cutover and returns to Apache');
+}
+
 // Failure at every step: recover.sh runs synchronously, the host is Apache's again, hooks gone, timer disarmed.
 $failures = [false => ['hook-add', 'disable-httpd', 'apache-released', 'activate', 'start-ols', 'ols-active', 'ols-listeners',
     'enablefileprotect', 'vhost-health', 'enable-units', 'enable-reconciler', 'recovery-disarmed'],
@@ -986,7 +1036,7 @@ foreach ($failures as $hybrid => $steps) {
                 }
             }, $w['state'], $w['compilation'], $w['activator'], true, (fn() => $this->platform)->call($w['env']),
                 static function (float $s): void {
-                });
+                }, cacheOwner: posix_geteuid());
         }
         [$code, $out] = cli($w, ['install', '--cutover', "--plan=$id", '--yes']);
         $label = ($hybrid ? 'hybrid' : 'native') . " cutover failing at $step";
@@ -1112,6 +1162,8 @@ $ea4->write();
 [$code, $out] = cli($w, ['uninstall', '--dry-run']);
 check(in_array('remove the recommended EA4 profile ' . $ea4->path(), array_column($out['actions'], 'action'), true) && $ea4->present(),
     'uninstall --dry-run lists the recommended EA4 profile and keeps it');
+check(in_array('remove /var/cpanel/version/addons_update/whostmgr_ols-cpanel', array_column($out['actions'], 'action'), true)
+    && $w['host']->index('update-stamp-remove') < 0, 'uninstall --dry-run lists the add-on update stamp and removes nothing');
 check($code === 0 && $out['result'] === 'dry_run' && $out['actions'][0]['action'] === 'apache-return'
     && !changed_host($w['host']) && file_exists($w['state'] . '/profile.json') && is_dir($w['state'] . '/generations') === false
     && in_array('remove ' . $w['state'] . '/plans', array_column($out['actions'], 'action'), true), 'uninstall --dry-run only reads');
@@ -1119,6 +1171,11 @@ check($code === 0 && $out['result'] === 'dry_run' && $out['actions'][0]['action'
 check($code === 0 && $out['result'] === 'uninstalled' && restored($w) && array_diff(scandir($w['state']), ['.', '..', 'deployment.lock']) === []
     && $out['kept'] === [] && !($w['host']->enabled['ols-cpanel-broker.service'] ?? true),
     'uninstall returns to Apache, removes hooks, units, state and backups (the lock goes with the packages)');
+$stamp = array_values(array_filter($w['host']->calls, static fn(array $c): bool => $c[0] === 'update-stamp-remove'));
+check(count($stamp) === 1 && $stamp[0][1] === ['/usr/bin/rm', '-f', '--', '/var/cpanel/version/addons_update/whostmgr_ols-cpanel']
+    && $w['host']->index('update-stamp-remove') > $w['host']->index('plugin-whm-unregister')
+    && in_array('removed /var/cpanel/version/addons_update/whostmgr_ols-cpanel', array_column($out['actions'], 'action'), true),
+    'uninstall removes cPanel\'s add-on update stamp (fixed path, no link followed) after the WHM plugin is unregistered');
 check(in_array('removed the recommended EA4 profile ' . $ea4->path(), array_column($out['actions'], 'action'), true)
     && in_array('disable and stop ols-cpanel-php.path', array_column($out['actions'], 'action'), true), 'uninstall removes the recommended EA4 profile and stops the PHP environment watcher');
 

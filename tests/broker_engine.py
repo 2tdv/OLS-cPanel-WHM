@@ -62,7 +62,8 @@ for program in ("/usr/bin/cat", "/usr/local/cpanel/bin/whmapi1", "/usr/bin/test"
 for api in ("listaccts", "php_get_vhost_versions", "php_get_handlers"):
     assert f'"{api}"' in allowlist and api in contract, api
 # RV-46 added "httpd-modules" (/usr/sbin/httpd -M, fixed arguments).
-assert len(re.findall(r"^\s*Rule \{", table, re.M)) == 20
+# RV-48 added the four metadata commands of the input digest (find-stat-cpanel, find-stat-php, runuser-find-htaccess-stat, runuser-find-ancestor-stat).
+assert len(re.findall(r"^\s*Rule \{", table, re.M)) == 24
 
 # Apply: generation grammar, tree paths, health URL prefix, the files the broker adds itself.
 for required in ('"httpd_config.conf"', '"marker/generation"', '"summary.json"', '["vhosts", vhost, "vhconf.conf"]', '["health", vhost, "id"]',

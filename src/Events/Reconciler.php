@@ -42,6 +42,17 @@ use OlsCpanel\Php\LsphpGuard;
  * operation or recover.sh holds it), then the reconcile lock; activate() runs under the cutover's exclusive hold
  * and takes only the reconcile lock. activate() with an expected digest refuses a compile whose
  * CutoverPlan::digest differs from the approved plan's (review RV-29 findings 9 and 10).
+ *
+ * Compile only when a source changed (RV-48; the service loop, given an input digest closure): a compile costs seconds of
+ * CPU with many accounts even when its result is "unchanged", so before compiling a pass takes the cheap InputDigest of
+ * everything the compile reads and, when it equals the digest of the pass that produced the active generation, skips the
+ * compile and reports {"action": "unchanged", "compiled": false}. The digest is held in memory only (a restart of the
+ * service compiles first), and a pass compiles anyway when: there is no earlier successful pass (the previous one failed
+ * or was refused), events are pending, the digest cannot be taken, the earlier compile saw something that heals by itself
+ * (an .htaccess it could not read, a PHP-FPM pool it could not read, an lsphp that was kept back: the Drupal Twig rebuild of
+ * RV-48), the active generation is not the one that pass produced or not healthy, the restriction epoch moved (part of the
+ * digest), the pass is forced, or FULL_COMPILE_SECONDS passed since the last compile (the safety net for what the digest
+ * cannot see: InputDigest lists it). Every compiling pass says why in "compile_reason".
  */
 final class Reconciler implements ConfigurationActivator
 {
@@ -51,6 +62,8 @@ final class Reconciler implements ConfigurationActivator
     public const DEFAULT_INTERVAL = 60;
     /** After a failed pass, pending events retrigger a pass only after this many seconds (no busy loop). */
     public const RETRY_SECONDS = 15;
+    /** RV-48: the longest time without a full compile, whatever the input digest says. */
+    public const FULL_COMPILE_SECONDS = 900;
 
     /** @var \Closure(Profile, Engine):array<string,mixed> */
     private \Closure $compile;
@@ -61,6 +74,8 @@ final class Reconciler implements ConfigurationActivator
     private \Closure $sleep;
     /** @var \Closure():string */
     private \Closure $ids;
+    /** @var array{inputs:?string, source:string, at:float, transient:bool, report:array<string,mixed>}|null the last pass that left the active generation current (RV-48) */
+    private ?array $last = null;
 
     /**
      * @param (\Closure(Profile, Engine):array<string,mixed>)|null $compile the compile for a profile, reading cPanel through the engine
@@ -74,12 +89,15 @@ final class Reconciler implements ConfigurationActivator
      * @param (\Closure(array<string,array<string,mixed>>):void)|null $planSeen called with every compiled plan (never failing the pass),
      *        e.g. to ask the hybrid trust service to run when a vhost address is not trusted by Apache yet (HR-D14)
      * @param LsphpGuard|null $php keeps the earlier configuration of a vhost whose PHP version has no usable lsphp (FV-10); null: no check
+     * @param (\Closure(Profile, int):string)|null $inputs the cheap digest of the compile's inputs for a profile and the epoch (InputDigest::digest,
+     *        throwing when it cannot be taken); null: every pass compiles (the root CLI and tests)
      */
     public function __construct(private readonly Engine $engine, ?\Closure $compile = null, ?GenerationTree $tree = null,
                                 private readonly ?Profile $profile = null, private readonly string $profilePath = Profile::PATH,
                                 private readonly ?string $lockPath = null, ?\Closure $clock = null, ?\Closure $sleep = null,
                                 ?\Closure $ids = null, private readonly ?string $deploymentLockPath = null,
-                                private readonly ?LsphpGuard $php = null, private readonly ?\Closure $planSeen = null)
+                                private readonly ?LsphpGuard $php = null, private readonly ?\Closure $planSeen = null,
+                                private readonly ?\Closure $inputs = null)
     {
         $this->compile = $compile ?? static fn(Profile $profile, Engine $engine): array
             => (new BuilderCompilation($engine))->compile($profile->hybridPorts);
@@ -175,6 +193,10 @@ final class Reconciler implements ConfigurationActivator
     /** @return array<string,mixed> */
     private function pass(bool $force, ?string $expectedDigest = null): array
     {
+        // RV-48: the earlier pass's baseline is used by this pass only and set again only by a pass that ends "unchanged" or
+        // "committed", so a pass that failed or was refused in any way leaves nothing to skip on.
+        $previous = $this->last;
+        $this->last = null;
         $folded = $this->engine->foldRestrictions()['folded'];  // before the epoch is read: see the class comment
         $events = $this->engine->pendingEvents();
         // Malformed entries go to quarantine whatever this pass's outcome; only valid ones wait for consumption.
@@ -189,11 +211,27 @@ final class Reconciler implements ConfigurationActivator
             }
         }
         $started = ($this->clock)();
-        $epoch = $this->engine->status()['epoch'] ?? null;  // first: see the class comment
+        $status = $this->engine->status();
+        $epoch = $status['epoch'] ?? null;  // first: see the class comment
         if (!is_int($epoch) || $epoch < 0) {
             throw new ReconcileRefused('restriction epoch unknown (damaged epoch record): nothing is current');
         }
         $profile = $this->profile();
+        $inputs = $unavailable = $why = null;
+        if ($this->inputs !== null) {
+            try {
+                $inputs = ($this->inputs)($profile, $epoch);
+            } catch (\Throwable $error) {
+                $unavailable = self::describe($error);
+            }
+            $why = $force || $expectedDigest !== null ? 'forced' : $this->compileReason($previous, $inputs, $status, $events, $started);
+            if ($why === null && ($this->engine->health(self::HEALTH_SECONDS)['failing'] ?? []) !== []) {
+                $why = 'unhealthy';
+            }
+            if ($why === null) {
+                return $this->skipped($previous, $epoch, $events, $started);
+            }
+        }
         $compiled = ($this->compile)($profile, $this->engine);
         // FV-10: never a configuration whose lsphp does not exist; the vhost keeps its working configuration meanwhile.
         $phpKept = [];
@@ -214,6 +252,12 @@ final class Reconciler implements ConfigurationActivator
         $source = SourceDigest::source($compiled, $epoch, $files);
         $result = ['events' => count($events), 'epoch' => $epoch, 'compile_seconds' => round(($this->clock)() - $started, 1),
             'hybrid_vhosts' => $compiled['summary']['hybrid_vhosts'] ?? []];
+        if ($this->inputs !== null) {
+            $result += ['compiled' => true, 'compile_reason' => $why];
+            if ($unavailable !== null) {
+                $result['inputs_unavailable'] = $unavailable;
+            }
+        }
         // HR-D14: with a hybrid profile a blocker of one vhost moves only that vhost to Apache; why, in the result.
         $reasons = [];
         foreach (CutoverPlan::hybridVhosts($compiled) as $row) {
@@ -263,8 +307,71 @@ final class Reconciler implements ConfigurationActivator
         if ($events !== []) {
             $this->done(array_column($events, 'name'));
         }
+        if ($this->inputs !== null) {
+            $this->last = ['inputs' => $inputs, 'source' => $source, 'at' => $started, 'transient' => self::transient($compiled, $phpKept),
+                'report' => array_intersect_key($result, array_flip(['hybrid_vhosts', 'hybrid_reasons', 'held_vhosts']))];
+        }
         $result['seconds'] = round(($this->clock)() - $started, 1);
         return $result;
+    }
+
+    /**
+     * Why this pass must compile, or null when the earlier pass's compile is still current (RV-48; the class comment lists the rules).
+     * @param array{inputs:?string, source:string, at:float, transient:bool, report:array<string,mixed>}|null $previous
+     * @param array<string,mixed> $status
+     * @param list<array<string,mixed>> $events
+     */
+    private function compileReason(?array $previous, ?string $inputs, array $status, array $events, float $now): ?string
+    {
+        return match (true) {
+            $previous === null => 'no_baseline',
+            $inputs === null || $previous['inputs'] === null => 'inputs_unavailable',
+            $events !== [] => 'events',
+            $previous['transient'] => 'transient',
+            $now - $previous['at'] >= self::FULL_COMPILE_SECONDS => 'interval',
+            $inputs !== $previous['inputs'] => 'inputs_changed',
+            ($status['coherent'] ?? false) !== true || ($status['source_sha256'] ?? null) !== $previous['source'] => 'generation_changed',
+            default => null,
+        };
+    }
+
+    /**
+     * The pass that did not compile: the active generation is the one the last compile produced, healthy, and no input changed.
+     * @param array{inputs:?string, source:string, at:float, transient:bool, report:array<string,mixed>} $previous
+     * @param list<array<string,mixed>> $events
+     * @return array<string,mixed>
+     */
+    private function skipped(array $previous, int $epoch, array $events, float $started): array
+    {
+        $this->last = $previous;  // its "at" stays the last compile, so the forced interval counts from it
+        return ['events' => count($events), 'epoch' => $epoch, 'compile_seconds' => 0.0, 'compiled' => false, 'action' => 'unchanged']
+            + $previous['report'] + ['seconds' => round(($this->clock)() - $started, 1)];
+    }
+
+    /**
+     * Whether the compile saw something that heals without any input changing: an .htaccess or a PHP-FPM pool it could not
+     * read (a cache rebuild in progress, RV-48), or an lsphp kept back while its version is being completed (FV-10).
+     * @param array<string,mixed> $compiled
+     * @param list<array<string,mixed>> $phpKept
+     */
+    private static function transient(array $compiled, array $phpKept): bool
+    {
+        if ($phpKept !== []) {
+            return true;
+        }
+        foreach ($compiled['summary']['hybrid_reasons'] ?? [] as $reasons) {
+            if (in_array('PHP-FPM pool unreadable', (array) $reasons, true)) {
+                return true;
+            }
+        }
+        foreach ($compiled['summary']['htaccess_blockers'] ?? [] as $blockers) {
+            foreach ((array) $blockers as $blocker) {
+                if (str_contains((string) $blocker, '.htaccess unreadable') || str_contains((string) $blocker, '.htaccess scan incomplete')) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** @param list<string> $names */

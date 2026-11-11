@@ -21,7 +21,10 @@ use OlsCpanel\Cli\Application;
  *  3. Hooks registered: an event between this compile and the activation is spooled and raises the epoch.
  *  4. Hybrid host changes (HybridHost::apply), or Apache disabled and unmonitored; wait until Apache released
  *     80/443.
- *  5. profile.json written, then ConfigurationActivator::activate() (the reconciler's forced pass) with the
+ *  5. Every page cache store emptied (cache-reset): OLS does not run while Apache serves, so a purge made
+ *     meanwhile (`wp litespeed-purge all`, a plugin's own purge) never reached the stores and their old pages
+ *     would be served again. A store that cannot be emptied fails the cutover (see resetCache()).
+ *     profile.json written, then ConfigurationActivator::activate() (the reconciler's forced pass) with the
  *     plan's digest: the activator refuses a compile that differs from the approved plan (review RV-29).
  *     The activator is deliberately run with OLS stopped, and OLS is not started before it: the activator's
  *     reload step starts ols-cpanel.service when it is not running (ols_generation.reload), inside the
@@ -211,6 +214,7 @@ final class Cutover
             throw DeploymentError::step('apache-released', 'ports 80/443 are still in use');
         }
         $this->record('apache-released', true);
+        $this->resetCache();
         $profile = new Profile(true, $ports);
         $profile->save($this->env->profilePath());
         $this->record('profile', true, json_decode($profile->toJson(), true));
@@ -265,6 +269,44 @@ final class Cutover
      * administrator is told (clients fall back to TCP when the advertised UDP port does not answer).
      * @param array<string,mixed> $manifest
      */
+    /**
+     * Empties every page cache store before OLS can serve (RV-59). While Apache served nothing could purge them: the
+     * stores hold the pages of the previous OLS run, and a purge made by the site meanwhile (an LSCache plugin's purge,
+     * `wp litespeed-purge all`, a cleared cache after a content change) went to a server that was not running.
+     * Done after Apache released the ports and before the activation starts OLS, so no stale page is ever served.
+     *
+     * A store that cannot be emptied fails the cutover (the host returns to Apache, which never reads these stores)
+     * instead of keeping that vhost out of the cache: a cutover is the one moment the stores may be wrong and the
+     * administrator is watching, whereas a vhost silently left uncached or silently left stale is found only by a
+     * visitor. The next attempt starts from the same state, so nothing is left half-done and no setting is needed.
+     * No cache tree yet (a first cutover) means nothing to empty.
+     */
+    private function resetCache(): void
+    {
+        $root = $this->env->cacheRoot;
+        if (@lstat($root) === false) {
+            $this->record('cache-reset', true, ['stores' => 0, 'entries' => 0]);
+            return;
+        }
+        try {
+            $stores = $this->env->cacheStorage()->purge();
+        } catch (\InvalidArgumentException $error) {
+            throw DeploymentError::step('cache-reset', $error->getMessage());
+        }
+        $entries = 0;
+        $bad = [];
+        foreach ($stores as $name => $counts) {
+            $entries += (int) ($counts['public_entries'] ?? 0) + (int) ($counts['private_entries'] ?? 0);
+            if (($counts['failed'] ?? 0) > 0 || isset($counts['error'])) {
+                $bad[] = $name . (isset($counts['error']) ? ' (' . $counts['error'] . ')' : '');
+            }
+        }
+        if ($bad !== []) {
+            throw DeploymentError::step('cache-reset', 'a page cache store could not be emptied: ' . implode(', ', array_slice($bad, 0, 10)));
+        }
+        $this->record('cache-reset', true, ['stores' => count($stores), 'entries' => $entries]);
+    }
+
     private function http3Firewall(array $manifest): void
     {
         $http3 = $manifest['http3'] ?? ['enabled' => false, 'firewall' => null];

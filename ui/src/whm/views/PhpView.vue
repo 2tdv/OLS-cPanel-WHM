@@ -45,7 +45,7 @@ const families = computed(() => (Array.isArray(report.value.processes?.accounts)
 const totals = computed(() => report.value.processes?.totals || {})
 const thresholds = computed(() => report.value.processes?.thresholds || {})
 const limits = computed(() => report.value.limits || {})
-const limitRows = computed(() => Object.entries(limits.value.accounts || {}).map(([name, l]) => ({ name, ...l })))
+const limitRows = computed(() => Object.entries(limits.value.accounts || {}).map(([name, l]) => ({ name, ...l, auto: (limits.value.automatic || {})[name] })))
 const loadedCount = computed(() => versions.value.filter(v => v.loaded === true).length)
 const statusDigest = computed(() => (typeof status.data.value?.digest === 'string' && status.data.value.digest ? status.data.value.digest : null))
 const jobRunning = computed(() => activeJob.value !== null && jobState.value === 'running')
@@ -289,6 +289,13 @@ const unitsOff = computed(() => environment.value !== null && !(environment.valu
             </el-table-column>
             <el-table-column :label="t('whm.php.limitProc')" width="150">
               <template #default="{ row }">{{ num(row.proc_soft) }} / {{ num(row.proc_hard) }}</template>
+            </el-table-column>
+            <el-table-column :label="t('whm.php.limitSource')" min-width="280">
+              <template #default="{ row }">
+                <span v-if="!row.auto">{{ t('whm.php.sourceOperator') }}</span>
+                <span v-else-if="row.auto.applied">{{ t('whm.php.sourceAutomatic', { reason: row.auto.reason }) }}</span>
+                <span v-else>{{ t('whm.php.sourceOperatorWins', { n: num(row.auto.children) }) }}</span>
+              </template>
             </el-table-column>
           </el-table>
         </div>

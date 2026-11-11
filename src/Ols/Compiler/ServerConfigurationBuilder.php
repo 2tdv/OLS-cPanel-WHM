@@ -320,10 +320,10 @@ final class ServerConfigurationBuilder
         if ($this->security !== null) {
             [$config, $vhconf, $summary] = $this->secure($plan, $config, $vhconf, $summary);
         }
-        if ($this->phpLimits !== null && $this->phpLimits->overrides()) {
-            // FV-03: only present with an operator input, so summaries without one are unchanged.
+        if ($this->phpLimits !== null && ($this->phpLimits->overrides() || $this->phpLimits->accountsWithLimits() !== [])) {
+            // FV-03: only present with an operator input (or, RV-53, an automatic value), so summaries without one are unchanged.
             $summary['php_limits'] = [];
-            foreach ($this->phpLimits->accountsWithOverrides() as $user) {
+            foreach ($this->phpLimits->accountsWithLimits() as $user) {
                 $summary['php_limits'][$user] = $this->phpLimits->forAccount($user);
             }
         }

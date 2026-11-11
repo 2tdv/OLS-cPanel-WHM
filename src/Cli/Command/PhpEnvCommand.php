@@ -9,6 +9,7 @@ use OlsCpanel\Cli\Output;
 use OlsCpanel\Deployment\DeploymentError;
 use OlsCpanel\Deployment\Upgrade;
 use OlsCpanel\Deployment\Environment;
+use OlsCpanel\Php\PhpDemand;
 use OlsCpanel\Php\PhpEnvironment;
 
 /**
@@ -16,6 +17,8 @@ use OlsCpanel\Php\PhpEnvironment;
  * every installed EA4 PHP version complete for OLS (lsphp, OPcache, redis). `sync` is what ols-cpanel-php.service
  * runs (after package transactions and periodically, back-off respected); `repair` is the WHM button
  * (`ols.php_env_repair`, back-off ignored). One instance per action, so the dispatcher's longest-match rule selects it.
+ * `sync` also scans OpenLiteSpeed's stderr log for accounts that reached their PHP worker limit (RV-53: PhpDemand), so the
+ * automatic limits follow the demand without a timer of their own; it never fails the pass and its result is "demand".
  */
 final class PhpEnvCommand extends DeploymentCommand
 {
@@ -25,8 +28,12 @@ final class PhpEnvCommand extends DeploymentCommand
         'repair' => 'Like sync, but retry failed versions at once (root; the WHM button)',
     ];
 
-    /** @param \Closure(Environment):PhpEnvironment|null $applier */
-    public function __construct(private readonly string $action, ?\Closure $environment = null, private readonly ?\Closure $applier = null)
+    /**
+     * @param \Closure(Environment):PhpEnvironment|null $applier
+     * @param (\Closure():array<string,mixed>)|null $demand the PHP demand scan (default PhpDemand::scan on the product's own paths)
+     */
+    public function __construct(private readonly string $action, ?\Closure $environment = null, private readonly ?\Closure $applier = null,
+                                private readonly ?\Closure $demand = null)
     {
         parent::__construct($environment);
     }
@@ -67,6 +74,13 @@ final class PhpEnvCommand extends DeploymentCommand
             };
         } catch (DeploymentError $error) {
             return $this->refused($out, $error, $command);
+        }
+        if ($this->action === 'sync') {
+            try {
+                $result['demand'] = $this->demand !== null ? ($this->demand)() : PhpDemand::scan();
+            } catch (\Throwable $error) {
+                $result['demand'] = ['result' => 'failed', 'error' => substr($error->getMessage(), 0, 200)];
+            }
         }
         $out->result(['command' => $command] + $result);
         return ($result['result'] ?? '') === 'failed' ? Application::EXIT_REFUSED : Application::EXIT_OK;

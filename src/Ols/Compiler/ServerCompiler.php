@@ -182,7 +182,11 @@ final class ServerCompiler
         $handlers = implode("\n", array_map(static fn(string $s): string => "    add                  lsapi:$user-php $s",
             $this->fpm->suffixes($pool)));
         return "docRoot                  {$v['docroot']}/\nvhDomain                 $name\n"
-            . "errorlog $errorLogDir/$name-error.log {\n    useServer            0\n    logLevel             INFO\n}\n"
+            . "errorlog $errorLogDir/$name-error.log {\n    useServer            0\n    logLevel             NOTICE\n}\n"
+            // A week's browser lifetime for static types (RV-49: without it browsers revalidate every file on a return
+            // visit). OLS adds it only when the response has no Cache-Control/Expires of its own; a site's .htaccess
+            // Expires settings (the root context) replace it.
+            . "expires {\n    enableExpires        1\n    expiresByType        " . self::STATIC_EXPIRES . "\n}\n"
             . "index {\n    useServer            0\n    indexFiles           index.html, index.php\n"
             . "    # Mirrors the lab Apache, which lists directories unless \"Options -Indexes\" applies.\n"
             . "    autoIndex            1\n}\n"
@@ -190,10 +194,15 @@ final class ServerCompiler
             . "    maxConns             {$limits['max_conns']}\n    env                  PHP_LSAPI_CHILDREN={$limits['children']}\n    env                  LSPHP_ENABLE_USER_INI=on\n"
             // An idle worker leaves after 10 s, as cPanel's PHP-FPM default (pm.process_idle_timeout); LSAPI keeps one for
             // 300 s otherwise (lab 2026-10-28: a 116 MiB WordPress worker held for five minutes). The parent keeps OPcache,
-            // so a new worker is a cheap fork.
+            // so a new worker is a cheap fork; the parent itself stays extMaxIdleTime (below).
             . "    env                  LSAPI_MAX_IDLE=10\n"
             . $this->phpEnvironment($v) . "    initTimeout          60\n    retryTimeout         0\n    persistConn          1\n    respBuffer           0\n"
-            . "    autoStart            2\n    path                 /opt/cpanel/{$v['php']}/root/usr/bin/lsphp\n"
+            . "    autoStart            2\n"
+            // Detached process group (OLS's default, written out): the parent with OPcache outlives OLS restarts. It
+            // leaves after extMaxIdleTime without children (LSAPI_PGRP_MAX_IDLE); OLS's 60 s default restarted the busy
+            // soak accounts' groups 4,000 times a day, each start recompiling every script (RV-50).
+            . "    runOnStartUp         3\n    extMaxIdleTime       600\n"
+            . "    path                 /opt/cpanel/{$v['php']}/root/usr/bin/lsphp\n"
             . "    extUser              $user\n    extGroup             $user\n    backlog              50\n"
             . "    instances            1\n    memSoftLimit         {$limits['mem_soft']}\n    memHardLimit         {$limits['mem_hard']}\n"
             . "    procSoftLimit        {$limits['proc_soft']}\n    procHardLimit        {$limits['proc_hard']}\n}\n"
@@ -206,6 +215,9 @@ final class ServerCompiler
             . ($tls !== null ? "vhssl {\n    keyFile              $tls\n    certFile             $tls\n    certChain            1\n}\n" : '')
             . $this->cache->vhostBlock($v, $suspended);
     }
+
+    /** Static MIME types and their browser lifetime (RV-49), in OLS's expiresByType form. */
+    public const STATIC_EXPIRES = 'image/*=A604800, text/css=A604800, text/javascript=A604800, application/javascript=A604800, application/x-javascript=A604800, font/*=A604800, application/font-woff=A604800, application/x-font-ttf=A604800, application/vnd.ms-fontobject=A604800';
 
     /** PHP handlers the product reproduces (HR-D05); any other handler keeps the domain on Apache. */
     public const PHP_HANDLERS = ['fpm', 'cgi', 'fcgi', 'suphp'];

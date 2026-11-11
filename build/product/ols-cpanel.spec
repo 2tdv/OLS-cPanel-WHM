@@ -86,3 +86,4 @@ cp -a payload/. %{buildroot}/
 %attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-hybrid-trust.timer
 %attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-upgrade.service
 %attr(0644,root,root) /usr/lib/sysusers.d/ols-cpanel.conf
+%config(noreplace) %attr(0644,root,root) /etc/logrotate.d/ols-cpanel

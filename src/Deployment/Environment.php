@@ -9,6 +9,8 @@ use OlsCpanel\Infrastructure\Filesystem\ObservationReader;
 use OlsCpanel\Infrastructure\Process\CommandRunner;
 use OlsCpanel\Infrastructure\Process\LocalCommandRunner;
 use OlsCpanel\Infrastructure\Process\ProbeRunner;
+use OlsCpanel\Ols\Cache\CacheStorage;
+use OlsCpanel\Ols\Compiler\CachePolicy;
 
 /**
  * Everything the deployment operations touch, injectable for tests: the command runner (every external
@@ -34,6 +36,8 @@ final class Environment
     public readonly Host $host;
     /** cPanel's EasyApache 4 profile directory (the recommended profile goes to custom/ below it). */
     public readonly string $ea4Root;
+    /** The page cache tree (one store per `<account>@<vhost>`) a cutover empties before OLS serves. */
+    public readonly string $cacheRoot;
     public readonly Compilation $compilation;
     /** @var \Closure():array<string,mixed> */
     private \Closure $platform;
@@ -51,8 +55,11 @@ final class Environment
                                 ?\Closure $clock = null, public readonly string $hookEntry = Hooks::ENTRY,
                                 public readonly string $pluginSource = Plugins::SOURCE,
                                 public readonly string $phpRoot = '/opt/cpanel', ?string $ea4Root = null,
-                                public readonly string $unitDir = '/etc/systemd/system')
+                                public readonly string $unitDir = '/etc/systemd/system', ?string $cacheRoot = null,
+                                public readonly int $cacheOwner = 0, private readonly ?\Closure $cacheWorker = null)
     {
+        // Same test isolation as the EA4 root: only the production state directory means the real page cache tree.
+        $this->cacheRoot = $cacheRoot ?? ($state === self::STATE ? CachePolicy::CACHE_ROOT : $state . '/cache');
         // Test isolation: only the production state directory means the real EasyApache 4 profile directory.
         $this->ea4Root = $ea4Root ?? ($state === self::STATE ? Ea4Profile::ROOT : $state . '/ea4-profiles');
         $this->host = new Host($runner, $sleep);
@@ -79,6 +86,12 @@ final class Environment
     public function ea4Profile(): Ea4Profile
     {
         return new Ea4Profile($this->ea4Root, $this->state === self::STATE ? '/etc/os-release' : $this->state . '/os-release');
+    }
+
+    /** The page cache stores; a purge is done by the confined helper as each store's owner (CacheStorage), never by root. */
+    public function cacheStorage(): CacheStorage
+    {
+        return new CacheStorage($this->cacheRoot, $this->cacheOwner, null, $this->cacheWorker);
     }
 
     public function profilePath(): string

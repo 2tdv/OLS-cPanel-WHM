@@ -18,13 +18,14 @@
     "0008-Run-suEXEC-children-with-the-user-s-primary-group.patch",
     "0009-Keep-runtime-state-out-of-world-writable-tmp.patch",
     "0010-Send-the-client-address-to-proxy-backends-in-a-heade.patch",
-    "0011-Use-a-configured-shared-memory-directory-alone.patch"
+    "0011-Use-a-configured-shared-memory-directory-alone.patch",
+    "0012-Close-the-detached-worker-s-listener-after-handing-i.patch"
   ],
   "third_party_patches": [
     "0001-Link-curl-configure-checks-with-libstdc.patch",
     "0002-Apply-ModSecurity-ctl-remove-value-fix.patch",
     "0003-Pin-lmdb-and-zlib-to-the-locked-commits.patch"
   ],
-  "product_release": 12,
-  "release_inputs_sha256": "3e9abf4f9cde587c509cc59c0fb076451eeac8e881be52fa28e90c69bd677a8c"
+  "product_release": 13,
+  "release_inputs_sha256": "c2477cba94726c6fefc4da231e03b38a83c3bef411835ffc681a6478b7b8b5a7"
 }

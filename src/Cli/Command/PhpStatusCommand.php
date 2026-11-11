@@ -7,6 +7,7 @@ use OlsCpanel\Cli\Arguments;
 use OlsCpanel\Cli\Output;
 use OlsCpanel\Deployment\DeploymentError;
 use OlsCpanel\Php\OpcacheManager;
+use OlsCpanel\Php\PhpDemand;
 use OlsCpanel\Php\PhpLimits;
 use OlsCpanel\Php\PhpEnvironment;
 use OlsCpanel\Php\PhpProcesses;
@@ -15,12 +16,13 @@ use OlsCpanel\PhpExtensions\ExtensionSync;
 /**
  * `php status [--account=U]`: what the WHM and cPanel PHP views show, in one answer: OPcache per EA4 PHP version,
  * the lsphp processes (per account without their rows, unless one account is named) and the limits in
- * force (root, read only). The broker's `php.status` and `tenant.php` run it.
+ * force (root, read only), with the automatic PHP worker limits and why (RV-53: limits.automatic). The broker's `php.status` and `tenant.php` run it.
  */
 final class PhpStatusCommand extends DeploymentCommand
 {
     public function __construct(?\Closure $environment = null, private readonly string $limitsPath = PhpLimits::PATH,
-                                private readonly string $optRoot = OpcacheManager::OPT, private readonly string $userdata = OpcacheManager::USERDATADOMAINS)
+                                private readonly string $optRoot = OpcacheManager::OPT, private readonly string $userdata = OpcacheManager::USERDATADOMAINS,
+                                private readonly ?string $demandPath = null)
     {
         parent::__construct($environment);
     }
@@ -43,6 +45,8 @@ final class PhpStatusCommand extends DeploymentCommand
             $env = $this->environment();
             $env->requireRoot();
             [$limits, $problem] = PhpLimits::loadLenient($this->limitsPath);
+            // RV-53: the automatic children beside the operator's limits (the demand file lies beside the limits file).
+            $limits = $limits->withDemand(PhpDemand::load($this->demandPath ?? dirname($this->limitsPath) . '/php-demand.json'));
             $processes = (new PhpProcesses($env->runner, $limits))->report($account);
             if ($account === null) {
                 $processes['accounts'] = array_map(static function (array $a): array {

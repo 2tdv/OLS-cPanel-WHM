@@ -97,6 +97,16 @@ exactly these mounts.
   `/etc/apache2/conf.d/modsec_vendor_configs/` followed by one or more `/`-separated components matching
   `[A-Za-z0-9_-][A-Za-z0-9_.-]*` (rule files end in `.conf`; data files referenced by `@pmFromFile`/`@ipMatchFromFile`
   may have any such name). Never resolved; no `.` or `..` components by the grammar.
+- The reconciler's input digest (RV-48; `Events\InputDigest`; metadata only, no file content), each with the format
+  `-printf "%y %i %s %T@ %C@ %p\0"` (type, inode, size, mtime, ctime, path):
+  `/usr/bin/find -L <the fixed cPanel roots> -printf ...` (the roots: `/etc/userdatadomains`, `/etc/trueuserdomains`,
+  `/var/cpanel/users`, `/var/cpanel/userdata`, `/var/cpanel/suspended`, `/var/cpanel/ssl/apache_tls`, `/etc/cpanel/ea4/php.conf`,
+  `/etc/apache2/conf/httpd.conf`, `/etc/apache2/conf.modules.d`, `/etc/apache2/conf.d/modsec2.conf`, `/etc/apache2/conf.d/modsec`,
+  `/etc/apache2/conf.d/modsec_vendor_configs`), `/usr/bin/find -L /opt/cpanel -maxdepth 5 ( -path '/opt/cpanel/*/root/etc/php-fpm.d/*' -o
+  -path '/opt/cpanel/*/root/usr/bin/*php' ) -printf ...`, and as the tenant
+  `/usr/sbin/runuser -u <user> -- /usr/bin/find -H <docroot> -name .htaccess ( -type f -o -type l ) -printf ...` and
+  `/usr/sbin/runuser -u <user> -- /usr/bin/find -L <dir in the user's home> -maxdepth 1 -name .htaccess -printf ...`. A broker
+  that does not know them yet refuses them (`FORBIDDEN`): the reconciler then compiles every pass, as before.
 - `/usr/bin/sha256sum <path>` for `<path>` under `/var/cpanel/ssl/`, and
   `/usr/sbin/runuser -u <user> -- /usr/bin/sha256sum <path>` for `<path>` under `/home*/<user>/.htpasswds/` (digests
   of the certificates, keys and password files a configuration references; the reconciler's source digest;
@@ -161,7 +171,7 @@ commands add `"command"` and their details). `hook` is the one exception: it alw
 | `install --prepare` | Preflight (`doctor` rules), a full compile with `production: true` and the requested profile (configuration lint included, nothing staged), write `plans/<id>.json` (hybrid vhosts listed, ports, backups needed). Apache keeps serving. The hybrid profile is the default (HR-D14): the plan always carries `hybrid_ports` 81/444 (Apache in standby behind OLS, closed to the outside), needs Apache's `suexec_module`, and lists the vhosts that Apache serves today with their reasons (possibly none). Options: `--native` (explicit opt-out: no standby Apache; any untranslatable change then refuses the compile for safety); `--hybrid` is accepted as a no-op alias of the default; the two cannot be combined. Also (FV-10, reported under `php_environment`, never fatal): the PHP environment is made complete for every EA4 PHP version, the units that keep it so are enabled and the recommended EA4 profile is written. |
 | `install --cutover --plan=<id> [--yes]` | Under the deployment lock: the plan read again and required unchanged since the approval, its full compile digest (configuration and referenced files) checked, and checked again immediately before the first host change; backups and `recover.sh`, recovery timer, hooks registered, hybrid changes (tweaks, `mod_remoteip` include, nftables table, Apache restarted on 81/444 and verified) in every default plan, with or without hybrid vhosts (only `--native` plans skip them), Apache off 80/443, `profile.json`, the activation of exactly the plan's digest (`ConfigurationActivator::activate(digest)` refuses any other compile), OLS started, health of every vhost, `cutover.json` written, then the timer disarmed and its recovery service verified stopped; any failure (the record and the disarm included) runs `recover.sh`. |
 | `apache-return --prepare \| --execute [--yes]` | Runs the latest backup's `recover.sh` (OLS stopped, Apache restored and verified, profile removed), then the CLI removes the hook registrations (`recover.sh` does not depend on the product). `--execute` takes the deployment lock after the approval (waiting up to 900 s for a running reconcile pass), selects and validates the backup again under it and refuses one other than the approved; the recovery timer is disarmed only after Apache is verified serving, otherwise kept or armed again (10 min). |
-| `sync [--watch] [--interval=N] [--force]` | Reconcile once (or as the service loop, with the 5 s enforcement thread). Runs as `olscpanel` through `engine.sock`, or as root directly. |
+| `sync [--watch] [--interval=N] [--force]` | Reconcile once (or as the service loop, with the 5 s enforcement thread). Runs as `olscpanel` through `engine.sock`, or as root directly. The service loop compiles only when a source changed (RV-48): before compiling, a pass takes the metadata digest of the compile's inputs (`Events\InputDigest`: the profile and epoch, the product input files, cPanel's userdata, accounts, certificates, PHP handlers, Apache and ModSecurity files, the EasyApache PHP trees, the tenants' `.htaccess` files by path, type, inode, size, mtime and ctime, the IPv6 addresses and the automatic PHP limits) and, when it equals the one of the pass that produced the active generation, reports `{"action": "unchanged", "compiled": false}` without compiling. Every compiling pass reports `"compiled": true` and `"compile_reason"` (`no_baseline`, `events`, `inputs_changed`, `interval`, `transient`, `generation_changed`, `unhealthy`, `inputs_unavailable`, `forced`). It compiles anyway at least every 15 minutes (`Reconciler::FULL_COMPILE_SECONDS`, for what the digest cannot see: the root-owned `.htaccess` above the homes, the global alias directories), after a pass that failed, while events are pending, and after a pass that met an unreadable `.htaccess` or PHP-FPM pool or kept an lsphp back. A single pass (no `--watch`) always compiles. |
 | `hook` | cPanel hook entry: reads the event on stdin, raises the restriction epoch for restricting events (or, when that fails, writes a durable restriction intent first), spools the event, always prints exactly `1`. |
 | `hooks install \| verify \| remove` | Registers the product hook entry `/usr/local/ols-cpanel/libexec/ols-cpanel-hook` (a fixed wrapper running `ols-cpanel hook`; cPanel runs script hooks without arguments) on stage `post` for the events in `ols_events.RESTRICTING` and the account, domain, PHP, certificate and `.htaccess` change events (`Deployment\Hooks::EVENTS`), through `manage_hooks`. |
 | `generation list \| inspect <id>`, `rollback`, `recover` | Activator views and operations. |
@@ -187,7 +197,7 @@ commands add `"command"` and their details). `hook` is the one exception: it alw
 | `php status [--account=U]` | What the PHP views show in one answer (root, read only): `opcache` (as `php opcache status`), `processes` (as `php processes`, per account without the process rows unless `--account` is given) and `limits`; see "PHP manager". |
 | `php processes [--account=U]` | lsphp processes per account with runaway detection (root, read only); see "PHP manager". |
 | `php opcache status [--version=ea-phpNN]`, `php opcache install (--version=ea-phpNN \| --all)`, `php opcache reconcile` | OPcache per EA4 PHP version (root); see "PHP manager". `install --prepare` also installs OPcache everywhere unless `--no-opcache` is given. |
-| `uninstall [--dry-run] [--keep-packages]` | `apache-return` when cut over or when Apache is not verified serving (refused without a backup), then Apache verified serving before anything is removed; hooks removed, units stopped (a unit that does not stop aborts); LiteSpeed Cache's object cache turned off as the site owner on the sites the product set, only while their object host is still the product socket (a failure is an action with `ok: false`, never fatal); instances stopped; per-account systemd drop-ins removed with one `daemon-reload`; the product's OPcache and redis INI files removed (marker line only); state kept in `backups/` only; then, unless `--keep-packages`, `systemd-run --unit=ols-cpanel-remove-packages --no-block --collect /usr/bin/dnf -y remove <installed product packages>`. Kept: backups, logs, the `olscpanel` user, the OPcache packages. |
+| `uninstall [--dry-run] [--keep-packages]` | `apache-return` when cut over or when Apache is not verified serving (refused without a backup), then Apache verified serving before anything is removed; hooks removed, units stopped (a unit that does not stop aborts); LiteSpeed Cache's object cache turned off as the site owner on the sites the product set, only while their object host is still the product socket (a failure is an action with `ok: false`, never fatal); instances stopped; per-account systemd drop-ins removed with one `daemon-reload`; the product's OPcache and redis INI files removed (marker line only); cPanel's add-on update stamp `/var/cpanel/version/addons_update/whostmgr_ols-cpanel` removed after the WHM plugin is unregistered; state kept in `backups/` only; then, unless `--keep-packages`, `systemd-run --unit=ols-cpanel-remove-packages --no-block --collect /usr/bin/dnf -y remove <installed product packages>`. Kept: backups, logs, the `olscpanel` user, the OPcache packages. |
 
 ## Engine classes (PHP, `OlsCpanel\`)
 
@@ -295,6 +305,7 @@ than 100 bytes (`sun_path`) is refused.
 
 **Configuration** (`ValkeyConfig::render`): `port 0`, `unixsocket <h>/.ols-objcache/valkey.sock`,
 `unixsocketperm 600`, `protected-mode yes`, `dir <h>/.ols-objcache`, `maxclients 256`, `timeout 300`,
+`hz 1`, `dynamic-hz yes`, `latency-tracking no` (the idle timer cost 0.24% of a core per idle instance in the soak test),
 `maxmemory <N>mb`, `maxmemory-policy allkeys-lru`, `save ""`, `appendonly no`, and `rename-command <C> ""` for
 `CONFIG DEBUG MODULE REPLICAOF SLAVEOF FAILOVER SAVE BGSAVE BGREWRITEAOF SYNC PSYNC` (`FLUSHALL`/`FLUSHDB` stay: the
 account's own flush). Memory limits are whole MB from 16 to 8192 (default 64).
@@ -706,7 +717,9 @@ Commands (root, `--format=json` supported): `ols-cpanel waf status` reports the 
 when it is invalid). `ols-cpanel waf blocked [--limit=N]` (N 1..1000, default 50) parses the last 4 MiB of the audit
 log with `ModSecurityAuditLog` and prints `{log, available, limit, records, skipped}`, records newest first. The blocked-request log is OLS's serial audit log
 `/usr/local/lsws/logs/modsec_audit.log` (root 0600) read through `ModSecurityAuditLog::parse` (a bounded tail; records
-`{time, client, vhost, uri, rule_id, message, action}`, printable ASCII, no headers other than Host).
+`{time, client, vhost, uri, rule_id, message, action}`, printable ASCII, no headers other than Host). The engine is `RelevantOnly`
+(a WHM setting of `On`, which would log every request, is replaced by it) and the log is rotated by `/etc/logrotate.d/ols-cpanel`
+(50 MB, four compressed generations, `copytruncate`). The generated OLS error logs use `logLevel NOTICE`.
 
 ### Admin socket operations (root; WHM gateway)
 
@@ -1048,6 +1061,21 @@ values (`tests/compiler_equivalence.py`; the lab reference `tenant_isolation_pro
 takes effect at the next compile (`ols-cpanel sync`, or the reconciler's next pass) and, for running pools, the next PHP restart.
 The compile summary lists the accounts with an entry under `php_limits`. Runaway thresholds default to 900 CPU seconds, 1024 MB and a
 minimum age of 120 s.
+
+**Automatic children (RV-53).** An account that keeps reaching its PHP worker limit gets more workers without any input. The state
+file `/var/lib/ols-cpanel/php-demand.json` (root 0644, written atomically; `Php\PhpDemand`) records per account the last time OLS
+reported the limit reached (`Reached max children process limit: N` in `/usr/local/lsws/logs/stderr.log`, attributed by the
+extprocessor name `<user>-php` or by the LSAPI prefix `[UID:n]`), the reports counted, and the current value. `php env sync`
+(`ols-cpanel-php.service`, every 15 minutes) scans the log from where the last scan stopped (inode and offset in the file) and
+reports it as `"demand"` in its result. Steps 5, 8, 12 (never above 12): three reports at the account's current limit (a report from
+an lsphp still running with an older, lower limit does not count) raise it one step, the busiest account first, while the extra
+children of all accounts (60 MB each) stay within 25% of `MemTotal`; an account that does not fit is marked `budget_limited`. After
+7 days without a report an account steps one step down, and again every further 7 days, back to the built-in value. The compile reads the
+file as an input (an absent, foreign or malformed file means no automatic value) and the reconciler's input digest covers the effective
+values. An explicit `children` of the operator (an account's own, or in `defaults`) always wins; an explicit `max_conns` or `proc_soft`
+below the automatic value caps it. `php status` reports `limits.automatic`: per account `{children, reason, waits, last_hit,
+raised_at, budget_limited, applied, effective_children, source: "automatic" | "operator"}`, and `limits.accounts` lists the accounts with
+an automatic value too; the compile summary lists them under `php_limits`.
 
 **`php processes [--account=U]`** (root, read only; `ps -eo pid=,ppid=,user:32=,etimes=,cputimes=,rss=,pcpu=,stat=,comm=`, rows
 named exactly `lsphp`). Result `{"command", "result": "processes", "observed_at", "account", "process": "lsphp", "thresholds",

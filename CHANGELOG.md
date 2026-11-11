@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.2.13
+
+From the one-week soak test (25 sites, about two million requests a day):
+
+- A PHP request could hang for 30 seconds when a site's PHP started again after a pause: OpenLiteSpeed kept a copy of
+  every PHP process group's socket. Fixed in the bundled OpenLiteSpeed (the change upstream made in 1.9.4), and a
+  site's PHP now stays ready for ten minutes after its last request instead of one, so scripts are not compiled again
+  thousands of times a day.
+- After a return to Apache and a new switch to OpenLiteSpeed, the page cache could show pages from before the return.
+  The cache is now emptied at every switch.
+- The configuration is compiled only when something it depends on changed (it was every minute, about 5 seconds of
+  CPU each time); a full compile still runs every 15 minutes.
+- Busy sites get more PHP processes automatically (5, 8, then 12) when they wait for one, within a memory budget, and
+  go back after a quiet week. Limits set by the administrator always win.
+- Static files (images, CSS, JavaScript, fonts) get a one-week browser lifetime unless the site sets its own.
+- Requests for missing dumps, backups and secrets (`.env`, `.sql`, `.bak`, `debug.log`, `backup.zip` and similar) are
+  refused before PHP runs, so scanners no longer load the site.
+- Smaller logs (OpenLiteSpeed at NOTICE level; the ModSecurity audit log keeps relevant requests only and is rotated).
+- The per-account object cache (Valkey) uses almost no CPU while idle.
+- The uninstall also removes cPanel's update-check record of the WHM plugin.
+
 ## 0.2.12
 
 - Drupal sites with LiteSpeed Cache stay on OpenLiteSpeed: the PHP setting the module writes for LiteSpeed

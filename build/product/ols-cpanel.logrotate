@@ -1,0 +1,13 @@
+# OLS-cPanel: rotation of the ModSecurity audit log (RV-57). OpenLiteSpeed rotates its own error and access logs
+# (rollingSize), but never this one, so it grew without bound in the soak test. The audit log is written only for
+# relevant transactions (SecAuditEngine RelevantOnly). copytruncate: OLS keeps the file open and has no reopen signal for it.
+# Installed as /etc/logrotate.d/ols-cpanel; run by the system's logrotate timer, never by a package scriptlet.
+/usr/local/lsws/logs/modsec_audit.log {
+    size 50M
+    rotate 4
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

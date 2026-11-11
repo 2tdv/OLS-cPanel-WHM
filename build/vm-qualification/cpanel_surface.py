@@ -50,6 +50,10 @@ def processors():
 def host_aliases(domain):
     return [f"{name}.{domain}" for name in [*SERVICES, *SCRIPT_HOSTS]]
 
+PROBE_RULES = ['RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} !-f',
+               'RewriteRule (?:^|/)(?:\\.env(?:\\.[a-z0-9._-]+)?|\\.git/.*|[^/]+\\.(?:sql|sql\\.gz|sql\\.zip|bak|old|orig|save|swp)|debug\\.log|appsettings(?:\\.[a-z0-9_-]+)?\\.json|(?:backup|backups|db|database|dump|site|www|wordpress)\\.(?:zip|tar|tar\\.gz|tgz|gz|rar|7z))$ - [F,NC,L]']
+
+
 def rewrite_rules(domains, activesync=True):
     """Vhost-level rules evaluated before the tenant's .htaccess rules. `domains` are the vhost's
     service domains (its main or addon domains; none for a plain subdomain)."""
@@ -77,6 +81,8 @@ def rewrite_rules(domains, activesync=True):
                   f"RewriteRule ^/?Microsoft-Server-ActiveSync http://cpsrvd{ACTIVESYNC_PORT}/Microsoft-Server-ActiveSync/ [P,L]"]
     for pattern, script in GLOBAL_SCRIPTS:
         lines.append(f"RewriteRule {pattern} {script} [L]")
+    # Missing dumps, backups and secrets refused before PHP (RV-60).
+    lines += PROBE_RULES
     return "\n".join(lines) + "\n"
 
 SUSPENDED_PAGE = "/cgi-sys/suspendedpage.cgi"
@@ -242,7 +248,7 @@ def apache_vhost(docroot, name, ip, tls_file, error_log_dir, ports=(81, 444), se
              f"RewriteRule ^ {'wss' if secure else 'ws'}://{_ipv4(ip)}:{ports[1] if secure else ports[0]}%1 [P,L]\n"
              f"RewriteRule ^/?(.*)$ http://{backend}/$1 [P,L]\n")
     return (f"docRoot                  {docroot.rstrip('/')}/\nvhDomain                 {name}\n"
-            f"errorlog {error_log_dir}/{vhost}-error.log {{\n    useServer            0\n    logLevel             INFO\n}}\n"
+            f"errorlog {error_log_dir}/{vhost}-error.log {{\n    useServer            0\n    logLevel             NOTICE\n}}\n"
             f"rewrite {{\n    enable               1\n    autoLoadHtaccess     0\n    rules                <<<END_rules\n"
             f"{rules}END_rules\n}}\n"
             f"context exp:^/\\.well-known/acme-challenge/ {{\n  type                    proxy\n"

@@ -15,7 +15,8 @@ use OlsCpanel\Events\Reconciler;
 /**
  * Reconcile once (exit 0 when the active generation is current: "unchanged" or "committed"; 1 when the
  * new generation was invalid, refused or rolled back, the events then stay pending), or run the service
- * loop (`--watch`, one JSON line per pass and per enforcement action; it never returns on its own).
+ * loop (`--watch`, one JSON line per pass and per enforcement action; it never returns on its own). The loop skips the
+ * compile while the digest of its inputs is unchanged ("compiled": false, RV-48); a single pass always compiles.
  */
 final class SyncCommand implements Command
 {
@@ -48,7 +49,7 @@ final class SyncCommand implements Command
             $emit = static function (array $record) use ($out): void {
                 $out->line($record);
             };
-            $this->context->reconciler(new PacedEngine($engine, \Closure::fromCallable($emit)))
+            $this->context->reconciler(new PacedEngine($engine, \Closure::fromCallable($emit)), true)
                 ->watch($interval === null ? Reconciler::DEFAULT_INTERVAL : (int) $interval, \Closure::fromCallable($emit));
             return Application::EXIT_OK;
         }

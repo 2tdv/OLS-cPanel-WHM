@@ -467,6 +467,20 @@ check($out['opcache']['versions'][1]['loaded'] === true && $out['opcache']['vers
 [$code, $out] = run_cli($cli, ['php', 'status', '--account=olscpa']);
 check($code === 0 && $out['account'] === 'olscpa' && isset($out['processes']['accounts'][0]['processes']) && $out['limits']['account']['children'] === 10
     && $out['opcache']['versions'][1]['accounts'] === 1, 'php status --account carries the processes and the effective limits');
+// RV-53: the automatic children and why, beside the operator's limits (the demand file lies beside the limits file).
+$demandFile = "$base/state/php-demand.json";
+file_put_contents($demandFile, json_encode(['version' => 1, 'accounts' => ['olscpa' => ['children' => 12, 'waits' => 40, 'last_hit' => time()],
+    'olscpb' => ['children' => 8, 'waits' => 212, 'last_hit' => time()]]]));
+chmod($demandFile, 0644);
+[$code, $out] = run_cli($cli, ['php', 'status']);
+$automatic = $out['limits']['automatic'];
+check($code === 0 && $automatic['olscpb']['applied'] === true && $automatic['olscpb']['source'] === 'automatic' && $automatic['olscpb']['children'] === 8
+    && str_contains($automatic['olscpb']['reason'], '212 times') && $out['limits']['accounts']['olscpb']['children'] === 8
+    && $automatic['olscpa']['applied'] === false && $automatic['olscpa']['source'] === 'operator' && $automatic['olscpa']['effective_children'] === 10
+    && $out['limits']['accounts']['olscpa']['children'] === 10, 'php status shows the automatic value and its reason, and that the operator\'s value wins');
+[$code, $out] = run_cli($cli, ['php', 'status', '--account=olscpb']);
+check($code === 0 && $out['limits']['account']['children'] === 8, 'php status --account carries the effective automatic children');
+unlink($demandFile);
 file_put_contents($limitsFile, '{"accounts": {"olscpa": {"children": 0}}}');
 [$code, $out] = run_cli($cli, ['php', 'status']);
 check($code === 0 && $out['limits']['error'] !== null && $out['limits']['overrides'] === false, 'php status shows a broken limits file instead of failing');

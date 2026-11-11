@@ -340,6 +340,9 @@ loglevel notice
 databases 16
 maxclients 256
 timeout 300
+hz 1
+dynamic-hz yes
+latency-tracking no
 maxmemory 64mb
 maxmemory-policy allkeys-lru
 save ""

@@ -111,6 +111,10 @@ final class CpanelSurface
             [...array_keys(self::SERVICES), ...array_keys(self::SCRIPT_HOSTS)]);
     }
 
+    /** Refusal of missing dumps, backups and secrets before PHP (RV-60). */
+    public const PROBE_RULES = ['RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} !-f',
+        'RewriteRule (?:^|/)(?:\\.env(?:\\.[a-z0-9._-]+)?|\\.git/.*|[^/]+\\.(?:sql|sql\\.gz|sql\\.zip|bak|old|orig|save|swp)|debug\\.log|appsettings(?:\\.[a-z0-9_-]+)?\\.json|(?:backup|backups|db|database|dump|site|www|wordpress)\\.(?:zip|tar|tar\\.gz|tgz|gz|rar|7z))$ - [F,NC,L]'];
+
     /**
      * Vhost-level rules evaluated before the tenant's .htaccess rules. $domains are the vhost's
      * service domains (its main or addon domains; none for a plain subdomain).
@@ -156,6 +160,10 @@ final class CpanelSurface
         foreach (self::GLOBAL_SCRIPTS as [$pattern, $script]) {
             $lines[] = "RewriteRule $pattern $script [L]";
         }
+        // Scanners probe for dumps, backups and secrets that are not there (RV-60: 2,872 such requests in 3 minutes ran
+        // WordPress's 404 page each). A missing file of that kind is refused here, before PHP; an existing one is
+        // served or denied as before.
+        array_push($lines, ...self::PROBE_RULES);
         return implode("\n", $lines) . "\n";
     }
 
@@ -393,7 +401,7 @@ final class CpanelSurface
             . 'RewriteRule ^ ' . ($secure ? 'wss' : 'ws') . '://' . self::ipv4($ip) . ':' . ($secure ? $ports[1] : $ports[0]) . "%1 [P,L]\n"
             . "RewriteRule ^/?(.*)$ http://$backend/\$1 [P,L]\n";
         return 'docRoot                  ' . rtrim($docroot, '/') . "/\nvhDomain                 $name\n"
-            . "errorlog $errorLogDir/$vhost-error.log {\n    useServer            0\n    logLevel             INFO\n}\n"
+            . "errorlog $errorLogDir/$vhost-error.log {\n    useServer            0\n    logLevel             NOTICE\n}\n"
             . "rewrite {\n    enable               1\n    autoLoadHtaccess     0\n    rules                <<<END_rules\n"
             . $rules . "END_rules\n}\n"
             . "context exp:^/\\.well-known/acme-challenge/ {\n  type                    proxy\n"

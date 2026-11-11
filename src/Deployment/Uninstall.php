@@ -16,7 +16,7 @@ use OlsCpanel\PhpExtensions\ExtensionInstaller;
  * transient unit outside this process (dnf; `--keep-packages` leaves them), which then removes what the packages leave
  * behind: OpenLiteSpeed's runtime files in /usr/local/lsws, the state directory, the olscpanel system user and the valkey
  * user of a Valkey that dnf removed with them (PURGE). Nothing of the product stays (an owner's test on a second server,
- * 2026-10-29, found those leftovers). Kept: the OPcache packages and everything the product did not install. A dry run only reads.
+ * 2026-10-29, found those leftovers), nor cPanel's update-check stamp of the WHM add-on (UPDATE_STAMP). Kept: the OPcache packages and everything the product did not install. A dry run only reads.
  *
  * Review RV-29: nothing is removed unless Apache is verified serving (enabled, monitored and running, the only
  * owner of 80/443, answering) under the deployment lock, whatever profile.json says: a recovery interrupted
@@ -41,6 +41,12 @@ final class Uninstall
     public const PACKAGES = ['ols-cpanel', 'ols-cpanel-openlitespeed', 'ols-cpanel-php-redis'];
     /** The transient unit that runs dnf outside this process (which lives in a package being removed). */
     public const REMOVE_UNIT = 'ols-cpanel-remove-packages';
+    /**
+     * cPanel's update-check stamp for the WHM add-on (RV-61): written by cPanel's add-on update check, not by the product, and
+     * left behind when the add-on is unregistered. A fixed path: it is removed with `rm -f --`, which unlinks a link as such and
+     * never follows it; a missing file is fine.
+     */
+    public const UPDATE_STAMP = '/var/cpanel/version/addons_update/whostmgr_ols-cpanel';
     public const RPM = '/usr/bin/rpm';
     public const SYSTEMD_RUN = '/usr/bin/systemd-run';
     public const DNF = '/usr/bin/dnf';
@@ -123,6 +129,13 @@ final class Uninstall
         }
         $actions[] = $dryRun ? ['action' => 'unregister and remove the WHM and cPanel plugins']
             : ['action' => 'unregister and remove the WHM and cPanel plugins', 'done' => $this->env->plugins()->remove()];
+        // After the WHM plugin is unregistered: cPanel's update-check stamp of the add-on (nothing else in that directory).
+        if ($dryRun) {
+            $actions[] = ['action' => 'remove ' . self::UPDATE_STAMP];
+        } else {
+            $stamp = $this->env->host->run('update-stamp-remove', ['/usr/bin/rm', '-f', '--', self::UPDATE_STAMP]);
+            $actions[] = ['action' => 'removed ' . self::UPDATE_STAMP] + ($stamp['exit_code'] === 0 ? [] : ['ok' => false]);
+        }
         foreach (self::UNITS as $unit) {
             if ($dryRun) {
                 $actions[] = ['action' => "disable and stop $unit"];

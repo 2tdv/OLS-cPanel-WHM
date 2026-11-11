@@ -16,6 +16,7 @@ use OlsCpanel\Deployment\BuilderCompilation;
 use OlsCpanel\Deployment\CutoverPlan;
 use OlsCpanel\Deployment\Profile;
 use OlsCpanel\Deployment\SecurityInput;
+use OlsCpanel\Events;
 use OlsCpanel\Events\HookEntry;
 use OlsCpanel\Events\PacedEngine;
 use OlsCpanel\Events\ReconcileBusy;
@@ -481,6 +482,322 @@ $broken = new FakeEngine([]);
         $errors[] = $l;
     }, 1);
 check(isset($errors[0]['error']) && str_contains($errors[0]['error'], 'unrecorded'), 'watch: a failing pass is logged, the loop continues');
+
+// --- RV-48: compile only when a source changed ----------------------------------------------------------
+$compiles = 0;
+$transient = false;
+$counting = static function (Profile $profile, Engine $engine) use ($builders, &$compiles, &$transient): array {
+    ++$compiles;
+    $compiled = $builders($profile, $engine);
+    if ($transient) {
+        $compiled['summary']['htaccess_blockers']['olstest1.example.test'] = ['/wp-content/: .htaccess unreadable'];
+    }
+    return $compiled;
+};
+$inputs = 'inputs-1';
+$inputsFail = false;
+$digestOf = static function (Profile $profile, int $epoch) use (&$inputs, &$inputsFail): string {
+    if ($inputsFail) {
+        throw new Events\InputsUnsure('a listing failed');
+    }
+    return "$inputs:$epoch";
+};
+$now = 1000.0;
+$skipClock = static function () use (&$now): float {
+    return $now;
+};
+$skipping = static fn(FakeEngine $e): Reconciler => new Reconciler($e, $counting, null, $production, '/nonexistent', null, $skipClock, null,
+    static fn(): string => 'r20261022120000-0a1b2c', inputs: $digestOf);
+$watched = new FakeEngine($fixture['calls']);
+$pass = $skipping($watched);
+$sourceOfLast = static fn(): ?string => $watched->applied === [] ? null : $watched->applied[count($watched->applied) - 1]['sourceSha256'];
+$first = $pass->reconcile();
+check($first['action'] === 'committed' && $first['compiled'] === true && $first['compile_reason'] === 'no_baseline' && $compiles === 1,
+    'the first pass compiles (no baseline)');
+$watched->state['source_sha256'] = $sourceOfLast();
+$watched->log = [];
+$now += 65;
+$again = $pass->reconcile();
+check($again['action'] === 'unchanged' && $again['compiled'] === false && $compiles === 1 && !in_array('run', $watched->log, true)
+    && !in_array('apply', $watched->log, true) && in_array('health 5', $watched->log, true) && $again['hybrid_vhosts'] === $first['hybrid_vhosts'],
+    'unchanged inputs: no compile, no command, the same kind of line ("compiled": false)');
+$watched->events = $events;
+$now += 65;
+$withEvents = $pass->reconcile();
+check($withEvents['compiled'] === true && $withEvents['compile_reason'] === 'events' && $withEvents['action'] === 'unchanged' && $watched->events === [] && $compiles === 2,
+    'pending events compile and are consumed');
+$now += 65;
+check($pass->reconcile()['compiled'] === false && $compiles === 2, 'and the next pass skips again');
+$inputs = 'inputs-2';  // a touched .htaccess (path, mtime, size or inode) changes the digest
+$now += 65;
+$touched = $pass->reconcile();
+check($touched['compiled'] === true && $touched['compile_reason'] === 'inputs_changed' && $compiles === 3, 'a changed input (a touched .htaccess) compiles');
+$watched->state['source_sha256'] = $sourceOfLast();
+$now += 65;
+check($pass->reconcile()['compiled'] === false && $compiles === 3, 'the new digest is the baseline');
+$watched->state['epoch'] = 3;  // a restriction epoch is part of the digest
+$now += 65;
+check($pass->reconcile()['compile_reason'] === 'inputs_changed' && $compiles === 4, 'a raised restriction epoch compiles');
+$watched->state['epoch'] = 2;
+$watched->state['source_sha256'] = $sourceOfLast();
+$now += 65;
+$pass->reconcile();
+$watched->state['source_sha256'] = $sourceOfLast();
+$compilesBefore = $compiles;
+// The forced interval: the digest is unchanged for FULL_COMPILE_SECONDS, the pass compiles anyway.
+$lastCompile = $now;
+$forcedLine = null;
+for ($i = 0; $i < 30 && $forcedLine === null; ++$i) {
+    $now += 65;
+    $line = $pass->reconcile();
+    if ($line['compiled']) {
+        $forcedLine = $line;
+    }
+}
+check($forcedLine !== null && $forcedLine['compile_reason'] === 'interval' && $now - $lastCompile >= Reconciler::FULL_COMPILE_SECONDS
+    && $now - $lastCompile < Reconciler::FULL_COMPILE_SECONDS + 65 && $compiles === $compilesBefore + 1,
+    'the forced interval compiles once ' . Reconciler::FULL_COMPILE_SECONDS . ' s passed although nothing changed');
+$watched->state['source_sha256'] = $sourceOfLast() ?? $watched->state['source_sha256'];
+$now += 65;
+check($pass->reconcile()['compiled'] === false, 'and the interval counts from that compile');
+$compilesBefore = $compiles;
+$now += 65;
+$realSource = $watched->state['source_sha256'];
+$watched->state['source_sha256'] = str_repeat('f', 64);  // the active generation is not the one this process produced
+check($pass->reconcile()['compile_reason'] === 'generation_changed' && $compiles === $compilesBefore + 1, 'a different active generation compiles');
+$watched->state['source_sha256'] = $sourceOfLast();
+$now += 65;
+$pass->reconcile();
+$compilesBefore = $compiles;
+$watched->failing = [['vhost' => 'olstest2.example.test', 'got' => 'error: HTTP 404']];
+$now += 65;
+check($pass->reconcile()['compile_reason'] === 'unhealthy' && $compiles === $compilesBefore + 1, 'an unhealthy vhost compiles');
+$watched->failing = [];
+$watched->state['source_sha256'] = $sourceOfLast();
+$now += 65;
+$compilesBefore = $compiles;
+check($pass->reconcile(true)['compile_reason'] === 'forced' && $compiles === $compilesBefore + 1, 'a forced pass compiles');
+$watched->state['source_sha256'] = $sourceOfLast();
+$now += 65;
+$inputsFail = true;
+$unsure = $pass->reconcile();
+check($unsure['compiled'] === true && $unsure['compile_reason'] === 'inputs_unavailable' && str_contains($unsure['inputs_unavailable'], 'a listing failed'),
+    'inputs that cannot be digested: compile, and say why');
+$inputsFail = false;
+$watched->state['source_sha256'] = $sourceOfLast();
+$now += 65;
+check($pass->reconcile()['compile_reason'] === 'inputs_unavailable', 'a pass without a digest leaves no baseline to skip on');
+$now += 65;
+check($pass->reconcile()['compiled'] === false, 'and the pass after one with a digest skips again');
+// A failed pass: the next pass compiles whatever the digest says.
+$watched->validation = ['valid' => false, 'report' => 'line 3: Not support [x]'];
+$watched->state['source_sha256'] = null;
+$now += 65;
+$inputs = 'inputs-3';
+check($pass->reconcile()['action'] === 'invalid', 'an invalid generation is refused');
+$watched->validation = ['valid' => true];
+$compilesBefore = $compiles;
+$now += 65;
+$healed = $pass->reconcile();
+check($healed['compiled'] === true && $healed['compile_reason'] === 'no_baseline' && $healed['action'] === 'committed' && $compiles === $compilesBefore + 1,
+    'after a failed pass the next pass compiles even though the inputs did not change');
+$watched->state['source_sha256'] = $sourceOfLast();
+// The Drupal Twig case: files unreadable during a rebuild, readable again with the same metadata at the next pass.
+$transient = true;
+$inputs = 'inputs-4';
+$now += 65;
+check($pass->reconcile()['compiled'] === true, 'the pass during the rebuild compiles (the file was unreadable)');
+$watched->state['source_sha256'] = $sourceOfLast();
+$transient = false;
+$compilesBefore = $compiles;
+$now += 65;
+$next = $pass->reconcile();
+check($next['compiled'] === true && $next['compile_reason'] === 'transient' && $compiles === $compilesBefore + 1,
+    'a compile that met an unreadable .htaccess is followed by a compile although the digest is equal (RV-48 Drupal Twig)');
+$watched->state['source_sha256'] = $sourceOfLast();
+$now += 65;
+check($pass->reconcile()['compiled'] === false, 'once nothing was unreadable the passes skip again');
+// The root CLI and every caller without a digest closure compile every time.
+$plain = new FakeEngine($fixture['calls']);
+$plainPass = new Reconciler($plain, $counting, null, $production, '/nonexistent', null, null, null, static fn(): string => 'r20261022120000-0a1b2c');
+$compilesBefore = $compiles;
+$plainLine = $plainPass->reconcile();
+$plain->state['source_sha256'] = $plain->applied[0]['sourceSha256'];
+$plainAgain = $plainPass->reconcile();
+check($compiles === $compilesBefore + 2 && !isset($plainLine['compiled']) && $plainAgain['action'] === 'unchanged',
+    'without a digest closure every pass compiles (the root CLI) and the lines are as before');
+
+// The service loop emits the same line kind for a skipped pass.
+$loopEngine = new FakeEngine($fixture['calls']);
+$loopNow = 0.0;
+$loopClock = static function () use (&$loopNow): float {
+    return $loopNow;
+};
+$loopSleep = static function (int $seconds) use (&$loopNow): void {
+    $loopNow += $seconds;
+};
+$loopLines = [];
+$loopEmit = static function (array $l) use (&$loopLines): void {
+    $loopLines[] = $l;
+};
+$loopCompiles = 0;
+$loopBuilder = static function (Profile $profile, Engine $engine) use ($builders, &$loopCompiles): array {
+    ++$loopCompiles;
+    return $builders($profile, $engine);
+};
+$loopReconciler = new Reconciler(new PacedEngine($loopEngine, $loopEmit, $loopClock), $loopBuilder, null, $production, '/nonexistent', null,
+    $loopClock, $loopSleep, static fn(): string => 'r20261022120000-0a1b2c', inputs: static fn(Profile $p, int $e): string => 'same');
+$loopReconciler->watch(60, $loopEmit, 3);
+$loopEngine->state['source_sha256'] = $loopEngine->applied[0]['sourceSha256'] ?? null;
+$loopReconciler->watch(60, $loopEmit, 130);
+$passLines = array_values(array_filter($loopLines, static fn(array $l): bool => isset($l['action'])));
+check(count($passLines) >= 3 && $passLines[0]['compiled'] === true && $passLines[1]['compiled'] === false && $passLines[1]['action'] === 'unchanged'
+    && $loopCompiles === 1, 'watch: passes every interval and only the first compiles while nothing changes');
+
+// --- RV-53: the automatic PHP children reach the compile as an input -----------------------------------------
+$limitsEngine = new FakeEngine($fixture['calls']);
+$compileWith = static fn(?OlsCpanel\Php\PhpLimits $limits): array => (new ServerConfigurationBuilder($limitsEngine, TENANTS, $template,
+    '/var/lib/ols-cpanel-lab/logs', null, null, null, null, null, null, null, phpLimits: $limits))->compile();
+$withoutState = $compileWith(OlsCpanel\Php\PhpLimits::fromArray([])->withDemand(OlsCpanel\Php\PhpDemand::empty()));
+$builtin = $compileWith(null);
+check($withoutState['config'] === $builtin['config'] && $withoutState['vhconf'] === $builtin['vhconf'] && !isset($withoutState['summary']['php_limits']),
+    'without demand state the compile is byte-identical to the built-in one (and its summary has no php_limits)');
+$demandFile = temp_dir() . '/php-demand.json';
+file_put_contents($demandFile, '{"version": 1, "accounts": {"olscpa": {"children": 8}}}');
+chmod($demandFile, 0644);
+$demanded = $compileWith(OlsCpanel\Php\PhpLimits::fromArray([])->withDemand(OlsCpanel\Php\PhpDemand::load($demandFile)));
+check(str_contains($demanded['vhconf']['olstest1.example.test'], "maxConns             8\n    env                  PHP_LSAPI_CHILDREN=8\n")
+    && str_contains($demanded['vhconf']['olstest2.example.test'], 'PHP_LSAPI_CHILDREN=5') && $demanded['summary']['php_limits']['olscpa']['children'] === 8,
+    'an account with demand state compiles with its raised children and max_conns; the others keep 5');
+$operator = $compileWith(OlsCpanel\Php\PhpLimits::fromArray(['accounts' => ['olscpa' => ['children' => 6]]])->withDemand(OlsCpanel\Php\PhpDemand::load($demandFile)));
+check(str_contains($operator['vhconf']['olstest1.example.test'], 'PHP_LSAPI_CHILDREN=6'), 'an operator value for the account wins in the compiled vhost');
+$builderDir = temp_dir();
+file_put_contents("$builderDir/template", $template);
+file_put_contents("$builderDir/php-demand.json", '{"version": 1, "accounts": {"olscpb": {"children": 12}}}');
+chmod("$builderDir/php-demand.json", 0644);
+$accountList = new class($limitsEngine) implements CommandRunner {
+    public function __construct(private readonly FakeEngine $inner)
+    {
+    }
+
+    public function run(string $name, array $argv, int $timeout): array
+    {
+        return $name === 'listaccts' ? ['exit_code' => 0, 'stdout' => json_encode(['metadata' => ['result' => 1, 'command' => 'listaccts'],
+            'data' => ['acct' => [['user' => 'olscpa', 'domain' => 'olstest1.example.test'], ['user' => 'olscpb', 'domain' => 'olstest2.example.test']]]])]
+            : $this->inner->run($name, $argv, $timeout);
+    }
+};
+$viaBuilder = (new BuilderCompilation($accountList, "$builderDir/template", '/var/lib/ols-cpanel-lab/logs', static fn(
+    OlsCpanel\Infrastructure\Process\CommandRunner $r, array $t, string $tpl, string $logs, ?array $ports, array $security,
+    OlsCpanel\Php\PhpLimits $limits, bool $http3 = true,
+): ServerConfigurationBuilder => new ServerConfigurationBuilder($r, TENANTS, $tpl, $logs, phpLimits: $limits), "$builderDir/security.json",
+    "$builderDir/php-limits.json", "$builderDir/http3.json"))->compile(null);
+check(str_contains($viaBuilder['vhconf']['olstest2.example.test'], 'PHP_LSAPI_CHILDREN=12'), 'BuilderCompilation reads php-demand.json beside the limits file');
+
+// --- InputDigest (the digest of the inputs; commands scripted) ------------------------------------------
+$digestDir = temp_dir();
+foreach (['template', 'security.json'] as $name) {
+    file_put_contents("$digestDir/$name", "$name v1\n");
+}
+final class DigestRunner implements CommandRunner
+{
+    /** @var array<string,array{exit_code:int, stdout:string, stderr?:string}> by step name */
+    public array $answers = [];
+    /** @var list<string> */
+    public array $names = [];
+
+    public function run(string $name, array $argv, int $timeout): array
+    {
+        $this->names[] = $name;
+        return $this->answers[$name] ?? ['exit_code' => 0, 'stdout' => '', 'stderr' => ''];
+    }
+}
+$stat = static fn(string $type, int $inode, int $size, string $mtime, string $ctime, string $path): string => "$type $inode $size $mtime $ctime $path\0";
+$domains = "olstest1.example.test: olscpa==root==main==olstest1.example.test==/home/olscpa/public_html==192.0.2.10:80==192.0.2.10:443==x==y==ea-php83\n"
+    . "blog.olstest1.example.test: olscpa==root==sub==olstest1.example.test==/home/olscpa/public_html/blog==192.0.2.10:80==192.0.2.10:443==x==y==ea-php83\n"
+    . "olstest2.example.test: olscpb==root==main==olstest2.example.test==/home2/olscpb/public_html==192.0.2.11:80==192.0.2.11:443==x==y==ea-php82\n";
+$runner = new DigestRunner();
+$runner->answers = [
+    'input-cpanel' => ['exit_code' => 0, 'stdout' => $stat('f', 11, 100, '1.0', '1.0', '/etc/userdatadomains'), 'stderr' => ''],
+    'input-php' => ['exit_code' => 0, 'stdout' => $stat('f', 21, 90, '2.0', '2.0', '/opt/cpanel/ea-php83/root/usr/bin/php'), 'stderr' => ''],
+    'input-ipv6' => ['exit_code' => 0, 'stdout' => "2: eth0 inet6 2001:db8::1/64\n", 'stderr' => ''],
+    'input-userdatadomains' => ['exit_code' => 0, 'stdout' => $domains, 'stderr' => ''],
+    'input-htaccess-olscpa' => ['exit_code' => 0, 'stdout' => $stat('f', 31, 50, '3.0', '3.0', '/home/olscpa/public_html/.htaccess'), 'stderr' => ''],
+    'input-htaccess-olscpb' => ['exit_code' => 0, 'stdout' => '', 'stderr' => ''],
+    'input-ancestor-olscpa' => ['exit_code' => 0, 'stdout' => '', 'stderr' => ''],
+    'input-ancestor-olscpb' => ['exit_code' => 0, 'stdout' => '', 'stderr' => ''],
+];
+$demandPath = "$digestDir/php-demand.json";
+$digest = static fn(DigestRunner $r, ?Profile $p = null, int $epoch = 2): string => (new Events\InputDigest($r, ["$digestDir/template", "$digestDir/security.json",
+    "$digestDir/absent.json"], $demandPath))->digest($p ?? new Profile(true, null), $epoch);
+$base = $digest($runner);
+check($digest($runner) === $base && preg_match('/^[0-9a-f]{64}$/D', $base) === 1, 'the digest of unchanged inputs is stable');
+check(count(array_keys($runner->names, 'input-htaccess-olscpa', true)) === 4 && count(array_keys($runner->names, 'input-htaccess-olscpb', true)) === 2
+    && count(array_keys($runner->names, 'input-ancestor-olscpa', true)) === 2 && count(array_keys($runner->names, 'input-ancestor-olscpb', true)) === 2,
+    'one listing per document root of every account and one per ancestor inside the home');
+$changed = static function (string $name, string $stdout) use ($runner, $digest, $base): bool {
+    $saved = $runner->answers[$name];
+    $runner->answers[$name]['stdout'] = $stdout;
+    $result = $digest($runner) !== $base;
+    $runner->answers[$name] = $saved;
+    return $result;
+};
+check($changed('input-htaccess-olscpa', $stat('f', 31, 50, '3.5', '3.0', '/home/olscpa/public_html/.htaccess')), 'a touched .htaccess (mtime) changes the digest');
+check($changed('input-htaccess-olscpa', $stat('f', 31, 50, '3.0', '3.7', '/home/olscpa/public_html/.htaccess')), 'a chmod (ctime only) changes it: a file unreadable for a moment');
+check($changed('input-htaccess-olscpa', $stat('f', 99, 50, '3.0', '3.0', '/home/olscpa/public_html/.htaccess')), 'a replaced file (inode) changes it');
+check($changed('input-htaccess-olscpa', $stat('f', 31, 51, '3.0', '3.0', '/home/olscpa/public_html/.htaccess')), 'a different size changes it');
+check($changed('input-htaccess-olscpa', ''), 'a removed .htaccess changes it');
+check($changed('input-htaccess-olscpa', $stat('f', 31, 50, '3.0', '3.0', '/home/olscpa/public_html/.htaccess') . $stat('f', 32, 5, '4.0', '4.0', '/home/olscpa/public_html/sub/.htaccess')),
+    'a new .htaccess changes it');
+check($changed('input-htaccess-olscpa', $stat('l', 31, 50, '3.0', '3.0', '/home/olscpa/public_html/.htaccess')), 'a file that became a link changes it');
+check($changed('input-ancestor-olscpb', $stat('f', 41, 5, '5.0', '5.0', '/home2/olscpb/.htaccess')), 'an .htaccess in the home above a document root changes it');
+check($changed('input-cpanel', $stat('f', 11, 101, '1.0', '1.0', '/etc/userdatadomains')), 'a cPanel input (userdata, accounts, certificates) changes it');
+check($changed('input-php', ''), 'a PHP tree change (pool, binary, lsphp) changes it');
+check($changed('input-ipv6', "2: eth0 inet6 2001:db8::2/64\n"), 'a changed IPv6 address changes it');
+check($changed('input-userdatadomains', $domains . "x.example.test: olscpb==root==sub==olstest2.example.test==/home2/olscpb/public_html/x==a==b==c==d==ea-php82\n"),
+    'a new vhost (userdatadomains) changes it');
+check($digest($runner, new Profile(true, [8080, 8443])) !== $base && $digest($runner, null, 3) !== $base, 'the profile and the restriction epoch are part of it');
+file_put_contents("$digestDir/security.json", "security.json v2\n");
+check($digest($runner) !== $base, 'a product input file (security.json) is part of it');
+file_put_contents("$digestDir/security.json", "security.json v1\n");
+$base = $digest($runner);
+file_put_contents($demandPath, json_encode(['version' => 1, 'updated' => 1, 'log' => ['inode' => 1, 'offset' => 5], 'accounts' => ['olscpa' => ['children' => 8]]]));
+chmod($demandPath, 0644);
+$withDemand = $digest($runner);
+check($withDemand !== $base, 'a raised automatic PHP limit is part of it (RV-53)');
+file_put_contents($demandPath, json_encode(['version' => 1, 'updated' => 99, 'log' => ['inode' => 1, 'offset' => 999], 'accounts' => ['olscpa' => ['children' => 8, 'waits' => 5]]]));
+check($digest($runner) === $withDemand, 'but not the scanner\'s own bookkeeping (offset, counts, time), which changes every scan');
+$base = $withDemand;
+// Anything that cannot be digested is "unsure", never a guess.
+foreach (['input-cpanel', 'input-php', 'input-htaccess-olscpa', 'input-ancestor-olscpb', 'input-ipv6', 'input-userdatadomains'] as $name) {
+    $saved = $runner->answers[$name];
+    $runner->answers[$name] = ['exit_code' => 1, 'stdout' => $saved['stdout'], 'stderr' => "find: '/x': Permission denied\n"];
+    check(throws(fn() => $digest($runner), Events\InputsUnsure::class), "$name failing makes the digest unavailable");
+    $runner->answers[$name] = $saved;
+}
+$runner->answers['input-cpanel'] = ['exit_code' => 1, 'stdout' => $stat('f', 11, 100, '1.0', '1.0', '/etc/userdatadomains'),
+    'stderr' => "find: '/etc/apache2/conf.d/modsec': No such file or directory\nfind: '/etc/apache2/conf.d/modsec_vendor_configs': No such file or directory\n"];
+check($digest($runner) !== '', 'an absent optional root (ModSecurity not installed) is a fact, not a failure');
+$runner->answers['input-cpanel']['stderr'] .= "find: '/var/cpanel/userdata': Permission denied\n";
+check(throws(fn() => $digest($runner), Events\InputsUnsure::class), 'but not together with another error');
+$runner->answers['input-cpanel'] = ['exit_code' => 0, 'stdout' => $stat('f', 11, 100, '1.0', '1.0', '/etc/userdatadomains'), 'stderr' => ''];
+foreach (['olscpa==root==main==a.test==/etc==x==y==z==w==ea-php83', 'olscpa==root==main==a.test==/home/olscpb/public_html==x==y==z==w==ea-php83',
+             'olscpa==root==main==a.test==/home/olscpa/../../etc==x==y==z==w==ea-php83', 'root==root==main==a.test==/home/root/x==x==y==z==w==ea-php83',
+             'olscpa==root==main==a.test'] as $row) {
+    $runner->answers['input-userdatadomains']['stdout'] = "a.test: $row\n";
+    check(throws(fn() => $digest($runner), Events\InputsUnsure::class), 'an unsafe row is unsure: ' . substr($row, 0, 50));
+}
+$runner->answers['input-userdatadomains']['stdout'] = $domains;
+check(Events\InputDigest::ancestors('olscpa', ['/home/olscpa/public_html', '/home/olscpa/public_html/blog', '/home/olscpa/sites/x'])
+    === ['/home/olscpa', '/home/olscpa/sites'], 'ancestors inside the home, without the directories below another document root');
+$throwing = new class implements CommandRunner {
+    public function run(string $name, array $argv, int $timeout): array
+    {
+        throw new EngineError('FORBIDDEN', 'argv is not in the engine.run allowlist');
+    }
+};
+check(throws(fn() => (new Events\InputDigest($throwing, ["$digestDir/template"], $demandPath))->digest(new Profile(true, null), 2), Events\InputsUnsure::class, 'allowlist'),
+    'a broker that does not know the digest commands yet (older package) makes the digest unavailable: the pass compiles');
 
 // --- LocalCommandRunner ------------------------------------------------------------------------------
 $runner = new LocalCommandRunner();

@@ -16,6 +16,12 @@ namespace OlsCpanel\Php;
  * (procSoftLimit/procHardLimit, 1-65535, soft not below children, hard not below soft). "runaway" holds the
  * detection thresholds of `php processes`: cpu_seconds, rss_mb and min_age_seconds. Anything else, or a
  * value of the wrong type or range, is refused: a broken limits file never reaches a configuration.
+ *
+ * Automatic children (RV-53, PhpDemand): an account that kept reaching its PHP worker limit gets more children without
+ * any input (withDemand). The automatic value replaces only the built-in value of "children": an operator's explicit
+ * "children" (the account's own, or in "defaults") always wins, and max_conns defaults to the children actually used. An
+ * operator's explicit max_conns or proc_soft that is below the automatic value caps it, so a valid operator file never
+ * becomes invalid because of it. Without demand state the output is unchanged.
  */
 final class PhpLimits
 {
@@ -37,6 +43,10 @@ final class PhpLimits
     private array $accounts = [];
     /** @var array{cpu_seconds:int, rss_mb:int, min_age_seconds:int} */
     private array $runaway = self::RUNAWAY;
+    /** @var array<string,int> account => automatic children (PhpDemand) */
+    private array $automatic = [];
+    /** @var array<string,array<string,mixed>> PhpDemand::describe(), for display */
+    private array $automaticReport = [];
 
     /**
      * @param array<string,mixed> $data decoded document
@@ -155,14 +165,31 @@ final class PhpLimits
         }
     }
 
+    /** A copy that uses the automatic children of $demand where the operator set none (RV-53). */
+    public function withDemand(PhpDemand $demand): self
+    {
+        $copy = clone $this;
+        $copy->automatic = $demand->children();
+        $copy->automaticReport = $demand->describe();
+        return $copy;
+    }
+
     /** The configured fields as the file spells them (memory in MB), for display. @return array<string,mixed> */
     public function describe(): array
     {
         $accounts = [];
-        foreach ($this->accountsWithOverrides() as $user) {
+        foreach ($this->accountsWithLimits() as $user) {
             $accounts[$user] = $this->forAccount($user);
         }
-        return ['builtin' => self::BUILTIN, 'overrides' => $this->overrides(), 'accounts' => (object) $accounts, 'runaway' => $this->runaway];
+        // RV-53: per account with a demand record, the automatic value, why, and whether it is in force or an operator value wins.
+        $automatic = [];
+        foreach ($this->automaticReport as $user => $row) {
+            $applied = $this->forAccount($user)['children'];
+            $automatic[$user] = $row + ['applied' => $applied === $row['children'],
+                'effective_children' => $applied, 'source' => $applied === $row['children'] ? 'automatic' : 'operator'];
+        }
+        return ['builtin' => self::BUILTIN, 'overrides' => $this->overrides(), 'accounts' => (object) $accounts, 'automatic' => (object) $automatic,
+            'runaway' => $this->runaway];
     }
 
     /**
@@ -171,7 +198,7 @@ final class PhpLimits
      */
     public function forAccount(string $user): array
     {
-        return $this->resolve($this->accounts[$user] ?? [], "accounts.$user");
+        return $this->resolve($this->accounts[$user] ?? [], "accounts.$user", $user);
     }
 
     /** @return array{cpu_seconds:int, rss_mb:int, min_age_seconds:int} */
@@ -184,6 +211,14 @@ final class PhpLimits
     public function accountsWithOverrides(): array
     {
         $names = array_keys($this->accounts);
+        sort($names, SORT_STRING);
+        return $names;
+    }
+
+    /** @return list<string> accounts with their own entry or an automatic value */
+    public function accountsWithLimits(): array
+    {
+        $names = array_values(array_unique([...array_keys($this->accounts), ...array_keys($this->automatic)]));
         sort($names, SORT_STRING);
         return $names;
     }
@@ -223,10 +258,10 @@ final class PhpLimits
      * @param array<string,int> $entry
      * @return array{children:int, max_conns:int, mem_soft:int, mem_hard:int, proc_soft:int, proc_hard:int}
      */
-    private function resolve(array $entry, string $where): array
+    private function resolve(array $entry, string $where, ?string $user = null): array
     {
         $merged = $entry + $this->defaults;
-        $children = $merged['children'] ?? self::BUILTIN['children'];
+        $children = $merged['children'] ?? $this->automaticChildren($user, $merged);
         $limits = ['children' => $children, 'max_conns' => $merged['max_conns'] ?? $children,
             'mem_soft' => ($merged['mem_soft_mb'] ?? 0) * 1048576, 'mem_hard' => ($merged['mem_hard_mb'] ?? 0) * 1048576,
             'proc_soft' => $merged['proc_soft'] ?? self::BUILTIN['proc_soft'], 'proc_hard' => $merged['proc_hard'] ?? self::BUILTIN['proc_hard']];
@@ -240,5 +275,20 @@ final class PhpLimits
             throw new \InvalidArgumentException("$where: proc_soft must not be below children and proc_hard not below proc_soft");
         }
         return $limits;
+    }
+
+    /**
+     * The children when the operator set none: the automatic value (RV-53), capped by the operator's own max_conns and
+     * proc_soft, or the built-in value.
+     * @param array<string,int> $merged
+     */
+    private function automaticChildren(?string $user, array $merged): int
+    {
+        $automatic = $user === null ? null : ($this->automatic[$user] ?? null);
+        if ($automatic === null || $automatic <= self::BUILTIN['children']) {
+            return self::BUILTIN['children'];
+        }
+        $ceiling = min($automatic, $merged['max_conns'] ?? $automatic, $merged['proc_soft'] ?? $automatic);
+        return max(self::BUILTIN['children'], $ceiling);
     }
 }

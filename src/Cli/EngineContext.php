@@ -6,6 +6,7 @@ namespace OlsCpanel\Cli;
 use OlsCpanel\Broker\BrokerEngine;
 use OlsCpanel\Deployment\Profile;
 use OlsCpanel\Events\HookEntry;
+use OlsCpanel\Events\InputDigest;
 use OlsCpanel\Events\Reconciler;
 use OlsCpanel\Infrastructure\System\PortOwners;
 use OlsCpanel\Ols\Cache\CacheCleaner;
@@ -138,15 +139,17 @@ final class EngineContext
 
     /**
      * A reconciler over $engine; root passes are serialized by the reconcile lock, and every pass holds the
-     * deployment lock shared (review RV-29 lock order).
+     * deployment lock shared (review RV-29 lock order). With $skipUnchanged (the service loop) a pass does not compile
+     * while the cheap digest of the compile's inputs is unchanged (RV-48: InputDigest, Reconciler).
      */
-    public function reconciler(Engine $engine): Reconciler
+    public function reconciler(Engine $engine, bool $skipUnchanged = false): Reconciler
     {
         $lock = $this->role() === 'root' ? "{$this->state}/reconcile.lock" : null;
         return $this->reconcilers !== null ? ($this->reconcilers)($engine, $lock)
             : new Reconciler($engine, null, null, null, $this->profilePath, $lock, deploymentLockPath: "{$this->state}/deployment.lock",
                 php: new LsphpGuard(stateRoot: $this->state, trigger: self::phpEnvironmentTrigger($engine)),
-                planSeen: self::hybridTrustTrigger($engine));
+                planSeen: self::hybridTrustTrigger($engine),
+                inputs: $skipUnchanged ? \Closure::fromCallable((new InputDigest($engine))->digest(...)) : null);
     }
 
     /**
