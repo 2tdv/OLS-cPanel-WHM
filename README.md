@@ -24,8 +24,9 @@ bandwidth. Administrators get a WHM plugin, every hosting account gets a cPanel 
   fails. Sites OpenLiteSpeed cannot reproduce exactly stay on Apache behind it.
 - **Zero touch** — cPanel changes (new accounts, domains, certificates, PHP versions) apply by themselves;
   upgrades apply themselves; the PHP environment repairs itself.
-- **WHM plugin** — dashboard, switch center, accounts, page cache, PHP, security (ModSecurity), HTTP/3, activity
-  log, notifications, maintenance windows, updates, support bundle.
+- **WHM plugin** — dashboard, switch center, accounts and domains, compatibility, page cache, PHP, object cache,
+  configuration history, jobs, activity log, notifications, maintenance windows, requests from accounts, updates,
+  diagnostics and a support bundle. ModSecurity and HTTP/3 are applied automatically from cPanel's own settings.
 - **cPanel plugin** — page cache with one-click purge, PHP, object cache, logs, speed check, traffic history,
   `.htaccess` advisor, requests to the host.
 - **Secure** — a small privileged broker, accounts isolated from each other, signed releases.
@@ -62,7 +63,7 @@ Release signing key: `118DFA42F66A585D176C0B5148E26833CB82EAD1` ([public key](bu
 - **Upgrade:** run the install command of the newer [release](https://github.com/2tdv/OLS-cPanel-WHM/releases).
   The product applies the upgrade by itself.
 - **Remove:** `/usr/local/ols-cpanel/bin/ols-cpanel uninstall` returns the server to Apache and removes the
-  product (backups and logs are kept).
+  product completely, including its backups and logs; add `--keep-backups` to keep the cutover backups.
 
 ## Documentation
 

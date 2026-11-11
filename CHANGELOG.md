@@ -2,7 +2,8 @@
 
 ## 0.2.13
 
-From the one-week soak test (25 sites, about two million requests a day):
+From the soak test (25 sites, about two million requests a day; a seven-day run from 30 October to 6 November
+2026 and a two-day confirmation run from 9 to 11 November):
 
 - A PHP request could hang for 30 seconds when a site's PHP started again after a pause: OpenLiteSpeed kept a copy of
   every PHP process group's socket. Fixed in the bundled OpenLiteSpeed (the change upstream made in 1.9.4), and a
