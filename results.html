@@ -42,7 +42,7 @@
 <h2>The test</h2>
 <ul>
 <li>One server: 2 CPU cores, 7.5 GB RAM, AlmaLinux 9, cPanel &amp; WHM 11.138.</li>
-<li>25 hosting accounts with working sites: 12 WordPress (two WooCommerce shops, one with 600 posts, one in a subdirectory), 3 Joomla 6, 2 Drupal 11, 2 Laravel, 4 static sites, a PHP application with a long <code>.htaccess</code> and a site using server-side includes. Each CMS runs LiteSpeed's own cache plugin.</li>
+<li>25 hosting accounts with working sites: 12 WordPress (two WooCommerce shops, one with 600 posts, one in a subdirectory), 3 Joomla 6, 2 Drupal 11, 2 Laravel, 4 static sites, a PHP application with a long <code>.htaccess</code> and a site using server-side includes. Each CMS runs LiteSpeed's own cache plugin, and the WordPress sites use their account's object cache (Valkey, compatible with Redis), which OLS-cPanel-WHM sets up by itself.</li>
 <li>Traffic that behaves like browsers: HTTP/2, compression, every image, stylesheet, script and font of each page, a browser cache, the shop's cart calls, logged-in editors and customers, search engine crawlers and a small share of attacks. About 350,000 page views and 2 million requests a day at the same daily curve, with peaks. A real browser on a second server visited the sites over the internet as well.</li>
 <li>Changes all day long, as on a live server: account suspensions, PHP version switches, new domains and accounts, <code>.htaccess</code> edits, password changes and certificate renewals.</li>
 <li>The planned steps worked: install, a reboot, a return to Apache, a second install, an update check and a complete uninstall that left nothing behind.</li>
@@ -67,6 +67,7 @@
 <tr><td>Attack requests blocked</td><td>84.4%</td><td>99.8%</td><td></td></tr>
 </tbody></table></div>
 <p>Response times are measured by the traffic generator on the server itself, per minute and per site, and summarised over the day. The CPU figures include the test's own traffic generator (about 5% of one core) on both days.</p>
+<p>The object cache was running on both days: a return to Apache leaves it in place, so the WordPress sites under Apache used it too (13 instances, about 200 MB in both columns). The differences above therefore come from the web server, PHP and the page cache, not from the object cache. What did change: since release 0.2.13 the idle object cache instances use 0.8% of one core in total instead of 3.2%.</p>
 
 <h2>What makes the difference</h2>
 <ul>
