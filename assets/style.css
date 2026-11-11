@@ -190,3 +190,29 @@ figure.shot img { display: block; }
 .site-footer .notice { font-size: .86rem; max-width: 52rem; }
 .site-footer { margin-top: 2rem; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* Apache vs OpenLiteSpeed comparison (home page): two bars per measure, lower is better */
+:root { --bar-apache: #9aa6ba; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bar-apache: #4f5d78; } }
+.compare { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 1.3rem 1.4rem 1rem; box-shadow: var(--shadow); margin: 1.2rem 0; }
+.compare .legend { display: flex; flex-wrap: wrap; gap: 1.2rem; margin: 0 0 1rem; padding: 0; list-style: none; font-size: .92rem; color: var(--muted); }
+.compare .legend li::before { content: ""; display: inline-block; width: .85rem; height: .85rem; border-radius: 3px; margin-right: .45rem; vertical-align: -.1rem; }
+.compare .legend .k-apache::before { background: var(--bar-apache); }
+.compare .legend .k-ols::before { background: linear-gradient(90deg, var(--grad-a), var(--grad-b)); }
+.compare .rows { margin: 0; padding: 0; list-style: none; }
+.compare .row { display: grid; grid-template-columns: minmax(9rem, 13rem) 1fr 7.5rem; gap: .35rem 1rem; align-items: center; padding: .7rem 0; border-top: 1px solid var(--line); }
+.compare .row:first-child { border-top: 0; }
+.compare .label { font-weight: 600; font-size: .95rem; }
+.compare .bars { display: grid; gap: .3rem; min-width: 0; }
+.compare .bar { display: grid; grid-template-columns: 1fr 6.5rem; align-items: center; gap: .6rem; font-size: .84rem; color: var(--muted); white-space: nowrap; }
+.compare .bar .track { display: block; min-width: 0; }
+.compare .bar span.fill { display: block; height: .8rem; border-radius: 0 6px 6px 0; min-width: 3px; }
+.compare .bar.apache span.fill { background: var(--bar-apache); }
+.compare .bar.ols span.fill { background: linear-gradient(90deg, var(--grad-a), var(--grad-b)); }
+.compare .bar.ols { color: var(--text); font-weight: 600; }
+.compare .gain { font-weight: 800; color: var(--ok); font-size: .95rem; text-align: right; white-space: nowrap; }
+.compare .note { font-size: .86rem; color: var(--muted); margin: .8rem 0 0; }
+@media (max-width: 40rem) {
+  .compare .row { grid-template-columns: 1fr 7rem; }
+  .compare .bars { grid-column: 1 / -1; grid-row: 2; }
+}
