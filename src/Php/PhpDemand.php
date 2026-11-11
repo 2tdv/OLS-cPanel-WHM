@@ -15,7 +15,7 @@ use OlsCpanel\Events\HookEntry;
  * the Reconciler's InputDigest covers it): the file records, per account, the last time the limit was reached and the
  * current raised value.
  *
- * The scan is run by `php env sync` (ols-cpanel-php.service, root, every 15 minutes) and reads the stderr log from where
+ * The scan is run by `php env sync` (ols-cpanel-php.service, root, every 5 minutes) and reads the stderr log from where
  * the previous scan stopped (inode and offset in the file; a rotated or truncated log starts again at 0; at most MAX_READ
  * bytes per scan). A line names its account either by the extprocessor ("<user>-php") or by "[UID:<n>]" (the LSAPI
  * library's own prefix), resolved through the passwd database; a line that names nobody is counted as unattributed and
@@ -25,7 +25,7 @@ use OlsCpanel\Events\HookEntry;
  *  - a line whose logged limit is at least the account's current value is a "hit at the limit"; lines logged by an lsphp
  *    that still runs with an older, lower limit only keep the account marked as busy (a graceful reload keeps detached
  *    lsphp processes), so one raise never triggers the next;
- *  - RAISE_HITS hits at the limit move the account one step up, the busiest account first, while the extra children of
+ *  - RAISE_HITS hit(s) at the limit move the account one step up, the busiest account first, while the extra children of
  *    all accounts (60 MB each, EXTRA_MB) stay within 25% of MemTotal (BUDGET_PERCENT); an account that does not fit is
  *    marked "budget" and keeps its value;
  *  - after DECAY_SECONDS (7 days) without any hit an account steps one step down, and again after every further 7 days,
@@ -44,7 +44,8 @@ final class PhpDemand
     public const STEPS = [5, 8, 12];
     public const EXTRA_MB = 60;
     public const BUDGET_PERCENT = 25;
-    public const RAISE_HITS = 3;
+    /** The first wait raises (RV-62: with three, a morning burst waited five minutes at 3 s per page before the raise). */
+    public const RAISE_HITS = 1;
     public const DECAY_SECONDS = 604800;
     public const MAX_READ = 8388608;
     private const ACCOUNT = '/^[a-z][a-z0-9_-]{0,31}$/D';

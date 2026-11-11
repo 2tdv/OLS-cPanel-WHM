@@ -42,8 +42,8 @@ $state->apply($reports('busy', 3, 8), $now + 120, 16 * $GiB);
 check($state->children() === ['busy' => 12], 'reports at the raised limit raise 8 to 12');
 $result = $state->apply($reports('busy', 500, 12), $now + 180, 16 * $GiB);
 check($state->children() === ['busy' => 12] && $result['raised'] === [], 'never above 12');
-$state->apply($reports('quiet', 1), $now, 16 * $GiB);
-check(!isset($state->children()['quiet']) && isset($state->describe()['quiet']), 'an account below the threshold keeps the built-in value but is recorded');
+$state->apply($reports('quiet', 1, 3), $now, 16 * $GiB);
+check(!isset($state->children()['quiet']) && isset($state->describe()['quiet']), 'a report below the account\'s current limit keeps the built-in value but is recorded');
 
 // ---- memory budget: 60 MB per extra child, 25% of MemTotal, busiest first ------------------------------------
 $state = PhpDemand::empty();
@@ -78,7 +78,7 @@ $state->apply([], $now + 3 * PhpDemand::DECAY_SECONDS, 16 * $GiB);
 check($state->describe() === [], 'and an idle account is forgotten');
 $state = PhpDemand::empty();
 $state->apply($reports('flapping', 3), $now, 16 * $GiB);
-$state->apply($reports('flapping', 1, 8, $now + PhpDemand::DECAY_SECONDS - 10), $now + PhpDemand::DECAY_SECONDS - 10, 16 * $GiB);
+$state->apply($reports('flapping', 1, 5, $now + PhpDemand::DECAY_SECONDS - 10), $now + PhpDemand::DECAY_SECONDS - 10, 16 * $GiB);
 $state->apply([], $now + PhpDemand::DECAY_SECONDS + 100, 16 * $GiB);
 check($state->children() === ['flapping' => 8], 'a report restarts the 7 days');
 
@@ -94,7 +94,7 @@ $text = '';
 for ($i = 0; $i < 4; ++$i) {
     $text .= $line('[UID:1001][' . (100 + $i) . ']', $now - 600 + $i);
 }
-$text .= $line('olscpb-php', $now - 500) . $line('[UID:0][5]', $now - 400) . $line('[UID:4242][6]', $now - 300) . "unrelated line\n";
+$text .= $line('olscpb-php', $now - 500, 4) . $line('[UID:0][5]', $now - 400) . $line('[UID:4242][6]', $now - 300) . "unrelated line\n";
 $text .= $line('[UID:1002][7]', $now - 5 * 86400 * 2 - 3 * 86400) . $stamp($now) . ' [STDERR] [UID:1001][8] Reached max children process limit: 5, extra: 0, cur';  // half a line
 file_put_contents($log, $text);
 $first = PhpDemand::scan($statePath, $log, $meminfo, $now, $accounts);

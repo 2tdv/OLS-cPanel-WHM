@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.14
+
+- A busy site gets more PHP processes at its first wait instead of after three, and the change reaches the running PHP
+  within five minutes (it was up to half an hour): the morning burst of a busy site no longer waits for minutes.
+
 ## 0.2.13
 
 From the soak test (25 sites, about two million requests a day; a seven-day run from 30 October to 6 November

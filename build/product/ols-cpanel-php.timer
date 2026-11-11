@@ -6,7 +6,9 @@ Description=OLS-cPanel PHP environment timer
 
 [Timer]
 OnBootSec=180
-OnUnitActiveSec=900
+# Every 5 minutes (RV-62): a PHP worker limit raised by demand reaches the running lsphp at the next pass; one pass
+# costs about 1 s of CPU.
+OnUnitActiveSec=300
 AccuracySec=30s
 
 [Install]

@@ -121,7 +121,7 @@ php_path = directives(HERE / "ols-cpanel-php.path")
 assert "PathChanged=/var/lib/rpm/.rpm.lock" in php_path and "Unit=ols-cpanel-php.service" in php_path and "WantedBy=paths.target" in php_path
 assert not (HERE / "ols-cpanel-php-ext.path").exists() and not (HERE / "ols-cpanel-php-ext.service").exists(), "merged into the PHP environment units"
 php_timer = directives(HERE / "ols-cpanel-php.timer")
-assert "OnBootSec=180" in php_timer and "OnUnitActiveSec=900" in php_timer and "WantedBy=timers.target" in php_timer
+assert "OnBootSec=180" in php_timer and "OnUnitActiveSec=300" in php_timer and "WantedBy=timers.target" in php_timer
 # FV-01 LSCache cleanup: a root oneshot (idle IO, nice) run hourly by its timer; the deletions are the unprivileged helper's.
 clean = directives(HERE / "ols-cpanel-cache-clean.service")
 assert "Type=oneshot" in clean and not [d for d in clean if d.startswith(("User=", "WantedBy="))]

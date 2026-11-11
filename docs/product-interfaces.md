@@ -1066,9 +1066,9 @@ minimum age of 120 s.
 file `/var/lib/ols-cpanel/php-demand.json` (root 0644, written atomically; `Php\PhpDemand`) records per account the last time OLS
 reported the limit reached (`Reached max children process limit: N` in `/usr/local/lsws/logs/stderr.log`, attributed by the
 extprocessor name `<user>-php` or by the LSAPI prefix `[UID:n]`), the reports counted, and the current value. `php env sync`
-(`ols-cpanel-php.service`, every 15 minutes) scans the log from where the last scan stopped (inode and offset in the file) and
-reports it as `"demand"` in its result. Steps 5, 8, 12 (never above 12): three reports at the account's current limit (a report from
-an lsphp still running with an older, lower limit does not count) raise it one step, the busiest account first, while the extra
+(`ols-cpanel-php.service`, every 5 minutes) scans the log from where the last scan stopped (inode and offset in the file) and
+reports it as `"demand"` in its result. Steps 5, 8, 12 (never above 12): the first report at the account's current limit (a report from
+an lsphp still running with an older, lower limit does not count) raises it one step, the busiest account first, while the extra
 children of all accounts (60 MB each) stay within 25% of `MemTotal`; an account that does not fit is marked `budget_limited`. After
 7 days without a report an account steps one step down, and again every further 7 days, back to the built-in value. The compile reads the
 file as an input (an absent, foreign or malformed file means no automatic value) and the reconciler's input digest covers the effective
