@@ -24,8 +24,8 @@
 <meta name="robots" content="index, follow">
 <meta name="google-site-verification" content="xSfY5aU4OPCr99QW3vseHubnbYPhhziF-Fd4XMY-GvQ">
 <meta name="theme-color" content="#0b5394">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "OLS-cPanel-WHM", "alternateName": "OpenLiteSpeed for cPanel and WHM", "url": "https://2tdv.github.io/OLS-cPanel-WHM/", "description": "Free, open-source replacement of Apache with OpenLiteSpeed on cPanel and WHM servers: LSCache page cache, HTTP/3, per-account object cache, WHM and cPanel plugins, a planned switch with an automatic way back.", "applicationCategory": "DeveloperApplication", "applicationSubCategory": "Web server", "operatingSystem": "AlmaLinux 9 (x86_64) with cPanel & WHM", "softwareVersion": "0.2.13", "license": "https://www.gnu.org/licenses/gpl-3.0.html", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "downloadUrl": "https://github.com/2tdv/OLS-cPanel-WHM/releases/tag/0.2.13", "installUrl": "https://2tdv.github.io/OLS-cPanel-WHM/install.html", "releaseNotes": "https://2tdv.github.io/OLS-cPanel-WHM/changelog.html", "codeRepository": "https://github.com/2tdv/OLS-cPanel-WHM", "screenshot": ["https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png", "https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/cpanel-sites.png"]}</script>
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebSite", "name": "OLS-cPanel-WHM", "url": "https://2tdv.github.io/OLS-cPanel-WHM/", "description": "OpenLiteSpeed for cPanel and WHM", "inLanguage": "en"}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "OLS-cPanel-WHM", "alternateName": "OpenLiteSpeed for cPanel and WHM", "url": "https://2tdv.github.io/OLS-cPanel-WHM/", "description": "Free, open-source replacement of Apache with OpenLiteSpeed on cPanel and WHM servers: LSCache page cache, HTTP/3, per-account object cache, WHM and cPanel plugins, a planned switch with an automatic way back.", "applicationCategory": "DeveloperApplication", "applicationSubCategory": "Web server", "operatingSystem": "AlmaLinux 9 (x86_64) with cPanel & WHM", "softwareVersion": "0.2.14", "license": "https://www.gnu.org/licenses/gpl-3.0.html", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "downloadUrl": "https://github.com/2tdv/OLS-cPanel-WHM/releases/tag/0.2.14", "installUrl": "https://2tdv.github.io/OLS-cPanel-WHM/install.html", "releaseNotes": "https://2tdv.github.io/OLS-cPanel-WHM/changelog.html", "codeRepository": "https://github.com/2tdv/OLS-cPanel-WHM", "screenshot": ["https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png", "https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/cpanel-sites.png"], "author": {"@type": "Organization", "name": "2T Development", "url": "https://github.com/2tdv"}, "publisher": {"@type": "Organization", "name": "2T Development", "url": "https://github.com/2tdv"}}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebSite", "name": "OLS-cPanel-WHM", "url": "https://2tdv.github.io/OLS-cPanel-WHM/", "description": "OpenLiteSpeed for cPanel and WHM", "inLanguage": "en", "publisher": {"@type": "Organization", "name": "2T Development", "url": "https://github.com/2tdv"}}</script>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/style.css">
 </head>
@@ -45,7 +45,7 @@
 <p class="lead">OLS-cPanel-WHM replaces Apache with OpenLiteSpeed on a cPanel/WHM server and keeps everything cPanel manages working, with a safe, planned switch and an automatic way back.</p>
 <div class="actions"><a class="btn primary" href="install.html">Install it</a><a class="btn secondary" href="whm.html">See the interface</a></div>
 <ul class="compat" aria-label="Compatibility"><li>Works with cPanel&reg; &amp; WHM&reg;</li><li>Powered by OpenLiteSpeed</li><li>AlmaLinux 9 (x86_64)</li></ul>
-<ul class="badges" aria-label="At a glance"><li>Release 0.2.13</li><li>GPLv3</li><li>Signed releases</li></ul>
+<ul class="badges" aria-label="At a glance"><li>Release 0.2.14</li><li>GPLv3</li><li>Signed releases</li></ul>
 </section>
 
 <figure class="shot"><a href="assets/screenshots/whm-overview.png"><img src="assets/screenshots/whm-overview.png" width="1280" height="800" loading="lazy" alt="The WHM plugin overview: server health, the serving engine (OpenLiteSpeed), ports 80 and 443, the deployment profile and the active configuration."></a><figcaption>The WHM overview: the state of the web server at a glance (example data).</figcaption></figure>
@@ -85,8 +85,8 @@
 </ul>
 
 <h2>Install in one command</h2>
-<p>Run this as root on the server. The command comes from the release notes of release 0.2.13; check them on the <a href="https://github.com/2tdv/OLS-cPanel-WHM/releases">releases page</a>.</p>
-<div class="codeblock"><pre><code>d=$(mktemp -d) &amp;&amp; curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.13/install.sh" &amp;&amp; echo "e2ddaa4a16e5e73a43c5917aa9de66a1793d4298e4abc520d229a84e098eb7bb  $d/install.sh" | sha256sum -c - &amp;&amp; sh "$d/install.sh"; rm -rf "$d"</code></pre></div>
+<p>Run this as root on the server. The command comes from the release notes of release 0.2.14; check them on the <a href="https://github.com/2tdv/OLS-cPanel-WHM/releases">releases page</a>.</p>
+<div class="codeblock"><pre><code>d=$(mktemp -d) &amp;&amp; curl --proto '=https' --tlsv1.2 -fsSL -o "$d/install.sh" "https://github.com/2tdv/OLS-cPanel-WHM/releases/download/0.2.14/install.sh" &amp;&amp; echo "401857a470a6fdddaf99c9c22b675648c6f0b326a9e4e1a200527bacc2f94fc4  $d/install.sh" | sha256sum -c - &amp;&amp; sh "$d/install.sh"; rm -rf "$d"</code></pre></div>
 <p>The <a href="install.html">installation page</a> explains each stage and a stricter variant that checks the installer's signature first.</p>
 
 
@@ -99,7 +99,7 @@
 <li><a href="https://github.com/2tdv/OLS-cPanel-WHM/security/policy">Security policy</a></li>
 <li><a href="https://github.com/2tdv/OLS-cPanel-WHM/blob/main/LICENSE">GPLv3 license</a></li>
 </ul>
-<p>OLS-cPanel-WHM is free software under the GNU General Public License v3. OpenLiteSpeed is GPLv3 as well. Screenshots show the interface with example data.</p>
+<p>OLS-cPanel-WHM is free software under the GNU General Public License v3, maintained by 2T Development. OpenLiteSpeed is GPLv3 as well. Screenshots show the interface with example data.</p>
 <p class="notice">cPanel and WHM are registered trademarks of cPanel, L.L.C. OpenLiteSpeed and LiteSpeed are trademarks of LiteSpeed Technologies Inc. This project is independent and not affiliated with or endorsed by them.</p>
 </div></footer>
 <script src="assets/app.js" defer></script>
