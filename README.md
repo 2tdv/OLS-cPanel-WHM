@@ -84,6 +84,10 @@ The full test suite: `python3 build/check/run.py`.
 
 Please report vulnerabilities privately — see [SECURITY.md](SECURITY.md).
 
+## Maintainer
+
+OLS-cPanel-WHM is maintained by 2T Development ([@2tdv](https://github.com/2tdv) on GitHub).
+
 ## License
 
 [GNU General Public License v3](LICENSE). OpenLiteSpeed is GPLv3; the PHP redis extension package is under the PHP
