@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Apache vs OpenLiteSpeed on cPanel: test results - OLS-cPanel-WHM</title>
-<meta name="description" content="Nine days of traffic on one cPanel server with 25 sites: pages 6.5 times faster, 65% less CPU, zero failed connections and 67% less data than cPanel&#x27;s Apache.">
+<title>OpenLiteSpeed vs Apache on cPanel: 25-Site Test Results</title>
+<meta name="description" content="On a cPanel server with 25 sites, OpenLiteSpeed served pages 6.5 times faster than Apache, with 65% less CPU and no failed connections. See the full data.">
 <meta name="color-scheme" content="light dark">
 <link rel="canonical" href="https://2tdv.github.io/OLS-cPanel-WHM/results.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="OLS-cPanel-WHM">
-<meta property="og:title" content="Apache vs OpenLiteSpeed on cPanel: test results - OLS-cPanel-WHM">
-<meta property="og:description" content="Nine days of traffic on one cPanel server with 25 sites: pages 6.5 times faster, 65% less CPU, zero failed connections and 67% less data than cPanel&#x27;s Apache.">
+<meta property="og:title" content="OpenLiteSpeed vs Apache on cPanel: 25-Site Test Results">
+<meta property="og:description" content="On a cPanel server with 25 sites, OpenLiteSpeed served pages 6.5 times faster than Apache, with 65% less CPU and no failed connections. See the full data.">
 <meta property="og:url" content="https://2tdv.github.io/OLS-cPanel-WHM/results.html">
 <meta property="og:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
 <meta property="og:image:width" content="1280">
@@ -18,12 +18,12 @@
 <meta property="og:image:alt" content="The OLS-cPanel-WHM plugin in WHM: the web server at a glance">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Apache vs OpenLiteSpeed on cPanel: test results - OLS-cPanel-WHM">
-<meta name="twitter:description" content="Nine days of traffic on one cPanel server with 25 sites: pages 6.5 times faster, 65% less CPU, zero failed connections and 67% less data than cPanel&#x27;s Apache.">
+<meta name="twitter:title" content="OpenLiteSpeed vs Apache on cPanel: 25-Site Test Results">
+<meta name="twitter:description" content="On a cPanel server with 25 sites, OpenLiteSpeed served pages 6.5 times faster than Apache, with 65% less CPU and no failed connections. See the full data.">
 <meta name="twitter:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
 <meta name="robots" content="index, follow">
 <meta name="theme-color" content="#0b5394">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "OLS-cPanel-WHM", "item": "https://2tdv.github.io/OLS-cPanel-WHM/"}, {"@type": "ListItem", "position": 2, "name": "Apache vs OpenLiteSpeed on cPanel: test results", "item": "https://2tdv.github.io/OLS-cPanel-WHM/results.html"}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "@id": "https://2tdv.github.io/OLS-cPanel-WHM/results.html#article", "headline": "OpenLiteSpeed vs Apache on cPanel: 25-Site Test Results", "description": "On a cPanel server with 25 sites, OpenLiteSpeed served pages 6.5 times faster than Apache, with 65% less CPU and no failed connections. See the full data.", "inLanguage": "en", "mainEntityOfPage": "https://2tdv.github.io/OLS-cPanel-WHM/results.html", "dateModified": "2026-11-17", "author": {"@type": "Organization", "name": "2T Development", "url": "https://github.com/2tdv"}, "publisher": {"@type": "Organization", "name": "2T Development", "url": "https://github.com/2tdv"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "OLS-cPanel-WHM", "item": "https://2tdv.github.io/OLS-cPanel-WHM/"}, {"@type": "ListItem", "position": 2, "name": "OpenLiteSpeed vs Apache on cPanel: 25-Site Test Results", "item": "https://2tdv.github.io/OLS-cPanel-WHM/results.html"}]}]}</script>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/style.css">
 </head>
@@ -36,8 +36,13 @@
 </div></header>
 <main id="content"><div class="narrow">
 
-<h1>Test results: Apache against OpenLiteSpeed on cPanel</h1>
+<h1>OpenLiteSpeed vs Apache on cPanel: test results</h1>
 <p class="lead">Before each release goes out, it runs for days on a real cPanel server under realistic traffic. These are the numbers of the test of October and November 2026 (a seven-day run from 30 October to 6 November and a two-day confirmation run from 9 to 11 November), measured, not estimated.</p>
+
+<h2>The short answer</h2>
+<p>On a cPanel &amp; WHM server with 25 hosting accounts, OpenLiteSpeed (OLS-cPanel-WHM 0.2.13, tested on 10 November 2026) answered a typical page in 16 ms against 105 ms for cPanel's own Apache on 31 October 2026, which is 6.5 times faster. It used 65% less server CPU (18.1% against 52.1% on average), sent 67% less data and had no failed connections against 2,336 under Apache. Both days carried the same traffic of about 350,000 page views.</p>
+
+<p>The project tested its own product; OLS-cPanel-WHM is maintained by 2T Development. Last updated 17 November 2026.</p>
 
 <h2>The test</h2>
 <ul>
@@ -48,7 +53,7 @@
 <li>The planned steps worked: install, a reboot, a return to Apache, a second install, an update check and a complete uninstall that left nothing behind.</li>
 </ul>
 
-<h2>Results</h2>
+<h2>Performance results: OpenLiteSpeed vs Apache</h2>
 <p>Apache: a full day of cPanel's own Apache on this server (prefork, PHP-FPM; 31 October 2026). OpenLiteSpeed: a full day of OLS-cPanel-WHM 0.2.13 (10 November 2026). Both days carried the same traffic: 351,000 and 361,000 page views.</p>
 <div class="table-scroll"><table><thead><tr><th>Measure</th><th>Apache</th><th>OpenLiteSpeed</th><th>Change</th></tr></thead><tbody>
 <tr><td>Typical page response (median)</td><td>105 ms</td><td>16 ms</td><td>6.5&times; faster</td></tr>
@@ -69,10 +74,10 @@
 <p>Response times are measured by the traffic generator on the server itself, per minute and per site, and summarised over the day. The CPU figures include the test's own traffic generator (about 5% of one core) on both days.</p>
 <p>The object cache was running on both days: a return to Apache leaves it in place, so the WordPress sites under Apache used it too (13 instances, about 200 MB in both columns). The differences above therefore come from the web server, PHP and the page cache, not from the object cache. What did change: since release 0.2.13 the idle object cache instances use 0.8% of one core in total instead of 3.2%.</p>
 
-<h2>What makes the difference</h2>
+<h2>Why is OpenLiteSpeed faster than Apache on cPanel?</h2>
 <ul>
 <li><strong>Page cache.</strong> OpenLiteSpeed serves cached pages of WordPress, Joomla, Drupal and Laravel without running PHP.</li>
-<li><strong>A lighter PHP.</strong> LSAPI keeps each site's PHP ready with its compiled scripts and starts workers only when needed.</li>
+<li><strong>A lighter PHP.</strong> OpenLiteSpeed's LSAPI keeps each site's PHP ready with its compiled scripts and starts workers only when needed.</li>
 <li><strong>HTTP/2 and compression.</strong> One connection per visitor and compressed pages, where cPanel's Apache here used neither.</li>
 <li><strong>Browser caching.</strong> Images, stylesheets, scripts and fonts are kept by browsers for a week unless the site says otherwise, so return visits ask for less.</li>
 <li><strong>Attacks stopped early.</strong> ModSecurity with the OWASP rules runs inside OpenLiteSpeed, and probes for backups and secrets are refused before PHP.</li>
@@ -81,9 +86,9 @@
 <h2>What these numbers do not say</h2>
 <ul>
 <li>The sites are small and medium sites. A large shop with many logged-in customers, a heavy plugin or a large database changes the picture: pages for logged-in visitors are not cached.</li>
-<li>One server, one week of traffic patterns. Your own results depend on your sites; the WHM plugin shows the cache hit rate and the load of each account so you can see them.</li>
+<li>One server, nine days of traffic (a seven-day run and a two-day confirmation run). Your own results depend on your sites; the WHM plugin shows the cache hit rate and the load of each account so you can see them.</li>
 </ul>
-<p>Ready to try it? See <a href="install.html">Install</a>, and <a href="safety.html">Safety</a> for how the switch is protected.</p>
+<p>Ready to try it? See <a href="install.html">Install</a> for the one-command installation, <a href="safety.html">Safety</a> for how the switch is protected and <a href="uninstall.html">Going back</a> for the way back to Apache. For what the project is, start at the <a href="index.html">home page</a>; the <a href="faq.html">FAQ</a> answers the common questions.</p>
 
 <nav class="pager" aria-label="Previous and next page"><a href="safety.html">&larr; Safety</a><a href="uninstall.html">Going back &rarr;</a></nav>
 </div></main>
