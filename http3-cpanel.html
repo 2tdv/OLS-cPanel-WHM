@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HTTP/3 on cPanel with OpenLiteSpeed: Setup and Firewall</title>
+<meta name="description" content="How HTTP/3 (QUIC) works on cPanel &amp; WHM with OpenLiteSpeed: UDP port 443, the csf and firewalld changes, how to check it and how to turn it off.">
+<meta name="color-scheme" content="light dark">
+<link rel="canonical" href="https://2tdv.github.io/OLS-cPanel-WHM/http3-cpanel.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OLS-cPanel-WHM">
+<meta property="og:title" content="HTTP/3 on cPanel with OpenLiteSpeed: Setup and Firewall">
+<meta property="og:description" content="How HTTP/3 (QUIC) works on cPanel &amp; WHM with OpenLiteSpeed: UDP port 443, the csf and firewalld changes, how to check it and how to turn it off.">
+<meta property="og:url" content="https://2tdv.github.io/OLS-cPanel-WHM/http3-cpanel.html">
+<meta property="og:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="800">
+<meta property="og:image:alt" content="The OLS-cPanel-WHM plugin in WHM: the web server at a glance">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="HTTP/3 on cPanel with OpenLiteSpeed: Setup and Firewall">
+<meta name="twitter:description" content="How HTTP/3 (QUIC) works on cPanel &amp; WHM with OpenLiteSpeed: UDP port 443, the csf and firewalld changes, how to check it and how to turn it off.">
+<meta name="twitter:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0b5394">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "@id": "https://2tdv.github.io/OLS-cPanel-WHM/http3-cpanel.html#article", "headline": "HTTP/3 on cPanel with OpenLiteSpeed: Setup and Firewall", "description": "How HTTP/3 (QUIC) works on cPanel & WHM with OpenLiteSpeed: UDP port 443, the csf and firewalld changes, how to check it and how to turn it off.", "inLanguage": "en", "mainEntityOfPage": "https://2tdv.github.io/OLS-cPanel-WHM/http3-cpanel.html", "datePublished": "2026-11-18", "dateModified": "2026-11-18", "image": "https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png", "author": {"@type": "Organization", "name": "2T Development", "url": "https://github.com/2tdv"}, "publisher": {"@type": "Organization", "name": "2T Development", "url": "https://github.com/2tdv"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "OLS-cPanel-WHM", "item": "https://2tdv.github.io/OLS-cPanel-WHM/"}, {"@type": "ListItem", "position": 2, "name": "HTTP/3 on cPanel", "item": "https://2tdv.github.io/OLS-cPanel-WHM/http3-cpanel.html"}]}]}</script>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to the content</a>
+<header class="site-header"><div class="wrap">
+<a class="brand" href="index.html"><img class="logo" src="favicon.svg" width="32" height="32" alt=""><span class="wordmark">OLS-cPanel-WHM</span></a>
+<nav class="main" aria-label="Main"><ul><li><a href="index.html">Home</a></li><li><a href="install.html">Install</a></li><li><a href="whm.html">WHM plugin</a></li><li><a href="cpanel.html">cPanel plugin</a></li><li><a href="object-cache.html">Object cache</a></li><li><a href="updates.html">Updates</a></li><li><a href="safety.html">Safety</a></li><li><a href="results.html">Test results</a></li><li><a href="uninstall.html">Going back</a></li><li><a href="faq.html">FAQ</a></li><li><a href="changelog.html">Changelog</a></li></ul></nav>
+<a class="gh" href="https://github.com/2tdv/OLS-cPanel-WHM">GitHub</a>
+</div></header>
+<main id="content"><div class="narrow">
+
+<h1>HTTP/3 (QUIC) on cPanel &amp; WHM with OpenLiteSpeed</h1>
+<p class="lead">Yes, cPanel &amp; WHM can serve HTTP/3 when the web server is OpenLiteSpeed. OLS-cPanel-WHM includes it, and it is on by default. HTTP/3 needs UDP port 443 to be reachable and a valid certificate for each site; on csf and firewalld the installer opens the port for you. This page explains what the installer does about the firewall, how to check HTTP/3 and how to turn it off.</p>
+
+<h2>Can cPanel serve HTTP/3?</h2>
+<p>Yes. OLS-cPanel-WHM runs OpenLiteSpeed, which answers QUIC (the transport under HTTP/3) on the same address and port as HTTPS, but over UDP. Every HTTPS listener has HTTP/3 enabled unless you turn it off (see below), and OpenLiteSpeed tells browsers about it with its own <code>Alt-Svc</code> header, such as <code>h3=":443"; ma=2592000</code>. A browser that supports HTTP/3 can then use it; other clients keep using HTTP/2 or HTTP/1.1 over TCP.</p>
+<p>The switch plan that the installer shows before it changes anything contains an HTTP/3 line with the firewall change it would make. See <a href="install.html">Install OpenLiteSpeed on cPanel &amp; WHM</a>.</p>
+
+<h2>What does HTTP/3 need on the server?</h2>
+<ul>
+<li><strong>UDP port 443</strong> open on the server's firewall, next to TCP 443. HTTP/3 does not use TCP.</li>
+<li><strong>HTTPS with the site's own certificate.</strong> A QUIC connection gets its certificate by server name (SNI) exactly as a TLS connection does: the virtual host mapped to that name, and a <code>www.</code> name falls back to the bare name. No extra certificate setup is needed for HTTP/3. LiteSpeed's documentation for its Enterprise edition on cPanel also lists a trusted certificate and an open UDP 443 as the two requirements (<a href="https://docs.litespeedtech.com/cp/cpanel/quic-http3/">LiteSpeed: QUIC and HTTP/3</a>).</li>
+</ul>
+
+<h2>What does the installer change in the firewall?</h2>
+<p>At the switch to OpenLiteSpeed, the installer inspects the host firewall read-only first and shows the change in the plan you approve. After OpenLiteSpeed is serving, it applies only what is missing:</p>
+<div class="table-scroll"><table><thead><tr><th>Host firewall</th><th>What the installer does</th><th>Going back to Apache</th></tr></thead><tbody>
+<tr><td>csf</td><td>Used when csf is installed and not disabled. Adds 443 to <code>UDP_IN</code> and <code>UDP6_IN</code> in <code>csf.conf</code>, then runs <code>csf -r</code>. A list or range that already covers 443 is left alone. If <code>UDP_IN</code> does not appear exactly once, nothing is changed and a warning is shown.</td><td>The original <code>csf.conf</code> is backed up first and put back byte for byte, unless an administrator edited the file since.</td></tr>
+<tr><td>firewalld</td><td>Opens <code>443/udp</code> in the default zone, for the running state and the permanent configuration, only where it is missing. It never runs a global reload.</td><td>Removes exactly the port state it added; ports you opened yourself stay.</td></tr>
+<tr><td>nftables or another firewall</td><td>Nothing: other firewall tables are never edited. If an input hook drops traffic and no rule mentions UDP 443, the installer shows a warning instead.</td><td>Nothing to undo.</td></tr>
+</tbody></table></div>
+<p>The firewall step never makes the switch fail. If it fails, the partial change is undone and the outcome lists a warning. See <a href="safety.html">Safety</a> for how the switch and the way back to Apache work.</p>
+<p>The product only looks at csf, firewalld and nftables on the server itself. A firewall outside the server, such as a network firewall at your provider, is not changed, so UDP 443 has to be allowed there by you.</p>
+
+<h2>How do I check that HTTP/3 works?</h2>
+<ol>
+<li>Run <code>ols-cpanel http3 status</code> as root. It shows whether HTTP/3 is enabled, what the firewall inspection found for UDP 443 (read-only), and for each site the share of requests served over HTTP/1.x, HTTP/2 and HTTP/3 in its recent access log. The access log request line ends in <code>HTTP/3</code> for these requests.</li>
+<li>Ask for the headers of an HTTPS page and look for <code>alt-svc</code> containing <code>h3</code>: <code>curl -sI https://example.com/ | grep -i alt-svc</code>. OpenLiteSpeed adds the header; the product adds none of its own.</li>
+</ol>
+<p>The header only shows that HTTP/3 is offered. The share in <code>ols-cpanel http3 status</code> shows that visitors are actually connecting over HTTP/3. Site owners can also run the Speed check in <a href="cpanel.html">the cPanel plugin</a>, which reports whether a site is compressed, cached, offered over the fastest connection and has a valid certificate.</p>
+
+<h2>Why is HTTP/3 not used on my site?</h2>
+<ul>
+<li>UDP 443 is blocked, on the server or in a firewall in front of it; visitors are then served over HTTP/2 or HTTP/1.1. Look at the firewall line of <code>ols-cpanel http3 status</code>.</li>
+<li>The site is one that Apache keeps serving behind OpenLiteSpeed: OpenLiteSpeed does not add the header behind a proxy.</li>
+<li>HTTP/3 was turned off on purpose (next section).</li>
+<li>HTTP/3 was enabled after a switch that was done with it turned off. Enabling it later does not open the firewall; open UDP 443 yourself. <code>ols-cpanel http3 status</code> shows what the product would change.</li>
+<li>The site has no valid certificate for the name visitors use.</li>
+</ul>
+
+<h2>How do I turn HTTP/3 off?</h2>
+<p>Create <code>/var/lib/ols-cpanel/http3.json</code> as root, not writable by group or others, with <code>{"enabled": false}</code>. OpenLiteSpeed then creates no QUIC engine and no UDP socket and sends no <code>Alt-Svc</code> header, and the switch touches no firewall. Use it where UDP 443 cannot be reached, so browsers are not offered HTTP/3 they cannot use.</p>
+<p>The file is read at every configuration build, so a change takes effect at the next reconcile pass. On a running server, <code>systemctl restart ols-cpanel</code> applies it to the QUIC engine. The file must be at most 4096 bytes and not a symbolic link, and it accepts only the key <code>enabled</code> with <code>true</code> or <code>false</code>. Anything else (another key, another value, invalid JSON, or a file writable by group or others) stops <code>install --prepare</code>, the switch and every reconcile pass until the file is fixed. Changing the file after <code>install --prepare</code> makes a plan you have not approved yet out of date, so prepare again. A missing file, <code>{}</code> and <code>{"enabled": true}</code> all mean enabled.</p>
+
+<h2>HTTP/3 and other LiteSpeed products</h2>
+<p>LiteSpeed Technologies documents HTTP/3 for LiteSpeed Web Server, its commercial edition, in <a href="https://docs.litespeedtech.com/cp/cpanel/quic-http3/">its QUIC and HTTP/3 guide</a>. OLS-cPanel-WHM is a separate, free project and is not affiliated with LiteSpeed Technologies or cPanel, L.L.C.; see <a href="faq.html#free-litespeed-cpanel">Is there a free LiteSpeed for cPanel?</a></p>
+
+<h2>Where to go next</h2>
+<ul>
+<li><a href="install.html">Install OLS-cPanel-WHM</a>, with the switch plan and its HTTP/3 line.</li>
+<li><a href="results.html">OpenLiteSpeed vs Apache test results</a> (25 sites, nine days).</li>
+<li><a href="uninstall.html">Going back to Apache</a>, which also undoes the firewall change.</li>
+<li><a href="faq.html#http3-cpanel">FAQ: Does OLS-cPanel-WHM enable HTTP/3 on cPanel?</a></li>
+</ul>
+<p>Source: the project's product interface documentation, section HTTP/3 (<a href="https://github.com/2tdv/OLS-cPanel-WHM/blob/main/docs/product-interfaces.md">docs/product-interfaces.md</a>). Maintained by 2T Development. Last updated 18 November 2026.</p>
+</div></main>
+<footer class="site-footer"><div class="wrap">
+<ul>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM">Source code</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/releases">Releases</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/issues">Issues</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/security/policy">Security policy</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/blob/main/LICENSE">GPLv3 license</a></li>
+</ul>
+<p>OLS-cPanel-WHM is free software under the GNU General Public License v3, maintained by 2T Development. OpenLiteSpeed is GPLv3 as well. Screenshots show the interface with example data.</p>
+<p class="notice">cPanel and WHM are registered trademarks of cPanel, L.L.C. OpenLiteSpeed and LiteSpeed are trademarks of LiteSpeed Technologies Inc. This project is independent and not affiliated with or endorsed by them.</p>
+</div></footer>
+<script src="assets/app.js" defer></script>
+</body>
+</html>
