@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Safe switch from Apache to OpenLiteSpeed - OLS-cPanel-WHM</title>
-<meta name="description" content="How OLS-cPanel-WHM keeps a switch safe: planned approval, per-site checks, automatic return to Apache, hybrid standby and account isolation.">
+<title>OpenLiteSpeed on cPanel: Safe Switch and Return to Apache</title>
+<meta name="description" content="How OLS-cPanel-WHM keeps the switch to OpenLiteSpeed on cPanel safe: an approved plan, per-site checks, automatic return to Apache and account isolation.">
 <meta name="color-scheme" content="light dark">
 <link rel="canonical" href="https://2tdv.github.io/OLS-cPanel-WHM/safety.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="OLS-cPanel-WHM">
-<meta property="og:title" content="Safe switch from Apache to OpenLiteSpeed - OLS-cPanel-WHM">
-<meta property="og:description" content="How OLS-cPanel-WHM keeps a switch safe: planned approval, per-site checks, automatic return to Apache, hybrid standby and account isolation.">
+<meta property="og:title" content="OpenLiteSpeed on cPanel: Safe Switch and Return to Apache">
+<meta property="og:description" content="How OLS-cPanel-WHM keeps the switch to OpenLiteSpeed on cPanel safe: an approved plan, per-site checks, automatic return to Apache and account isolation.">
 <meta property="og:url" content="https://2tdv.github.io/OLS-cPanel-WHM/safety.html">
 <meta property="og:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
 <meta property="og:image:width" content="1280">
@@ -18,12 +18,12 @@
 <meta property="og:image:alt" content="The OLS-cPanel-WHM plugin in WHM: the web server at a glance">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Safe switch from Apache to OpenLiteSpeed - OLS-cPanel-WHM">
-<meta name="twitter:description" content="How OLS-cPanel-WHM keeps a switch safe: planned approval, per-site checks, automatic return to Apache, hybrid standby and account isolation.">
+<meta name="twitter:title" content="OpenLiteSpeed on cPanel: Safe Switch and Return to Apache">
+<meta name="twitter:description" content="How OLS-cPanel-WHM keeps the switch to OpenLiteSpeed on cPanel safe: an approved plan, per-site checks, automatic return to Apache and account isolation.">
 <meta name="twitter:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
 <meta name="robots" content="index, follow">
 <meta name="theme-color" content="#0b5394">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "OLS-cPanel-WHM", "item": "https://2tdv.github.io/OLS-cPanel-WHM/"}, {"@type": "ListItem", "position": 2, "name": "Safe switch from Apache to OpenLiteSpeed", "item": "https://2tdv.github.io/OLS-cPanel-WHM/safety.html"}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "@id": "https://2tdv.github.io/OLS-cPanel-WHM/safety.html#article", "headline": "OpenLiteSpeed on cPanel: Safe Switch and Return to Apache", "description": "How OLS-cPanel-WHM keeps the switch to OpenLiteSpeed on cPanel safe: an approved plan, per-site checks, automatic return to Apache and account isolation.", "inLanguage": "en", "mainEntityOfPage": "https://2tdv.github.io/OLS-cPanel-WHM/safety.html", "dateModified": "2026-11-18", "author": {"@type": "Organization", "name": "2T Development", "url": "https://github.com/2tdv"}, "publisher": {"@type": "Organization", "name": "2T Development", "url": "https://github.com/2tdv"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "OLS-cPanel-WHM", "item": "https://2tdv.github.io/OLS-cPanel-WHM/"}, {"@type": "ListItem", "position": 2, "name": "Safety", "item": "https://2tdv.github.io/OLS-cPanel-WHM/safety.html"}]}]}</script>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/style.css">
 </head>
@@ -36,7 +36,7 @@
 </div></header>
 <main id="content"><div class="narrow">
 
-<h1>Safety</h1>
+<h1>Safety: a switch to OpenLiteSpeed you can undo</h1>
 <p class="lead">Changing a production web server should never be a leap of faith. These are the safeguards built into the switch and into daily operation.</p>
 
 <h2>A planned switch</h2>
@@ -51,11 +51,15 @@
 <li>A backup and a recovery script are written first.</li>
 <li>A safety timer is armed: unless the cutover completes, it returns the host to Apache after 45 minutes.</li>
 <li>Any failed check returns the server to Apache at once.</li>
+<li>The firewall change for HTTP/3 (UDP port 443) is recorded and undone too; ports you opened yourself and later edits by an administrator are not overwritten. See <a href="http3-cpanel.html">HTTP/3 on cPanel with OpenLiteSpeed</a>.</li>
 </ul>
 
 <h2>Hybrid: Apache on standby behind OpenLiteSpeed</h2>
 <p>Some sites use <code>.htaccess</code> rules or PHP handlers that OpenLiteSpeed cannot reproduce exactly. In the default hybrid profile those sites stay on Apache, which runs in standby behind OpenLiteSpeed on ports 81 and 444, closed to the outside. Visitors still reach everything through OpenLiteSpeed. The product decides this itself, site by site, and the <a href="whm.html#whm-v-compat">Compatibility</a> view shows why.</p>
 <p>The firewall that closes Apache's standby ports is restored at every boot, before Apache and OpenLiteSpeed start, and checked every 15 minutes (release 0.2.5). Updating repairs existing installations by itself.</p>
+
+<h2>Tested before each release</h2>
+<p>Before each release goes out, it runs for days on a real cPanel server under realistic traffic. In the October and November 2026 test the planned steps also worked: install, a reboot, a return to Apache, a second install, an update check and a complete uninstall. The numbers are on the <a href="results.html">test results</a> page; <a href="install.html">install</a> and <a href="uninstall.html">going back</a> describe the steps.</p>
 
 <h2>Account isolation</h2>
 <ul>
