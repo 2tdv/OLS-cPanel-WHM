@@ -1,0 +1,45 @@
+# OLS-cPanel-WHM
+
+> OLS-cPanel-WHM is a free, open-source (GPLv3) product that replaces Apache with OpenLiteSpeed on a cPanel & WHM server and keeps accounts, domains, SSL/AutoSSL, PHP versions, .htaccess, suspensions, logs and bandwidth working. It adds a WHM plugin for administrators and a cPanel plugin for every hosting account, with a planned switch from Apache and an automatic return to Apache if a check fails. Supported system: AlmaLinux 9 (x86_64) with a licensed, working cPanel & WHM, and root access. The current release number and its install command are on the GitHub Releases page.
+
+Key facts:
+
+- OLS-cPanel-WHM is an independent project published by 2T Development (2tdv on GitHub). It is not affiliated with or endorsed by cPanel, L.L.C. or LiteSpeed Technologies Inc. It is not LiteSpeed Enterprise; it uses OpenLiteSpeed, the open-source web server from LiteSpeed Technologies.
+- LiteSpeed's own editions page lists cPanel among the control panels for LiteSpeed Enterprise (a commercial product with a free tier) and lists CyberPanel and DirectAdmin compatibility for OpenLiteSpeed; OLS-cPanel-WHM is an independent project that covers the cPanel & WHM case for OpenLiteSpeed.
+- It does not install or license cPanel; it works on a server that already runs a licensed cPanel & WHM.
+- Features: LiteSpeed page cache (LSCache), HTTP/3, OPcache on every PHP version, a per-account object cache (Valkey, Redis compatible) connected to WordPress with LiteSpeed Cache automatically, signed releases. It works with cPanel's ModSecurity and OWASP Core Rule Set (applied automatically from cPanel's own settings). It does not install the LiteSpeed Cache plugin; the site owner installs it.
+- The switch is planned and approved by the administrator, every site is checked afterwards, and any failed check returns the server to Apache automatically. Sites whose .htaccess or PHP handler OpenLiteSpeed cannot reproduce stay on Apache, which runs in standby behind OpenLiteSpeed on closed ports (the default "hybrid" profile).
+- Changes to .htaccess apply without a restart, within about a minute, through a graceful reload that keeps connections open.
+- Project test (one server, 2 CPU cores, 7.5 GB RAM, 25 sites, about 350,000 page views a day; a day of cPanel's Apache against a day of OLS-cPanel-WHM): typical page response 105 ms vs 16 ms, server CPU in use 52.1% vs 18.1%, failed connections 2,336 vs 0 per day. These are the project's own measurements; results depend on the sites. Details and limits are on the test results page.
+- Install: one command as root, taken from the release notes of the release. Remove: one command, described on the Going back to Apache page, returns the server to Apache and removes the product.
+
+## Documentation
+
+- [Overview](https://2tdv.github.io/OLS-cPanel-WHM/): what the product is, requirements, measured results summary
+- [Install](https://2tdv.github.io/OLS-cPanel-WHM/install.html): the one command, each installer stage, approving the switch, exit codes
+- [Safety](https://2tdv.github.io/OLS-cPanel-WHM/safety.html): planned switch, per-site checks, automatic return to Apache, hybrid Apache standby
+- [Test results](https://2tdv.github.io/OLS-cPanel-WHM/results.html): Apache vs OpenLiteSpeed on one cPanel server with 25 sites, method and limits
+- [Going back to Apache and uninstalling](https://2tdv.github.io/OLS-cPanel-WHM/uninstall.html): what uninstall removes and keeps
+- [FAQ](https://2tdv.github.io/OLS-cPanel-WHM/faq.html): free LiteSpeed for cPanel, LSCache without Enterprise, HTTP/3, supported systems, updates, licence
+- [HTTP/3 on cPanel with OpenLiteSpeed](https://2tdv.github.io/OLS-cPanel-WHM/http3-cpanel.html): UDP 443, firewall changes, checking, turning it off
+
+## Plugins and features
+
+- [WHM plugin tour](https://2tdv.github.io/OLS-cPanel-WHM/whm.html): the views of the WHM plugin for administrators
+- [cPanel plugin tour](https://2tdv.github.io/OLS-cPanel-WHM/cpanel.html): the site owner's view in cPanel
+- [Object cache](https://2tdv.github.io/OLS-cPanel-WHM/object-cache.html): per-account Valkey, automatic LiteSpeed Cache setup for WordPress, manual values for other applications
+- [Updates](https://2tdv.github.io/OLS-cPanel-WHM/updates.html): Check now / Update now in WHM, signed releases, release key fingerprint
+
+## Source
+
+- [GitHub repository](https://github.com/2tdv/OLS-cPanel-WHM): source code (GPLv3), README
+- [Releases](https://github.com/2tdv/OLS-cPanel-WHM/releases): signed releases and the install command of each release
+- [Installation guide (Markdown)](https://github.com/2tdv/OLS-cPanel-WHM/blob/main/docs/installation.md)
+- [Object cache guide (Markdown)](https://github.com/2tdv/OLS-cPanel-WHM/blob/main/docs/object-cache.md)
+- [Security policy](https://github.com/2tdv/OLS-cPanel-WHM/blob/main/SECURITY.md): private vulnerability reporting
+
+## Optional
+
+- [Changelog](https://2tdv.github.io/OLS-cPanel-WHM/changelog.html): release history
+- [Architecture (Markdown)](https://github.com/2tdv/OLS-cPanel-WHM/blob/main/docs/product-architecture.md)
+- [Interfaces (Markdown)](https://github.com/2tdv/OLS-cPanel-WHM/blob/main/docs/product-interfaces.md)
