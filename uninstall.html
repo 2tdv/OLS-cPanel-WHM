@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Going back to Apache and uninstalling - OLS-cPanel-WHM</title>
-<meta name="description" content="How to return a cPanel server to Apache and how to uninstall OLS-cPanel-WHM, what is removed and what is kept.">
+<title>Uninstall OLS-cPanel-WHM and Return cPanel to Apache</title>
+<meta name="description" content="How to return a cPanel server to Apache with ols-cpanel apache-return and how to uninstall OLS-cPanel-WHM: dry run, what is removed, what is kept.">
 <meta name="color-scheme" content="light dark">
 <link rel="canonical" href="https://2tdv.github.io/OLS-cPanel-WHM/uninstall.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="OLS-cPanel-WHM">
-<meta property="og:title" content="Going back to Apache and uninstalling - OLS-cPanel-WHM">
-<meta property="og:description" content="How to return a cPanel server to Apache and how to uninstall OLS-cPanel-WHM, what is removed and what is kept.">
+<meta property="og:title" content="Uninstall OLS-cPanel-WHM and Return cPanel to Apache">
+<meta property="og:description" content="How to return a cPanel server to Apache with ols-cpanel apache-return and how to uninstall OLS-cPanel-WHM: dry run, what is removed, what is kept.">
 <meta property="og:url" content="https://2tdv.github.io/OLS-cPanel-WHM/uninstall.html">
 <meta property="og:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
 <meta property="og:image:width" content="1280">
@@ -18,12 +18,12 @@
 <meta property="og:image:alt" content="The OLS-cPanel-WHM plugin in WHM: the web server at a glance">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Going back to Apache and uninstalling - OLS-cPanel-WHM">
-<meta name="twitter:description" content="How to return a cPanel server to Apache and how to uninstall OLS-cPanel-WHM, what is removed and what is kept.">
+<meta name="twitter:title" content="Uninstall OLS-cPanel-WHM and Return cPanel to Apache">
+<meta name="twitter:description" content="How to return a cPanel server to Apache with ols-cpanel apache-return and how to uninstall OLS-cPanel-WHM: dry run, what is removed, what is kept.">
 <meta name="twitter:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
 <meta name="robots" content="index, follow">
 <meta name="theme-color" content="#0b5394">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "OLS-cPanel-WHM", "item": "https://2tdv.github.io/OLS-cPanel-WHM/"}, {"@type": "ListItem", "position": 2, "name": "Going back to Apache and uninstalling", "item": "https://2tdv.github.io/OLS-cPanel-WHM/uninstall.html"}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "@id": "https://2tdv.github.io/OLS-cPanel-WHM/uninstall.html#article", "headline": "Uninstall OLS-cPanel-WHM and Return cPanel to Apache", "description": "How to return a cPanel server to Apache with ols-cpanel apache-return and how to uninstall OLS-cPanel-WHM: dry run, what is removed, what is kept.", "inLanguage": "en", "mainEntityOfPage": "https://2tdv.github.io/OLS-cPanel-WHM/uninstall.html", "dateModified": "2026-11-20", "author": {"@type": "Organization", "name": "2T Development", "url": "https://github.com/2tdv"}, "publisher": {"@type": "Organization", "name": "2T Development", "url": "https://github.com/2tdv"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "OLS-cPanel-WHM", "item": "https://2tdv.github.io/OLS-cPanel-WHM/"}, {"@type": "ListItem", "position": 2, "name": "Return to Apache and uninstall", "item": "https://2tdv.github.io/OLS-cPanel-WHM/uninstall.html"}]}]}</script>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/style.css">
 </head>
@@ -36,8 +36,8 @@
 </div></header>
 <main id="content"><div class="narrow">
 
-<h1>Going back to Apache and uninstalling</h1>
-<p class="lead">You can return to Apache at any time. The product stays installed so you can switch again, or you can remove it completely.</p>
+<h1>Uninstall OLS-cPanel-WHM and Return cPanel to Apache</h1>
+<p class="lead">You can return to Apache at any time. The product stays installed so you can switch again, or you can remove it completely. To go back, use the WHM Switch center or <code>apache-return --prepare</code> and then <code>--execute</code> (below). To remove the product, run <code>uninstall</code>. Try <code>uninstall --dry-run</code> first; it changes nothing.</p>
 
 <h2>Return to Apache</h2>
 <p>From WHM, use the <a href="whm.html#whm-v-switch">Switch center</a>. From the command line, as root:</p>
@@ -49,10 +49,12 @@
 <h2>Uninstall</h2>
 <div class="codeblock"><pre><code>/usr/local/ols-cpanel/bin/ols-cpanel uninstall --dry-run
 /usr/local/ols-cpanel/bin/ols-cpanel uninstall</code></pre></div>
-<p>The dry run lists every action and changes nothing. The real run first returns the server to Apache if OpenLiteSpeed is still serving, and verifies that Apache serves ports 80 and 443. Only then does it remove what the product added.</p>
-<p><strong>Removed:</strong> the cPanel hooks, the WHM and cPanel plugins and every product service and timer; LiteSpeed Cache's object cache setting in WordPress sites where the product had switched it on (a site whose owner changed it is never touched); the per-account object cache instances and each account's <code>~/.ols-objcache</code>; the product's state directory, including the cutover backups (add <code>--keep-backups</code> to keep them); the INI files the product wrote; the recommended EasyApache profile file it added; the project key and the installer's report; the three product packages; and then what they leave behind: OpenLiteSpeed's runtime files in <code>/usr/local/lsws</code>, the <code>olscpanel</code> system user, and Valkey with its user when it came with the product.</p>
-<p><strong>Kept:</strong> the OPcache packages, the system journal, and everything the product did not create. Nothing of the product stays on the server. It never removes your sites' files, cPanel's certificates or changes made by an administrator. It can be run again if it is interrupted.</p>
+<p>The dry run lists every action, including the package removal and the WordPress sites whose object cache setting it would switch off, and changes nothing. WordPress sites whose settings cannot be read from files without running PHP are listed, and the real run checks them before changing anything. The real run first returns the server to Apache if OpenLiteSpeed is still serving, and verifies that Apache serves ports 80 and 443. Only then does it remove what the product added. The product packages that are installed are removed last, only after every earlier step succeeded, in a separate transient unit (<code>ols-cpanel-remove-packages</code>; follow it with <code>journalctl -u ols-cpanel-remove-packages</code>). Add <code>--keep-packages</code> to skip that step; the command then prints the <code>dnf remove</code> line instead, and OpenLiteSpeed's runtime files, the <code>olscpanel</code> user and Valkey also stay until the packages are removed.</p>
+<p><strong>Removed:</strong> the cPanel hooks, the WHM and cPanel plugins and every product service and timer; LiteSpeed Cache's object cache setting in WordPress sites where the product had switched it on (a site whose owner changed it is never touched); the per-account object cache instances and each account's <code>~/.ols-objcache</code>; the product's state directory, including the cutover backups (add <code>--keep-backups</code> to keep them); the INI files the product wrote; cPanel's update-check record of the WHM plugin; the recommended EasyApache profile file it added; the project key and the installer's report; the three product packages; and then what they leave behind: OpenLiteSpeed's runtime files in <code>/usr/local/lsws</code>, the <code>olscpanel</code> system user, and Valkey with its user when it came with the product.</p>
+<p><strong>Kept:</strong> the OPcache packages, the system journal, and everything the product did not create. It never removes your sites' files, cPanel's certificates, packages the product did not install or changes made by an administrator. It can be run again if it is interrupted.</p>
 <div class="callout warn"><p>Do not remove the packages with <code>dnf remove</code> while OpenLiteSpeed is serving: that would remove the web server without giving the ports back to Apache. Use the uninstall command.</p></div>
+
+<p>Related: <a href="safety.html">how the safe switch and automatic return work</a>, <a href="install.html">install and update</a>, and the <a href="faq.html">FAQ</a>.</p>
 
 <nav class="pager" aria-label="Previous and next page"><a href="results.html">&larr; Test results</a><a href="faq.html">FAQ &rarr;</a></nav>
 </div></main>
