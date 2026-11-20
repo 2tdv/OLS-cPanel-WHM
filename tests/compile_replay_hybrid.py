@@ -61,6 +61,21 @@ for call in SCENARIOS["lscache-plugin"]:
     if call["argv"] == read("olscpa", ".htaccess"):
         call["stdout"] = LSCWP + call["stdout"]
 
+# CMP-08: tenant A's root .htaccess carries Wordfence's firewall block (LiteSpeed form). The compile checks the prepended
+# file as the tenant: a readable regular file of the account keeps the site native, anything else (absent, a symbolic
+# link, another owner) sends it to Apache. The nested document roots inherit the block from public_html.
+WORDFENCE = (ROOT / "tests/Fixtures/wp-plugins-htaccess/wordfence/root-waf.htaccess").read_text().replace("/home/u/", "/home/olscpa/")
+PREPEND = ["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/find", "-P", "/home/olscpa/public_html/wordfence-waf.php",
+           "-maxdepth", "0", "-type", "f", "-readable", "-printf", "%u\\0"]
+for label, exit_code, stdout in (("wordfence-firewall", 0, "olscpa\0"), ("wordfence-firewall-missing", 1, ""),
+                                 ("wordfence-firewall-symlink", 0, ""), ("wordfence-firewall-other-owner", 0, "root\0")):
+    # Tenant B stays hybrid in every scenario (the replay needs a vhost on Apache).
+    SCENARIOS[label] = edited(read("olscpb", ".htaccess"), lambda s: 'SetEnvIf Request_URI "." X=1\n' + s)
+    for call in SCENARIOS[label]:
+        if call["argv"] == read("olscpa", ".htaccess"):
+            call["stdout"] = WORDFENCE + call["stdout"]
+    SCENARIOS[label].append({"name": "htaccess-prepend", "argv": PREPEND, "exit_code": exit_code, "stdout": stdout})
+
 def compile_reference(calls):
     results = {}
     for call in calls:
@@ -104,6 +119,14 @@ assert "ls_enabled           1" in lscache["compiled"]["vhconf"][A] and lscache[
 for name in (B, "tls." + B):
     assert lscache["compiled"]["vhconf"][name].endswith("module cache {\n    ls_enabled           0\n}\n"), name
 assert lscache["summary"]["cache"][B] == {"enabled": False, "storage": None}
+firewall = scenarios["wordfence-firewall"]
+assert firewall["summary"]["htaccess_blockers"][A] == [] and firewall["summary"]["hybrid_vhosts"] == [B]
+assert "phpIniOverride  {\nphp_value auto_prepend_file /home/olscpa/public_html/wordfence-waf.php\n  }" in firewall["compiled"]["vhconf"][A]
+for label in ("wordfence-firewall-missing", "wordfence-firewall-symlink", "wordfence-firewall-other-owner"):
+    summary = scenarios[label]["summary"]
+    assert A in summary["hybrid_vhosts"] and "secure." + A in summary["hybrid_vhosts"], label
+    assert summary["htaccess_blockers"][A] == ["/: auto_prepend_file /home/olscpa/public_html/wordfence-waf.php is not a readable "
+                                               "regular file of the account"], (label, summary["htaccess_blockers"][A])
 with tempfile.NamedTemporaryFile("w", suffix=".json") as handle:
     json.dump(scenarios, handle)
     handle.flush()

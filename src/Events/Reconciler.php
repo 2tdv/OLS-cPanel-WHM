@@ -53,6 +53,14 @@ use OlsCpanel\Php\LsphpGuard;
  * RV-48), the active generation is not the one that pass produced or not healthy, the restriction epoch moved (part of the
  * digest), the pass is forced, or FULL_COMPILE_SECONDS passed since the last compile (the safety net for what the digest
  * cannot see: InputDigest lists it). Every compiling pass says why in "compile_reason".
+ *
+ * Fast .htaccess changes (CMP-02; the service loop, given a nudge closure): the root `.htaccess` watch writes a new token
+ * (HtaccessNudge) about a second after a tenant .htaccess changed; the loop reads it every round (one second) and runs a pass at
+ * once when it differs from the token read before the previous pass, instead of waiting for the interval. Such a pass is an
+ * ordinary pass: it takes the input digest and compiles only when it changed, so the translation, the fail-closed review and
+ * the RV-48 skip apply unchanged, and a nudge that arrives during a pass gives exactly one more pass. At most NUDGE_PASSES
+ * nudged passes run within NUDGE_WINDOW seconds (a script rewriting an .htaccess in a loop cannot keep the server compiling);
+ * beyond that a change waits for the periodic pass as before. Without the watch (no token) nothing changes.
  */
 final class Reconciler implements ConfigurationActivator
 {
@@ -62,8 +70,13 @@ final class Reconciler implements ConfigurationActivator
     public const DEFAULT_INTERVAL = 60;
     /** After a failed pass, pending events retrigger a pass only after this many seconds (no busy loop). */
     public const RETRY_SECONDS = 15;
+    /** RV-65: the retry period while a restricting event (suspension, removal) is pending: it must not wait behind a back-off. */
+    public const RESTRICT_RETRY_SECONDS = 3;
     /** RV-48: the longest time without a full compile, whatever the input digest says. */
     public const FULL_COMPILE_SECONDS = 900;
+    /** CMP-02: at most this many passes started by the .htaccess watch within NUDGE_WINDOW seconds. */
+    public const NUDGE_PASSES = 6;
+    public const NUDGE_WINDOW = 60;
 
     /** @var \Closure(Profile, Engine):array<string,mixed> */
     private \Closure $compile;
@@ -91,13 +104,15 @@ final class Reconciler implements ConfigurationActivator
      * @param LsphpGuard|null $php keeps the earlier configuration of a vhost whose PHP version has no usable lsphp (FV-10); null: no check
      * @param (\Closure(Profile, int):string)|null $inputs the cheap digest of the compile's inputs for a profile and the epoch (InputDigest::digest,
      *        throwing when it cannot be taken); null: every pass compiles (the root CLI and tests)
+     * @param (\Closure():?string)|null $nudge the .htaccess watch's token (HtaccessNudge::reader; null when there is none), read by the
+     *        service loop every round (CMP-02); null: periodic passes only
      */
     public function __construct(private readonly Engine $engine, ?\Closure $compile = null, ?GenerationTree $tree = null,
                                 private readonly ?Profile $profile = null, private readonly string $profilePath = Profile::PATH,
                                 private readonly ?string $lockPath = null, ?\Closure $clock = null, ?\Closure $sleep = null,
                                 ?\Closure $ids = null, private readonly ?string $deploymentLockPath = null,
                                 private readonly ?LsphpGuard $php = null, private readonly ?\Closure $planSeen = null,
-                                private readonly ?\Closure $inputs = null)
+                                private readonly ?\Closure $inputs = null, private readonly ?\Closure $nudge = null)
     {
         $this->compile = $compile ?? static fn(Profile $profile, Engine $engine): array
             => (new BuilderCompilation($engine))->compile($profile->hybridPorts);
@@ -153,9 +168,10 @@ final class Reconciler implements ConfigurationActivator
     }
 
     /**
-     * The service loop: reconcile when events are pending, otherwise every $interval seconds (the fallback
-     * for changes without a hook, e.g. edited .htaccess files), with the deadline enforcement of
-     * PacedEngine interleaved (the reconciler's engine must be a PacedEngine). One JSON object per pass,
+     * The service loop: reconcile when events are pending or the .htaccess watch's token changed (CMP-02), otherwise every
+     * $interval seconds (the fallback for changes without a hook or a watch event, e.g. edited .htaccess files), with the deadline enforcement of
+     * PacedEngine interleaved (the reconciler's engine must be a PacedEngine). After a failed pass the same events wait
+     * RETRY_SECONDS (RESTRICT_RETRY_SECONDS while a restricting event is pending); a new event is tried at once. One JSON object per pass,
      * enforcement action or error goes to $emit; errors never end the loop.
      * @param \Closure(array<string,mixed>):void $emit
      */
@@ -166,28 +182,77 @@ final class Reconciler implements ConfigurationActivator
         }
         $last = -INF;
         $failed = false;
+        /** @var list<string> $tried the events pending when the last pass failed */
+        $tried = [];
+        /** @var ?string $seen the watch token read before the last pass (CMP-02) */
+        $seen = null;
+        /** @var list<float> $nudged when the recent nudged passes started */
+        $nudged = [];
         for ($round = 0; $rounds === null || $round < $rounds; ++$round) {
             $this->engine->enforceIfDue();
             try {
-                $pending = $this->engine->pendingEvents() !== [];
+                $events = $this->engine->pendingEvents();
             } catch (\Throwable $error) {
                 $emit(['time' => ($this->clock)(), 'error' => self::describe($error)]);
-                $pending = false;
+                $events = [];
             }
-            $since = ($this->clock)() - $last;
-            if ($since >= $interval || ($pending && (!$failed || $since >= self::RETRY_SECONDS))) {
+            $pending = $events !== [];
+            $names = array_column($events, 'name');
+            // RV-65: after a failed pass, an event the failed pass did not see is tried at once, and a pending restriction
+            // (suspension, removal) is retried every RESTRICT_RETRY_SECONDS instead of RETRY_SECONDS.
+            $retry = self::restricting($events) ? self::RESTRICT_RETRY_SECONDS : self::RETRY_SECONDS;
+            $now = ($this->clock)();
+            $since = $now - $last;
+            $token = $this->nudgeToken();
+            $nudged = array_values(array_filter($nudged, static fn(float $at): bool => $now - $at < self::NUDGE_WINDOW));
+            // CMP-02: a changed .htaccess (the watch's new token) starts a pass at once, within the budget and the failure back-off.
+            $nudge = $token !== null && $token !== $seen && count($nudged) < self::NUDGE_PASSES && (!$failed || $since >= $retry);
+            if ($since >= $interval || $nudge || ($pending && (!$failed || array_diff($names, $tried) !== [] || $since >= $retry))) {
+                $seen = $token;  // read before the pass: a change during the pass gives one more pass
+                $trigger = $since >= $interval || $pending ? [] : ['trigger' => 'htaccess_watch'];
+                if ($trigger !== []) {
+                    $nudged[] = $now;
+                }
                 try {
                     $result = $this->reconcile();
                     $failed = !in_array($result['action'] ?? null, ['unchanged', 'committed'], true);
-                    $emit(['time' => ($this->clock)(), ...$result]);
+                    $emit(['time' => ($this->clock)(), ...$result, ...$trigger]);
                 } catch (\Throwable $error) {
                     $failed = true;
                     $emit(['time' => ($this->clock)(), 'error' => self::describe($error)]);
                 }
+                $tried = $failed ? $names : [];
                 $last = ($this->clock)();
             }
             ($this->sleep)(1);
         }
+    }
+
+    /** The .htaccess watch's current token, or null (no watch, or it cannot be read: never failing the loop). */
+    private function nudgeToken(): ?string
+    {
+        if ($this->nudge === null) {
+            return null;
+        }
+        try {
+            return ($this->nudge)();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Whether a pending event restricts rights (HookEntry::RESTRICTING: suspension, account or domain removal).
+     * @param list<array<string,mixed>> $events
+     */
+    public static function restricting(array $events): bool
+    {
+        foreach ($events as $event) {
+            if (in_array($event['event']['event'] ?? null, HookEntry::RESTRICTING, true)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** @return array<string,mixed> */

@@ -1,0 +1,49 @@
+# Product unit: the tenant .htaccess watch (CMP-02; docs/product-interfaces.md, "Fast .htaccess changes"). The broker binary in
+# watch mode puts one fanotify filesystem mark on every filesystem that holds cPanel homes (/home, /home*) and, about a second
+# after a file named .htaccess was created, written, renamed, deleted or chmod-ed (debounced), writes a new token to
+# /run/ols-cpanel-watch/htaccess.nudge. The reconciler polls the token every second and runs a pass at once; the pass still
+# compiles only when the input digest changed. It never opens, reads or follows a tenant file and serves no socket. Without it
+# (or when fanotify is unavailable: status.json says why) the reconciler's periodic pass applies .htaccess changes as before.
+# Enabled by `install --prepare` and by `upgrade`, never started by the package.
+[Unit]
+Description=OLS-cPanel tenant .htaccess watch
+After=local-fs.target
+ConditionPathExists=/usr/local/ols-cpanel/libexec/ols-cpanel-broker
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/usr/local/ols-cpanel/libexec/ols-cpanel-broker --htaccess-watch=/run/ols-cpanel-watch
+Restart=always
+RestartSec=5
+# The token and status files: root 0644 in a 0755 directory, read by the reconciler (olscpanel). Nothing else is written.
+RuntimeDirectory=ols-cpanel-watch
+RuntimeDirectoryMode=0755
+UMask=0022
+# Root with one capability: CAP_SYS_ADMIN is what fanotify needs for a filesystem mark. No DAC override: the watch reads
+# event records only, never a file.
+CapabilityBoundingSet=CAP_SYS_ADMIN
+AmbientCapabilities=
+NoNewPrivileges=yes
+ProtectSystem=strict
+# read-only, not yes: the mark is placed through the path of each home mount (a bind mount of the same filesystem keeps
+# every write in any namespace visible to it); ProtectHome=yes would mount an empty tmpfs there.
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+MemoryDenyWriteExecute=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX
+# Low priority: a nudge one scheduling slice later costs nothing.
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

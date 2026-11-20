@@ -17,7 +17,8 @@ export function planFromLatest(reply) {
   if (!plan || typeof plan !== 'object' || typeof plan.id !== 'string') return null
   if (!('content' in plan)) return plan
   const content = plan.content && typeof plan.content === 'object' ? plan.content : {}
-  return { ...content, id: plan.id, digest: plan.digest, created: content.created ?? plan.modified_at, valid: plan.valid !== false }
+  return { ...content, id: plan.id, digest: plan.digest, created: content.created ?? plan.modified_at, valid: plan.valid !== false,
+    preview: plan.preview ?? null }
 }
 
 export function normalizePlan(plan) {
@@ -58,5 +59,40 @@ export function normalizePlan(plan) {
     backups: strings(plan.backups_needed ?? plan.backups),
     olsPackage: typeof plan.ols_package === 'string' ? plan.ols_package : null,
     checks: Array.isArray(plan.checks) ? plan.checks.filter(c => c && typeof c === 'object') : [],
+    preview: normalizePreview(plan.preview, typeof plan.compile_sha256 === 'string' ? plan.compile_sha256 : null),
+  }
+}
+
+// The preview of a plan (CMP-03, `install --preview`; plan.latest reports it beside the plan): how OpenLiteSpeed answers each site
+// compared with Apache, before the switch. Differences first, then what could not be compared, then the sites that answer the same.
+export const PREVIEW_STATES = ['different', 'apache_silent', 'unprobed', 'hybrid', 'same']
+
+export function normalizePreview(preview, compileDigest = null) {
+  if (!preview || typeof preview !== 'object' || Array.isArray(preview)) return null
+  const sites = (Array.isArray(preview.sites) ? preview.sites : []).filter(s => s && typeof s === 'object' && typeof s.vhost === 'string').map(s => ({
+    vhost: s.vhost,
+    state: PREVIEW_STATES.includes(s.state) ? s.state : 'unprobed',
+    reason: typeof s.reason === 'string' ? s.reason : null,
+    requests: (Array.isArray(s.requests) ? s.requests : []).filter(r => r && typeof r === 'object').map(r => ({
+      scheme: String(r.request ?? '').startsWith('https') ? 'https' : 'http',
+      apache: String(r.apache ?? '000'),
+      ols: String(r.ols ?? '000'),
+      differs: String(r.apache ?? '000') !== String(r.ols ?? '000'),
+    })),
+  }))
+  sites.sort((a, b) => PREVIEW_STATES.indexOf(a.state) - PREVIEW_STATES.indexOf(b.state) || a.vhost.localeCompare(b.vhost))
+  const count = state => sites.filter(s => s.state === state).length
+  return {
+    failed: preview.state === 'failed',
+    reason: typeof preview.reason === 'string' ? preview.reason : null,
+    log: strings(preview.log) || [],
+    createdAt: toMillis(preview.created),
+    seconds: typeof preview.seconds === 'number' && Number.isFinite(preview.seconds) ? preview.seconds : null,
+    // A preview made for another compile of the cPanel state than the plan's is out of date.
+    current: compileDigest === null || preview.compile_sha256 === compileDigest,
+    sites,
+    different: count('different'),
+    same: count('same'),
+    notCompared: sites.length - count('different') - count('same'),
   }
 }

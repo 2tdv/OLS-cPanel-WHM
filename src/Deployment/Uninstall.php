@@ -29,7 +29,7 @@ final class Uninstall
     // ols-cpanel-php-ext.* are the units of earlier builds (merged into the PHP environment units); stopped if still present.
     public const UNITS = ['ols-cpanel-php-ext.path', 'ols-cpanel-php-ext.service', 'ols-cpanel-objcache.timer', 'ols-cpanel-objcache.service',
         'ols-cpanel-cache-clean.timer', 'ols-cpanel-cache-clean.service', 'ols-cpanel-notify.timer', 'ols-cpanel-notify.service',
-        'ols-cpanel-schedule.timer', 'ols-cpanel-schedule.service',
+        'ols-cpanel-schedule.timer', 'ols-cpanel-schedule.service', 'ols-cpanel-login-guard.service', 'ols-cpanel-htaccess-watch.service',
         'ols-cpanel-php.path', 'ols-cpanel-php.timer', 'ols-cpanel-php.service', 'ols-cpanel-upgrade.service', 'ols-cpanel-hybrid-trust.timer',
         'ols-cpanel-hybrid-trust.service', HybridHost::FIREWALL_UNIT, Cutover::RECONCILER, 'ols-cpanel.service',
         'ols-cpanel-logs.service', CutoverPlan::BROKER_UNIT];
@@ -135,6 +135,15 @@ final class Uninstall
         } else {
             $stamp = $this->env->host->run('update-stamp-remove', ['/usr/bin/rm', '-f', '--', self::UPDATE_STAMP]);
             $actions[] = ['action' => 'removed ' . self::UPDATE_STAMP] + ($stamp['exit_code'] === 0 ? [] : ['ok' => false]);
+        }
+        // RV-66: the logrotate rule of 0.2.13 and 0.2.14, when it is still there and is the product's file.
+        if ($dryRun) {
+            if (LegacyLogrotateRule::present($this->env->host)) {
+                $actions[] = ['action' => 'remove ' . LegacyLogrotateRule::PATH];
+            }
+        } elseif (($rule = LegacyLogrotateRule::retire($this->env->host)) !== 'absent') {
+            $actions[] = ['action' => ($rule === 'removed' ? 'removed ' : 'did not remove ') . LegacyLogrotateRule::PATH]
+                + ($rule === 'removed' ? [] : ['ok' => false]);
         }
         foreach (self::UNITS as $unit) {
             if ($dryRun) {

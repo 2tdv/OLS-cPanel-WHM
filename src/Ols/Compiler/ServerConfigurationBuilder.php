@@ -77,6 +77,7 @@ final class ServerConfigurationBuilder
      * @param array<string,string> $tenants cPanel user => main domain of the accounts OLS serves
      * @param string $serverTemplate server policy template text (ownership_httpd_config.conf)
      * @param string $errorLogDir directory of the per-vhost OLS error logs
+     * @param list<string> $http3Off domains whose vhost gets no HTTP/3 advertisement (CMP-07; names without a vhost match nothing)
      * @param (\Closure(string):?string)|null $previousVhost the native vhost configuration of the active generation (LsphpGuard::previous), for a held vhost
      */
     public function __construct(CommandRunner $runner, array $tenants, string $serverTemplate, string $errorLogDir,
@@ -84,8 +85,13 @@ final class ServerConfigurationBuilder
                                 ?HtaccessTranslator $htaccess = null, ?FpmPoolTranslator $fpm = null, ?ConfigLint $lint = null,
                                 ?array $hybridPorts = null, mixed $security = null, ?SecurityTranslator $securityTranslator = null,
                                 private readonly ?PhpLimits $phpLimits = null, private bool $http3 = true,
-                                private readonly ?\Closure $previousVhost = null)
+                                private readonly ?\Closure $previousVhost = null, private readonly array $http3Off = [])
     {
+        foreach ($http3Off as $domain) {
+            if (!is_string($domain) || !preg_match(self::DOMAIN, $domain)) {
+                throw new \InvalidArgumentException('invalid HTTP/3 off domain');
+            }
+        }
         if ($hybridPorts !== null && (count($hybridPorts) !== 2 || array_filter($hybridPorts,
                 static fn(mixed $p): bool => !is_int($p) || $p < 1 || $p > 65535 || in_array($p, [80, 443], true)) !== [])) {
             throw new \InvalidArgumentException('hybrid ports must be two backend ports other than 80 and 443');
@@ -288,12 +294,13 @@ final class ServerConfigurationBuilder
                     $this->hybridPorts ?? CpanelSurface::HYBRID_PORTS)
                 : $this->compiler->vhostConfig($v, $pools[$name], $constants[$v['php']], $access[$name], $tls[$name],
                     $this->errorLogDir, $missing[$name], $rootHeaders[$name], $v['suspended'],
-                    $this->phpLimits?->forAccount((string) $v['user'])));
+                    $this->phpLimits?->forAccount((string) $v['user']), !in_array((string) $name, $this->http3Off, true)));
         }
         foreach ($plan as $name => $v) {
             if ($v['mode'] === 'apache') {
                 $vhconf[$this->surface->hybridTlsName((string) $name)] = $this->surface->apacheVhost($v['docroot'], (string) $name,
-                    (string) $v['ip'], $tls[$name], $this->errorLogDir, $this->hybridPorts ?? CpanelSurface::HYBRID_PORTS, true);
+                    (string) $v['ip'], $tls[$name], $this->errorLogDir, $this->hybridPorts ?? CpanelSurface::HYBRID_PORTS, true,
+                    !in_array((string) $name, $this->http3Off, true));
                 // LSCache (FV-01): both pass-through vhosts of a hybrid domain never use the cache.
                 foreach ([(string) $name, $this->surface->hybridTlsName((string) $name)] as $passThrough) {
                     $vhconf[$passThrough] .= $this->cache->disabledBlock();
@@ -505,6 +512,16 @@ final class ServerConfigurationBuilder
             $technical = array_filter($names, static fn(string $n): bool => preg_match(self::TECHNICAL_DOMAIN, $n) === 1);
             $vhostHeaders = count($technical) === count($names) ? [self::TECHNICAL_DOMAIN_HEADER] : [];
             [$realms, $contexts, $translated] = $this->htaccess->translate($files, $docroot, $modules, $vhostHeaders);
+            // CMP-08: a translated Wordfence firewall line prepends its file to every script; a missing or unreadable file
+            // would fail them all. Checked as the tenant, the link itself (never followed): a readable regular file the
+            // account owns, or the site stays on Apache.
+            foreach ($this->htaccess->prependFiles($contexts) as $prepend) {
+                $found = $this->run("htaccess-prepend-$name", [self::RUNUSER, '-u', $user, '--', '/usr/bin/find', '-P', $prepend,
+                    '-maxdepth', '0', '-type', 'f', '-readable', '-printf', '%u\\0']);
+                if ($found['exit_code'] !== 0 || $found['stdout'] !== "$user\0") {
+                    $translated[] = "/: auto_prepend_file $prepend is not a readable regular file of the account";
+                }
+            }
             $access[$name] = implode('', [...$realms, ...$contexts]);
             $rootHeaders[$name] = $this->htaccess->rootHeaderNames($contexts);
             $blockers[$name] = [...$readBlockers, ...$translated];

@@ -1,0 +1,30 @@
+{
+  "observed_at": 1792630000,
+  "source": "ols-cpanel login-guard status --format=json",
+  "exit_code": 0,
+  "output": {
+    "command": "login-guard status",
+    "enabled": true,
+    "allow": [],
+    "limits": { "xmlrpc": 30, "wp-login": 20 },
+    "window_seconds": 60,
+    "block_seconds": 900,
+    "max_block_seconds": 86400,
+    "checked_at": 1792629990,
+    "watching": true,
+    "map": "/run/ols-cpanel/guard/login.map",
+    "seen": { "since": 1792540000, "posts": 23514, "refused": 22950 },
+    "blocked": [
+      { "domain": "shop.example.com", "address": "34.30.196.241", "endpoint": "xmlrpc.php", "since": 1792629600, "until": 1792631400,
+        "strike": 2, "requests": 31, "refused": 1840 },
+      { "domain": "blog.example.org", "address": "2001:db8:55::17", "endpoint": "wp-login.php", "since": 1792629900, "until": 1792630800,
+        "strike": 1, "requests": 21, "refused": 12 }
+    ],
+    "recent": [
+      { "domain": "shop.example.com", "address": "34.30.196.241", "endpoint": "xmlrpc.php", "since": 1792627800, "until": 1792628700,
+        "strike": 1, "requests": 31, "refused": 3605, "ended": 1792628700, "reason": "expired" },
+      { "domain": "news.example.net", "address": "203.0.113.77", "endpoint": "xmlrpc.php", "since": 1792620000, "until": 1792620900,
+        "strike": 1, "requests": 31, "refused": 40, "ended": 1792620300, "reason": "unblocked" }
+    ]
+  }
+}

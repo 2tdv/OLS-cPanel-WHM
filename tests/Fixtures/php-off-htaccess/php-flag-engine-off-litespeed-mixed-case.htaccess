@@ -1,0 +1,3 @@
+<IfModule litespeed>
+php_flag Engine Off
+</IfModule>

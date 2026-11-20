@@ -10,12 +10,20 @@ use OlsCpanel\Deployment\Http3Input;
 use OlsCpanel\Ols\Http3\ProtocolShare;
 
 $corpus = json_decode(stream_get_contents(STDIN), true, 32, JSON_THROW_ON_ERROR);
-$out = ['input' => [], 'csf' => [], 'ports' => [], 'nft' => [], 'classify' => [], 'tail' => [], 'share' => [], 'basis' => []];
+$out = ['input' => [], 'settings' => [], 'csf' => [], 'ports' => [], 'nft' => [], 'classify' => [], 'tail' => [], 'share' => [], 'basis' => []];
 foreach ($corpus['input'] as $text) {
     try {
         $out['input'][] = Http3Input::parse($text);
     } catch (InvalidArgumentException) {
         $out['input'][] = 'error';
+    }
+}
+foreach ($corpus['settings'] as $text) {
+    try {
+        $settings = Http3Input::parseSettings($text);
+        $out['settings'][] = ['enabled' => $settings['enabled'], 'off' => $settings['off']];
+    } catch (InvalidArgumentException) {
+        $out['settings'][] = 'error';
     }
 }
 foreach ($corpus['csf'] as $text) {

@@ -1,7 +1,9 @@
 # Product unit: automatic LSCache cleanup (docs/product-interfaces.md, "LSCache management"). OLS leaves an expired cache entry on
 # disk until the same URL is cached again, so the stores of sites with many URLs would grow without bound. This pass removes expired
 # entries, keeps every store under its size cap and the server under its cap, and trims harder when the disk is nearly full. The
-# deletions are done by an unprivileged helper (the store's owner, no capabilities), never by root itself. Run by
+# deletions are done by an unprivileged helper (the store's owner, no capabilities), never by root itself. The same pass rotates the
+# ModSecurity audit log /usr/local/lsws/logs/modsec_audit.log (RV-66: logrotate.service cannot, /usr is read-only for it; hence the
+# writable path below). Run by
 # ols-cpanel-cache-clean.timer; enabled by `install --prepare` and by `upgrade`, never started by the package.
 [Unit]
 Description=OLS-cPanel LSCache cleanup
@@ -19,7 +21,7 @@ IOSchedulingClass=idle
 UMask=0077
 NoNewPrivileges=yes
 ProtectSystem=strict
-ReadWritePaths=/var/lib/ols-cpanel
+ReadWritePaths=/var/lib/ols-cpanel -/usr/local/lsws/logs
 ProtectHome=yes
 PrivateTmp=yes
 ProtectKernelTunables=yes

@@ -731,7 +731,7 @@ function changed_host(FakeHost $h, int $from = 0): bool
             }
         }
         if ($argv[0] === '/usr/bin/systemctl' && !in_array($argv[1], ['is-active', 'is-enabled'], true)
-            && !($argv[1] === 'enable' && in_array($argv[3] ?? '', ['ols-cpanel-broker.service', 'ols-cpanel-hybrid-trust.timer', 'ols-cpanel-cache-clean.timer', 'ols-cpanel-objcache.timer', 'ols-cpanel-notify.timer', 'ols-cpanel-schedule.timer'], true))) {
+            && !($argv[1] === 'enable' && in_array($argv[3] ?? '', ['ols-cpanel-broker.service', 'ols-cpanel-hybrid-trust.timer', 'ols-cpanel-cache-clean.timer', 'ols-cpanel-objcache.timer', 'ols-cpanel-notify.timer', 'ols-cpanel-schedule.timer', 'ols-cpanel-login-guard.service', 'ols-cpanel-htaccess-watch.service'], true))) {
             return true;
         }
     }
@@ -798,6 +798,8 @@ check(($w['host']->enabled['ols-cpanel-cache-clean.timer'] ?? false) === true &&
     'prepare enables the hourly LSCache cleanup timer');
 check(($w['host']->enabled['ols-cpanel-notify.timer'] ?? false) === true && ($w['host']->enabled['ols-cpanel-schedule.timer'] ?? false) === true,
     'prepare enables the notification and maintenance-window timers (FV-07)');
+check(($w['host']->enabled['ols-cpanel-login-guard.service'] ?? false) === true, 'prepare enables the WordPress login guard (RV-64, on by default)');
+check(($w['host']->enabled['ols-cpanel-htaccess-watch.service'] ?? false) === true, 'prepare enables the tenant .htaccess watch (CMP-02)');
 foreach (['events', 'events/done', 'staging', 'backups'] as $dir) {
     check((fileperms($w['state'] . "/$dir") & 0777) === 0700, "prepared state directory $dir is 0700");
 }
@@ -1130,6 +1132,13 @@ $adds = array_filter($w['host']->calls, static fn(array $c): bool => $c[0] === '
 $first = array_values($adds)[0][1];
 check($first === [Hooks::MANAGE, 'add', 'script', Hooks::ENTRY, '--manual', '--category=Whostmgr', '--event=Accounts::Create', '--stage=post'],
     'manage_hooks add argv');
+check(in_array([Hooks::MANAGE, 'add', 'script', Hooks::ENTRY, '--manual', '--category=Passwd', '--event=ChangePasswd', '--stage=post',
+    '--escalateprivs=1'], array_column($adds, 1), true) && in_array(['Passwd', 'ChangePasswd'], Hooks::EVENTS, true)
+    && Hooks::EVENTS[count(Hooks::EVENTS) - 1] === OlsCpanel\Events\HookEntry::PASSWORD_EVENT,
+    'RV-65: the password change hook (Passwd::ChangePasswd) is registered with escalated privileges (UAPI runs as the user)');
+check(in_array([Hooks::MANAGE, 'add', 'script', Hooks::ENTRY, '--manual', '--category=Whostmgr', '--event=Accounts::set_shell', '--stage=post'],
+    array_column($adds, 1), true) && in_array(OlsCpanel\Events\HookEntry::SHELL_EVENT, Hooks::EVENTS, true),
+    'RV-65: the shell change hook (Whostmgr Accounts::set_shell) is registered on stage post without escalated privileges');
 [$code, $out] = cli($w, ['hooks', 'install']);
 check($code === 0 && $out['added'] === 0, 'hooks install is idempotent');
 array_pop($w['host']->hooks);
@@ -1140,7 +1149,7 @@ foreach ($w['host']->hooks as $i => $hook) {
     }
 }
 [$code, $out] = cli($w, ['hooks', 'verify']);
-check($code === 1 && $out['result'] === 'mismatch' && in_array('Cpanel::UAPI::Fileman::save_file_content post escalateprivs=1', $out['missing'], true)
+check($code === 1 && $out['result'] === 'mismatch' && in_array('Passwd::ChangePasswd post escalateprivs=1', $out['missing'], true)
     && in_array('Whostmgr::Accounts::Create pre escalateprivs=0', $out['unexpected'], true)
     && in_array('Cpanel::UAPI::SSL::install_ssl post escalateprivs=0', $out['unexpected'], true), 'hooks verify reports missing and unexpected');
 [$code, $out] = cli($w, ['hooks', 'remove']);
@@ -1167,10 +1176,17 @@ check(in_array('remove /var/cpanel/version/addons_update/whostmgr_ols-cpanel', a
 check($code === 0 && $out['result'] === 'dry_run' && $out['actions'][0]['action'] === 'apache-return'
     && !changed_host($w['host']) && file_exists($w['state'] . '/profile.json') && is_dir($w['state'] . '/generations') === false
     && in_array('remove ' . $w['state'] . '/plans', array_column($out['actions'], 'action'), true), 'uninstall --dry-run only reads');
+// RV-66: a rule of 0.2.13 or 0.2.14 that is still on the host is removed by the uninstall, when it is the product's file.
+$w['host']->files['/etc/logrotate.d/ols-cpanel'] = ['owner' => 'root:root:644', 'content' => "# OLS-cPanel: rotation of the ModSecurity audit log (RV-57). x\n/usr/local/lsws/logs/modsec_audit.log {\n    size 50M\n}\n"];
+[$code, $out] = cli($w, ['uninstall', '--dry-run']);
+check(in_array('remove /etc/logrotate.d/ols-cpanel', array_column($out['actions'], 'action'), true) && isset($w['host']->files['/etc/logrotate.d/ols-cpanel']),
+    'uninstall --dry-run lists the old logrotate rule and keeps it');
 [$code, $out] = cli($w, ['uninstall']);
 check($code === 0 && $out['result'] === 'uninstalled' && restored($w) && array_diff(scandir($w['state']), ['.', '..', 'deployment.lock']) === []
     && $out['kept'] === [] && !($w['host']->enabled['ols-cpanel-broker.service'] ?? true),
     'uninstall returns to Apache, removes hooks, units, state and backups (the lock goes with the packages)');
+check(!isset($w['host']->files['/etc/logrotate.d/ols-cpanel']) && in_array('removed /etc/logrotate.d/ols-cpanel', array_column($out['actions'], 'action'), true),
+    'uninstall removes the old logrotate rule (RV-66)');
 $stamp = array_values(array_filter($w['host']->calls, static fn(array $c): bool => $c[0] === 'update-stamp-remove'));
 check(count($stamp) === 1 && $stamp[0][1] === ['/usr/bin/rm', '-f', '--', '/var/cpanel/version/addons_update/whostmgr_ols-cpanel']
     && $w['host']->index('update-stamp-remove') > $w['host']->index('plugin-whm-unregister')

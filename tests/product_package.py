@@ -19,7 +19,8 @@ HERE = ROOT / "build/product"
 UNITS = ["ols-cpanel-broker.service", "ols-cpanel-reconciler.service", "ols-cpanel-objcache@.service",
          "ols-cpanel-objcache.service", "ols-cpanel-objcache.timer", "ols-cpanel-cache-clean.service",
          "ols-cpanel-cache-clean.timer", "ols-cpanel-notify.service", "ols-cpanel-notify.timer",
-         "ols-cpanel-schedule.service", "ols-cpanel-schedule.timer", "ols-cpanel-php.path", "ols-cpanel-php.service", "ols-cpanel-php.timer",
+         "ols-cpanel-schedule.service", "ols-cpanel-schedule.timer", "ols-cpanel-login-guard.service", "ols-cpanel-htaccess-watch.service",
+         "ols-cpanel-php.path", "ols-cpanel-php.service", "ols-cpanel-php.timer",
          "ols-cpanel-hybrid-firewall.service", "ols-cpanel-hybrid-trust.service", "ols-cpanel-hybrid-trust.timer",
          "ols-cpanel-upgrade.service"]
 
@@ -81,6 +82,9 @@ assert "ExecStart=/usr/local/ols-cpanel/bin/ols-cpanel sync --watch" in reconcil
 assert "Requires=ols-cpanel-broker.service" in reconciler and "After=ols-cpanel-broker.service" in reconciler
 assert "NoNewPrivileges=yes" in reconciler and "ProtectSystem=strict" in reconciler and "ProtectHome=yes" in reconciler
 assert not [d for d in reconciler if d.startswith("ReadWritePaths=")]
+# Soak 2026-11-17: the compile runs at a mild lower priority, never the idle class (suspensions must not wait without bound).
+assert "Nice=5" in reconciler and "IOSchedulingClass=best-effort" in reconciler and "IOSchedulingPriority=6" in reconciler
+assert not [d for d in reconciler if d in ("Nice=19", "IOSchedulingClass=idle")]
 for unit in (broker, reconciler):
     assert "WantedBy=multi-user.target" in unit
 # RV-40 hybrid firewall: loaded at boot, before the network and Apache; only with the persisted ruleset.
@@ -127,7 +131,7 @@ clean = directives(HERE / "ols-cpanel-cache-clean.service")
 assert "Type=oneshot" in clean and not [d for d in clean if d.startswith(("User=", "WantedBy="))]
 assert "ExecStart=/usr/local/ols-cpanel/bin/ols-cpanel cache clean --format=json" in clean
 assert "Nice=19" in clean and "IOSchedulingClass=idle" in clean and "NoNewPrivileges=yes" in clean and "ProtectSystem=strict" in clean
-assert "ReadWritePaths=/var/lib/ols-cpanel" in clean and "PrivateTmp=yes" in clean
+assert "PrivateTmp=yes" in clean
 clean_timer = directives(HERE / "ols-cpanel-cache-clean.timer")
 assert "OnBootSec=10min" in clean_timer and "OnUnitActiveSec=1h" in clean_timer and "RandomizedDelaySec=5min" in clean_timer
 assert "WantedBy=timers.target" in clean_timer
@@ -149,12 +153,29 @@ schedule_timer = directives(HERE / "ols-cpanel-schedule.timer")
 assert "OnUnitActiveSec=1min" in schedule_timer and "WantedBy=timers.target" in schedule_timer
 for unit in ("notify", "schedule"):
     assert f"ols-cpanel-{unit}.timer" in spec and f"ols-cpanel-{unit}.service" in spec
+# RV-64 login guard: a root watcher that is always restarted, without network, enabled by prepare and upgrade (not the package).
+guard = directives(HERE / "ols-cpanel-login-guard.service")
+assert "Type=simple" in guard and "Restart=always" in guard and "ExecStart=/usr/local/ols-cpanel/bin/ols-cpanel login-guard run" in guard
+assert "RestrictAddressFamilies=AF_UNIX" in guard and "NoNewPrivileges=yes" in guard and "ProtectSystem=full" in guard
+assert "WantedBy=multi-user.target" in guard and not [d for d in guard if d.startswith("User=")]
+assert "ols-cpanel-login-guard.service" in spec
+# CMP-02 .htaccess watch: the broker binary in watch mode, root with CAP_SYS_ADMIN only (fanotify filesystem marks), no network,
+# homes read-only (never hidden: the marks are placed through the home paths), its token directory world-readable for the
+# reconciler; enabled by prepare and upgrade (not the package).
+watch = directives(HERE / "ols-cpanel-htaccess-watch.service")
+assert "Type=simple" in watch and "Restart=always" in watch
+assert "ExecStart=/usr/local/ols-cpanel/libexec/ols-cpanel-broker --htaccess-watch=/run/ols-cpanel-watch" in watch
+assert "CapabilityBoundingSet=CAP_SYS_ADMIN" in watch and "PrivateNetwork=yes" in watch and "RestrictAddressFamilies=AF_UNIX" in watch
+assert "ProtectHome=read-only" in watch and "ProtectSystem=strict" in watch and "NoNewPrivileges=yes" in watch
+assert "RuntimeDirectory=ols-cpanel-watch" in watch and "RuntimeDirectoryMode=0755" in watch
+assert "WantedBy=multi-user.target" in watch and not [d for d in watch if d.startswith(("User=", "ReadWritePaths="))]
+assert "ols-cpanel-htaccess-watch.service" in spec
 sysusers = directives(HERE / "ols-cpanel.sysusers")
 assert sysusers == ['u olscpanel - "OLS-cPanel reconciler"'], sysusers
-# RV-57: the ModSecurity audit log is rotated (OLS rotates its error and access logs, never this one).
-logrotate = directives(HERE / "ols-cpanel.logrotate")
-assert logrotate[0] == "/usr/local/lsws/logs/modsec_audit.log {" and "size 50M" in logrotate and "rotate 4" in logrotate
-assert "copytruncate" in logrotate and "missingok" in logrotate and "/etc/logrotate.d/ols-cpanel" in spec
+# RV-66: the package ships no logrotate rule (the system's logrotate.service runs with ProtectSystem=full, so /usr is read-only
+# for it and the rule could never rotate /usr/local/lsws/logs/modsec_audit.log); the cache cleanup unit rotates the audit log.
+assert not (HERE / "ols-cpanel.logrotate").exists() and "/etc/logrotate.d" not in spec
+assert "ReadWritePaths=/var/lib/ols-cpanel -/usr/local/lsws/logs" in clean
 launcher = (HERE / "ols-cpanel.sh").read_text()
 assert launcher.startswith("#!/bin/sh\n") and 'exec "$PHP" -n "$CLI" "$@"' in launcher
 subprocess.run(["sh", "-n", str(HERE / "ols-cpanel.sh")], check=True)
@@ -460,7 +481,7 @@ with tempfile.TemporaryDirectory() as temp:
     for unit in UNITS:
         assert (payload / "usr/lib/systemd/system" / unit).read_bytes() == (HERE / unit).read_bytes()
     assert (payload / "usr/lib/sysusers.d/ols-cpanel.conf").is_file()
-    assert (payload / "etc/logrotate.d/ols-cpanel").read_bytes() == (HERE / "ols-cpanel.logrotate").read_bytes()
+    assert not (payload / "etc/logrotate.d").exists()
     assert all(p.stat().st_mode & 0o777 == 0o755 for p in payload.rglob("*") if p.is_dir())
     assert not [p for p in payload.rglob("*") if p.is_symlink() or p.name == "__pycache__"]
 

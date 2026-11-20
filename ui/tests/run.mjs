@@ -46,7 +46,7 @@ const findings = await load('/src/shared/findings.js')
 const engine = await load('/src/shared/engine.js')
 const jobs = await load('/src/shared/jobs.js')
 const { i18n, errorMessage } = await load('/src/shared/i18n.js')
-const { normalizePlan, planFromLatest } = await load('/src/whm/plan.js')
+const { normalizePlan, normalizePreview, planFromLatest, PREVIEW_STATES } = await load('/src/whm/plan.js')
 const fixtures = await load('/dev/transport.js')
 
 // ---- Pure modules ----------------------------------------------------------------------------------
@@ -264,6 +264,33 @@ await test('plan normalization', () => {
   const bare = normalizePlan({ id: 'p1', hybrid_vhosts: ['a.test'], summary: { htaccess_blockers: { 'a.test': ["/: unsafe path"] } } })
   assert.equal(bare.hybrid[0].reasons[0].explanation, 'unsafe_path')
   assert.equal(bare.digest, null)
+  assert.equal(bare.preview, null)
+})
+
+await test('plan preview normalization (CMP-03)', () => {
+  const plan = normalizePlan(planFromLatest(fixtures.FIXTURES.whm.plan))
+  const preview = plan.preview
+  assert.equal(preview.failed, false)
+  assert.equal(preview.current, true) // made for this plan's compile
+  assert.equal(preview.sites.length, 5)
+  assert.deepEqual([preview.different, preview.same, preview.notCompared], [1, 3, 1])
+  // Differences first, then what could not be compared, then the sites that answer the same.
+  assert.deepEqual(preview.sites.map(s => s.state), ['different', 'hybrid', 'same', 'same', 'same'])
+  assert.deepEqual(preview.sites[0].requests[1], { scheme: 'https', apache: '404', ols: '200', differs: true })
+  assert.equal(preview.sites[0].requests[0].differs, false)
+  assert.equal(preview.seconds, 14.2)
+  assert.ok(preview.createdAt > 0)
+  assert.equal(normalizePreview(null), null)
+  assert.equal(normalizePreview([1]), null)
+  assert.equal(normalizePreview('x'), null)
+  // Made for another compile than the plan's: out of date. Unknown states and garbage rows never break the list.
+  assert.equal(normalizePreview({ ...fixtures.FIXTURES.whm.plan.plan.preview }, 'f'.repeat(64)).current, false)
+  const odd = normalizePreview({ sites: [{ vhost: 'a.test', state: 'weird' }, { vhost: 5 }, null, { vhost: 'b.test', state: 'same', requests: [null, { request: 'http://b.test/' }] }] })
+  assert.deepEqual(odd.sites.map(s => [s.vhost, s.state]), [['a.test', 'unprobed'], ['b.test', 'same']])
+  assert.deepEqual(odd.sites[1].requests, [{ scheme: 'http', apache: '000', ols: '000', differs: false }])
+  const failed = normalizePreview({ state: 'failed', reason: 'port 20010 is already in use', log: ['[ERROR] bind failed', 7] })
+  assert.deepEqual([failed.failed, failed.reason, failed.log, failed.sites.length], [true, 'port 20010 is already in use', ['[ERROR] bind failed', '7'], 0])
+  assert.deepEqual(PREVIEW_STATES, ['different', 'apache_silent', 'unprobed', 'hybrid', 'same'])
 })
 
 // ---- Catalog (UIX-05) -------------------------------------------------------------------------------
@@ -335,9 +362,11 @@ await test('catalog: every dynamic key family is complete', () => {
   for (const k of ['ready', 'blocked', 'uncertified', 'noPlan', 'unknown']) need.push(`whm.switch.ready.${k}`)
   for (const k of ['seconds', 'minutes', 'hours', 'days']) need.push(`time.ago.${k}`)
   for (const k of ['native', 'hybrid']) need.push(`whm.switch.profileHelp.${k}`)
+  for (const k of PREVIEW_STATES) need.push(`whm.switch.preview.states.${k}`)
   for (const k of fixtures.ACTION_NAMES) need.push(`actions.${k.replace('.', '_')}`)
   for (const k of ['job_start', 'job_finish', 'cache_limits_set', 'tenant_cache_purge', 'tenant_php_restart', 'enforcement', 'enforcement_error', 'capability',
-    'notify_settings_set', 'notify_test', 'schedule_add', 'schedule_cancel', 'objcache_automatic_set']) need.push(`whm.activity.events.${k}`)
+    'notify_settings_set', 'notify_test', 'schedule_add', 'schedule_cancel', 'objcache_automatic_set', 'login_guard_set', 'http3_domain_set']) need.push(`whm.activity.events.${k}`)
+  for (const k of ['expired', 'unblocked', 'guard_off']) need.push(`whm.guard.reasons.${k}`)
   for (const k of ['automatic', 'administrator', 'package', 'disabled', 'package_off', 'none']) need.push(`whm.objcache.origins.${k}`)
   for (const k of ['active', 'inactive', 'failed', 'activating']) need.push(`whm.objcache.states.${k}`)
   for (const k of ['off', 'providerOff', 'ready']) need.push(`cpanel.objcache.${k}`)
@@ -379,11 +408,24 @@ await test('fixture transport follows the gateway rules', async () => {
   assert.equal(detail.state, 'done')
   assert.ok(detail.log.length >= 3)
   const { plan } = await client.get('plan')
+  // CMP-03: a new plan has no preview; the preview job is bound to the plan like the cutover and stores its result on the plan.
+  assert.equal(plan.preview ?? null, null)
+  await assert.rejects(client.act('ols.preview', { scope: 'server', digest: plan.digest }), e => e.code === 'BAD_BODY')
+  await assert.rejects(client.act('ols.preview', { scope: plan.id, digest: plan.content.compile_sha256 }), e => e.code === 'STALE')
+  await assert.rejects(client.act('ols.preview', { scope: 'p20200101000000-aaaaaa', digest: plan.digest }), e => e.code === 'NOT_FOUND')
+  const previewJob = await client.act('ols.preview', { scope: plan.id, digest: plan.digest })
+  for (let i = 0; i < 10; i++) await client.get('job', { job: previewJob.job })
+  const previewed = (await client.get('plan')).plan.preview
+  assert.equal(previewed.state, 'complete')
+  assert.equal(previewed.plan, plan.id)
+  assert.equal(normalizePlan(planFromLatest({ plan: { ...plan, preview: previewed } })).preview.current, true)
+  assert.equal(previewed.summary.total, previewed.sites.length)
   await assert.rejects(client.act('ols.cutover', { scope: plan.id, digest: plan.content.compile_sha256 }), e => e.code === 'STALE')
   const cut = await client.act('ols.cutover', { scope: plan.id, digest: plan.digest })
   for (let i = 0; i < 10; i++) await client.get('job', { job: cut.job })
   const after = await client.get('status')
   assert.equal(after.cut_over, true)
+  await assert.rejects(client.act('ols.preview', { scope: plan.id, digest: plan.digest }), e => e.code === 'REFUSED')
   assert.equal(engine.serverEngine(after), 'ols')
   assert.equal((await client.get('metrics')).status, 'ok')
   const cp = api.createClient('index.live.php', send)
@@ -539,6 +581,53 @@ await test('object cache automatic mode: read, strict switch with the gateway ru
   const raw = (body, headers = { 'X-OLS-cPanel-Request': '1' }) => send({ method: 'POST', url: 'index.cgi?action=objcache_automatic', headers, body })
   assert.equal((await raw('{"automatic": false}', {})).body.error.code, 'REQUEST_HEADER')
   for (const bad of ['{}', '[]', '[true]', '{"automatic": "off"}', '{"automatic": 0}', '{"automatic": null}', '{"automatic": true, "x": 1}', 'text']) {
+    const refused = await raw(bad)
+    assert.equal(refused.status, 400, bad)
+    assert.equal(refused.body.error.code, 'BAD_BODY', bad)
+  }
+})
+
+await test('login guard: read, strict switch with the gateway rules, off ends every block', async () => {
+  const send = fixtures.createFixtureSend('default', { latency: 0 })
+  const client = api.createClient('index.cgi', send)
+  const before = api.commandOutput(await client.get('login_guard'))
+  assert.equal(before.enabled, true)
+  assert.deepEqual(before.blocked.map(b => b.address), ['34.30.196.241', '2001:db8:55::17'])
+  await assert.rejects(client.get('login_guard', { domain: 'shop.example.com' }), e => e.code === 'BAD_QUERY')
+  const off = api.commandOutput(await client.post('login_guard', { enabled: false }))
+  assert.equal(off.enabled, false)
+  assert.deepEqual(off.blocked, [])
+  assert.deepEqual(off.recent.slice(0, 2).map(b => b.reason), ['guard_off', 'guard_off'])
+  assert.equal(api.commandOutput(await client.get('login_guard')).enabled, false)
+  assert.equal(api.commandOutput(await client.post('login_guard', { enabled: true })).enabled, true)
+  const raw = (body, headers = { 'X-OLS-cPanel-Request': '1' }) => send({ method: 'POST', url: 'index.cgi?action=login_guard', headers, body })
+  assert.equal((await raw('{"enabled": false}', {})).body.error.code, 'REQUEST_HEADER')
+  for (const bad of ['{}', '[]', '[true]', '{"enabled": "no"}', '{"enabled": 0}', '{"enabled": null}', '{"enabled": true, "x": 1}', '{"automatic": true}', 'text']) {
+    const refused = await raw(bad)
+    assert.equal(refused.status, 400, bad)
+    assert.equal(refused.body.error.code, 'BAD_BODY', bad)
+  }
+})
+
+await test('HTTP/3 per domain: read, strict switch with the gateway rules, a stale name can only be removed', async () => {
+  const send = fixtures.createFixtureSend('default', { latency: 0 })
+  const client = api.createClient('index.cgi', send)
+  const before = api.commandOutput(await client.get('http3'))
+  assert.equal(before.enabled, true)
+  assert.deepEqual(before.input.off, ['cdn.fixture-domain.test'])
+  assert.deepEqual(before.protocol_share.map(r => r.http3_off), [false, false, true])
+  await assert.rejects(client.get('http3', { domain: 'shop.fixture-domain.test' }), e => e.code === 'BAD_QUERY')
+  const off = api.commandOutput(await client.post('http3_domain', { domain: 'shop.fixture-domain.test', enabled: false }))
+  assert.deepEqual(off.input.off, ['cdn.fixture-domain.test', 'shop.fixture-domain.test'])
+  assert.deepEqual(api.commandOutput(await client.get('http3')).input.off, ['cdn.fixture-domain.test', 'shop.fixture-domain.test'])
+  const on = api.commandOutput(await client.post('http3_domain', { enabled: true, domain: 'cdn.fixture-domain.test' }))
+  assert.deepEqual(on.input.off, ['shop.fixture-domain.test'])
+  const raw = (body, headers = { 'X-OLS-cPanel-Request': '1' }) => send({ method: 'POST', url: 'index.cgi?action=http3_domain', headers, body })
+  assert.equal((await raw('{"domain": "shop.fixture-domain.test", "enabled": false}', {})).body.error.code, 'REQUEST_HEADER')
+  assert.equal((await raw('{"domain": "nothere.fixture-domain.test", "enabled": false}')).body.error.code, 'REFUSED')
+  for (const bad of ['{}', '[]', '{"domain": "shop.fixture-domain.test"}', '{"enabled": false}', '{"domain": "Shop.fixture-domain.test", "enabled": false}',
+    '{"domain": "localhost", "enabled": false}', '{"domain": "shop.fixture-domain.test", "enabled": "off"}', '{"domain": "shop.fixture-domain.test", "enabled": 0}',
+    '{"domain": "shop.fixture-domain.test", "enabled": true, "x": 1}', '{"domain": 5, "enabled": true}', 'text']) {
     const refused = await raw(bad)
     assert.equal(refused.status, 400, bad)
     assert.equal(refused.body.error.code, 'BAD_BODY', bad)
@@ -811,7 +900,8 @@ const EXPECT = {
   },
   'src/whm/views/SwitchView.vue': {
     default: [/p20261022101500-a1b2c3/, /Prepare plan/, /Apache moved to 81\/444/,
-      /Kept on Apache \(hybrid\)/, /7d3f0c2a9b8e/, { rows: 2 }],
+      /Kept on Apache \(hybrid\)/, /7d3f0c2a9b8e/, /Preview beside Apache/, /Run preview again/, /5 sites compared on .*3 answer the same, 1 differ/,
+      /1 could not be compared/, { rows: 2 }],
     cutover: [/The server is already switched/],
     empty: [/No plan has been prepared yet/],
   },
@@ -842,6 +932,20 @@ const EXPECT = {
     default: [/Every account with WordPress and LiteSpeed Cache gets its own private object cache automatically\./, /Automatic object cache/, /Turn off/,
       { rows: 4 }],
     empty: [/No account has an object cache yet/],
+    unauthorized: [/not allowed to see this view/],
+    error: [/Could not load this view/],
+  },
+  'src/whm/views/LoginGuardView.vue': {
+    default: [/WordPress login guard/, /more than 20 login or 30 XML-RPC requests to one site within a minute/, /15 minutes/, /Turn off/, /Blocked now/,
+      /Recent blocks/, /Running/, /Refused while blocked: 22,950/, { rows: 4 }],
+    empty: [/No address is blocked/],
+    unauthorized: [/not allowed to see this view/],
+    error: [/Could not load this view/],
+  },
+  'src/whm/views/Http3View.vue': {
+    default: [/HTTP\/3 \(QUIC\) is offered to browsers for every site/, /HTTP\/3 is on for the server/, /UDP port 443 \(the firewall\): UDP 443 is already open in csf/,
+      /Sites/, { rows: 3 }],
+    empty: [/No site is served yet/],
     unauthorized: [/not allowed to see this view/],
     error: [/Could not load this view/],
   },

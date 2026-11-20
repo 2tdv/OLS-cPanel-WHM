@@ -12,33 +12,49 @@ import re
 import stat
 
 INPUT_PATH = "/var/lib/ols-cpanel/http3.json"
-MAX_INPUT_BYTES = 4096
+MAX_INPUT_BYTES = 16384
+# CMP-07: the optional per-domain off list ("off": ["example.com"]): lower-case host names (two labels or more), at most
+# MAX_OFF_DOMAINS, no duplicates. A listed domain keeps HTTPS and HTTP/2; only its Alt-Svc advertisement stops.
+MAX_OFF_DOMAINS = 256
+OFF_DOMAIN = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$", re.A)
 
-def parse_input(text):
-    """True when HTTP/3 is enabled. The input is a JSON object whose only key is "enabled" (a boolean); an
-    object without it means enabled. Anything else is refused, never ignored (a broken file must not silently
-    leave HTTP/3 advertised on a server that cannot serve it)."""
+def parse_settings(text):
+    """{"enabled": bool, "off": sorted list of domains}. The input is a JSON object with the keys "enabled" (a
+    boolean; absent means enabled) and "off" (a list of domain names, absent means empty). Anything else is refused,
+    never ignored (a broken file must not silently leave HTTP/3 advertised on a server that cannot serve it)."""
     try:
         data = json.loads(text)
     except ValueError as error:
         raise ValueError(f"http3 input is not valid JSON: {error}")
     if not isinstance(data, dict):
         raise ValueError("http3 input must be a JSON object")
-    unknown = sorted(set(data) - {"enabled"})
+    unknown = sorted(set(data) - {"enabled", "off"})
     if unknown:
         raise ValueError("http3 input has unknown keys: " + ", ".join(unknown))
     enabled = data.get("enabled", True)
     if not isinstance(enabled, bool):
         raise ValueError('http3 input "enabled" must be true or false')
-    return enabled
+    off = data.get("off", [])
+    if not isinstance(off, list) or len(off) > MAX_OFF_DOMAINS:
+        raise ValueError(f'http3 input "off" must be a list of at most {MAX_OFF_DOMAINS} domain names')
+    for domain in off:
+        if not isinstance(domain, str) or len(domain) > 253 or not OFF_DOMAIN.fullmatch(domain):
+            raise ValueError('http3 input "off" has an entry that is not a lower-case domain name')
+    if len(set(off)) != len(off):
+        raise ValueError('http3 input "off" lists a domain twice')
+    return {"enabled": enabled, "off": sorted(off)}
 
-def load_input(path=INPUT_PATH):
-    """The operator input: absent means enabled. The file must be a regular root-owned file that no one else
-    can write, at most MAX_INPUT_BYTES."""
+def parse_input(text):
+    """True when HTTP/3 is enabled (see parse_settings)."""
+    return parse_settings(text)["enabled"]
+
+def load_settings(path=INPUT_PATH):
+    """The operator input: absent means enabled with no domain off. The file must be a regular root-owned file that
+    no one else can write, at most MAX_INPUT_BYTES."""
     try:
         info = os.lstat(path)
     except FileNotFoundError:
-        return True
+        return {"enabled": True, "off": []}
     if not stat.S_ISREG(info.st_mode):
         raise ValueError(f"http3 input {path} is not a regular file")
     if info.st_mode & 0o022 or info.st_uid not in (0, os.geteuid()):
@@ -47,7 +63,11 @@ def load_input(path=INPUT_PATH):
         raw = handle.read(MAX_INPUT_BYTES + 1)
     if len(raw) > MAX_INPUT_BYTES:
         raise ValueError(f"http3 input {path} is larger than {MAX_INPUT_BYTES} bytes")
-    return parse_input(raw.decode("utf-8", "replace"))
+    return parse_settings(raw.decode("utf-8", "replace"))
+
+def load_input(path=INPUT_PATH):
+    """True when HTTP/3 is enabled (see load_settings)."""
+    return load_settings(path)["enabled"]
 
 # --- Firewall decisions (the deployment layer executes them through its command runner) ---
 

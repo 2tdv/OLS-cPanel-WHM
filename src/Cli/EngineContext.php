@@ -6,9 +6,11 @@ namespace OlsCpanel\Cli;
 use OlsCpanel\Broker\BrokerEngine;
 use OlsCpanel\Deployment\Profile;
 use OlsCpanel\Events\HookEntry;
+use OlsCpanel\Events\HtaccessNudge;
 use OlsCpanel\Events\InputDigest;
 use OlsCpanel\Events\Reconciler;
 use OlsCpanel\Infrastructure\System\PortOwners;
+use OlsCpanel\Ols\AuditLogRotator;
 use OlsCpanel\Ols\Cache\CacheCleaner;
 use OlsCpanel\Ols\Cache\CacheLimits;
 use OlsCpanel\Ols\Cache\CacheManager;
@@ -42,7 +44,8 @@ final class EngineContext
                                 private readonly ?\Closure $reconcilers = null, private readonly string $state = LocalEngine::STATE,
                                 private readonly string $profilePath = Profile::PATH, private readonly string $proc = '/proc',
                                 private readonly string $cacheRoot = CachePolicy::CACHE_ROOT, private readonly int $cacheOwner = 0,
-                                private readonly ?\Closure $cacheWorker = null, private readonly ?\Closure $trimWorker = null)
+                                private readonly ?\Closure $cacheWorker = null, private readonly ?\Closure $trimWorker = null,
+                                private readonly ?\Closure $auditRotator = null)
     {
         $this->engines = $engines ?? static fn(string $role): Engine => $role === 'root' ? new LocalEngine() : new BrokerEngine();
     }
@@ -115,6 +118,13 @@ final class EngineContext
         return new CacheCleaner($this->state, new CacheStorage($this->cacheRoot, $this->cacheOwner, null, $this->cacheWorker), $this->cacheRoot, $this->trimWorker);
     }
 
+    /** The ModSecurity audit log rotation run by the cache cleanup pass (root only; RV-66). */
+    public function auditLogRotator(): AuditLogRotator
+    {
+        $this->root();
+        return $this->auditRotator !== null ? ($this->auditRotator)() : new AuditLogRotator();
+    }
+
     public function cacheLimits(): CacheLimits
     {
         $this->root();
@@ -131,16 +141,24 @@ final class EngineContext
         return $this->profilePath;
     }
 
+    /**
+     * The cPanel hook entry (root). RV-65: it refreshes cPanel's password caches after account events, purges the page cache of
+     * a suspended or removed account, and, once cut over, waits (bounded) until the reconciler has applied a restricting event.
+     */
     public function hook(): HookEntry
     {
         return new HookEntry("{$this->state}/events", null, LocalEngine::ACTIVATOR, "{$this->state}/" . LocalEngine::RESTRICTIONS,
-            "{$this->state}/objcache.json");
+            // cPanel writes its caches only as root (the real identity, not an injected test one).
+            "{$this->state}/objcache.json", refreshCpanelCaches: self::effectiveUid() === 0,
+            purge: fn(string $account): array => $this->cache()->purge($account, null),
+            applyWait: is_file($this->profilePath) ? HookEntry::APPLY_WAIT : 0);
     }
 
     /**
      * A reconciler over $engine; root passes are serialized by the reconcile lock, and every pass holds the
      * deployment lock shared (review RV-29 lock order). With $skipUnchanged (the service loop) a pass does not compile
-     * while the cheap digest of the compile's inputs is unchanged (RV-48: InputDigest, Reconciler).
+     * while the cheap digest of the compile's inputs is unchanged (RV-48: InputDigest, Reconciler), and runs a pass at once when
+     * the tenant .htaccess watch's token changed (CMP-02: HtaccessNudge).
      */
     public function reconciler(Engine $engine, bool $skipUnchanged = false): Reconciler
     {
@@ -149,7 +167,8 @@ final class EngineContext
             : new Reconciler($engine, null, null, null, $this->profilePath, $lock, deploymentLockPath: "{$this->state}/deployment.lock",
                 php: new LsphpGuard(stateRoot: $this->state, trigger: self::phpEnvironmentTrigger($engine)),
                 planSeen: self::hybridTrustTrigger($engine),
-                inputs: $skipUnchanged ? \Closure::fromCallable((new InputDigest($engine))->digest(...)) : null);
+                inputs: $skipUnchanged ? \Closure::fromCallable((new InputDigest($engine))->digest(...)) : null,
+                nudge: $skipUnchanged ? HtaccessNudge::reader() : null);
     }
 
     /**

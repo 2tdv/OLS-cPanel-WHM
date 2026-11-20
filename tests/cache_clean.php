@@ -11,6 +11,7 @@ use OlsCpanel\Cli\Command;
 use OlsCpanel\Cli\EngineContext;
 use OlsCpanel\Cli\Output;
 use OlsCpanel\Infrastructure\Process\CommandRunner;
+use OlsCpanel\Ols\AuditLogRotator;
 use OlsCpanel\Ols\Cache\CacheCleaner;
 use OlsCpanel\Ols\Cache\CacheLimits;
 use OlsCpanel\Ols\Cache\CacheStorage;
@@ -246,7 +247,8 @@ mkdir("$cache/olscpe@e.test", 0770);
 $real = time();
 $gone = put($cache, 'olscpe@e.test', '9999999999999999', 50, $real - $max - 10);
 $goneKept = put($cache, 'olscpe@e.test', '8888888888888888', 50, $real - 1000);
-$context = new EngineContext(0, 'root', null, null, $state, "$state/profile.json", '/proc', $cache, $uid, null, $helper);
+$context = new EngineContext(0, 'root', null, null, $state, "$state/profile.json", '/proc', $cache, $uid, null, $helper,
+    static fn(): AuditLogRotator => new AuditLogRotator("$base/cli-logs/modsec_audit.log", static fn(): bool => true));
 $app = new Application([new Command\CacheCleanCommand($context), new Command\CacheLimitsCommand($context), new Command\CacheCleanStoreCommand($context)]);
 function run_cli(Application $app, array $argv): array
 {
@@ -364,6 +366,100 @@ check(!file_exists($lockedStore) && $free['retirement_skipped'] === null && isse
 $again = fopen("$orphanState/activation.lock", 'cb');
 check(flock($again, LOCK_EX | LOCK_NB), 'the cleaner releases the lock');
 fclose($again);
+
+// ---- RV-66: rotation of the ModSecurity audit log, run by the same pass ------------------------------------------------------
+$logs = "$base/logs";
+mkdir($logs, 0755);
+$log = "$logs/modsec_audit.log";
+$reloads = 0;
+$reloadOk = true;
+$clockNow = 1_800_000_000;
+$rotator = static function (int $max = 1000) use ($log, &$reloads, &$reloadOk, &$clockNow): AuditLogRotator {
+    return new AuditLogRotator($log, static function () use (&$reloads, &$reloadOk): bool {
+        ++$reloads;
+        return $reloadOk;
+    }, static fn(): int => $clockNow, $max, 4);
+};
+$gz = static fn(string $path): string => (string) gzdecode((string) file_get_contents($path));
+$absent = $rotator()->rotate();
+check($absent['result'] === 'current' && $reloads === 0, 'no audit log: nothing to do, OLS is not reloaded');
+file_put_contents($log, str_repeat("a\n", 400));
+chmod($log, 0600);
+$result = $rotator()->rotate();
+check($result['result'] === 'current' && $reloads === 0 && !file_exists("$log.1"), 'a log under the size is left alone');
+file_put_contents($log, str_repeat("line-one\n", 200));
+$inode = fileinode($log);
+$result = $rotator()->rotate();
+check($result['result'] === 'rotated' && $reloads === 1 && !file_exists($log) && fileinode("$log.1") === $inode
+    && file_get_contents("$log.1") === str_repeat("line-one\n", 200),
+    'a log over the size is renamed (same inode: no copy, no truncation, no line lost) and OLS is reloaded once');
+check((fileperms("$log.1") & 0777) === 0600, 'the rotated file keeps the mode OLS gave it');
+file_put_contents($log, "new\n");
+chmod($log, 0600);
+touch("$log.1", $clockNow - 60);
+$result = $rotator()->rotate();
+check($result['result'] === 'current' && is_file("$log.1") && !file_exists("$log.1.gz"), 'the fresh rotated copy is not compressed while it may still be written');
+$clockNow += 700;
+$result = $rotator()->rotate();
+check($result['compressed'] === ['modsec_audit.log.1'] && !file_exists("$log.1") && $gz("$log.1.gz") === str_repeat("line-one\n", 200)
+    && (fileperms("$log.1.gz") & 0777) === 0600 && is_file($log) && file_get_contents($log) === "new\n",
+    'a settled rotated copy is compressed with gzip, keeps its mode, and the live file is untouched');
+// Four generations are kept, the fifth is dropped, in order.
+for ($n = 1; $n <= 6; ++$n) {
+    file_put_contents($log, "gen$n " . str_repeat('x', 1100) . "\n");
+    $r = $rotator()->rotate();
+    check($r['result'] === 'rotated', "rotation $n");
+    $clockNow += 700;
+    $rotator()->rotate();
+}
+$present = array_map('basename', glob("$log.*"));
+sort($present);
+check($present === ['modsec_audit.log.1.gz', 'modsec_audit.log.2.gz', 'modsec_audit.log.3.gz', 'modsec_audit.log.4.gz'],
+    'at most four compressed copies are kept: ' . implode(' ', $present));
+check(str_starts_with($gz("$log.1.gz"), 'gen6') && str_starts_with($gz("$log.4.gz"), 'gen3'), 'the oldest copies are dropped and the order is newest first');
+file_put_contents("$log.7.gz", 'old');
+$rotator()->rotate();
+check(!file_exists("$log.7.gz"), 'a copy numbered above the retention is removed');
+// A failed reload puts the file back: OLS keeps writing to the path it knows.
+file_put_contents($log, str_repeat('y', 1500));
+$reloadOk = false;
+$before = $reloads;
+$result = $rotator()->rotate();
+check($result['result'] === 'failed' && $reloads === $before + 1 && is_file($log) && strlen((string) file_get_contents($log)) === 1500 && !file_exists("$log.1"),
+    'when OLS does not reload, the log is put back and the failure is reported');
+$reloadOk = true;
+// Links are never followed: a link as the live log, and a planted link as the compressed target.
+unlink($log);
+file_put_contents("$base/victim-log", str_repeat('z', 5000));
+symlink("$base/victim-log", $log);
+$before = $reloads;
+$result = $rotator()->rotate();
+check($result['result'] === 'failed' && $reloads === $before && is_link($log) && file_get_contents("$base/victim-log") === str_repeat('z', 5000),
+    'a link in place of the audit log is neither rotated nor followed');
+unlink($log);
+file_put_contents("$log.1", 'plain copy');
+touch("$log.1", $clockNow - 5000);
+file_put_contents("$base/target", 'precious');
+symlink("$base/target", "$log.1.gz.tmp");
+$result = $rotator()->rotate();
+check(file_get_contents("$base/target") === 'precious' && is_file("$log.1.gz") && !is_link("$log.1.gz") && $gz("$log.1.gz") === 'plain copy',
+    'a link planted where the compressed copy is written is replaced, never followed');
+// The CLI pass: the audit log result is part of the output and a failure fails the unit.
+mkdir("$base/cli-logs", 0755);
+mkdir("$base/cli-state", 0755);
+mkdir("$base/cli-cache", 0711);
+chmod("$base/cli-cache", 0711);
+file_put_contents("$base/cli-logs/modsec_audit.log", str_repeat('c', 3000));
+$cliRotator = static fn(): AuditLogRotator => new AuditLogRotator("$base/cli-logs/modsec_audit.log", static fn(): bool => true, null, 1000);
+$cliContext = new EngineContext(0, 'root', null, null, "$base/cli-state", "$base/cli-state/profile.json", '/proc', "$base/cli-cache", $uid, null, $helper, $cliRotator);
+[$code, $result] = run_cli(new Application([new Command\CacheCleanCommand($cliContext)]), ['cache', 'clean']);
+check($code === 0 && $result['audit_log']['result'] === 'rotated' && is_file("$base/cli-logs/modsec_audit.log.1") && !file_exists("$base/cli-logs/modsec_audit.log"),
+    '`cache clean` rotates the audit log in the same pass and reports it');
+file_put_contents("$base/cli-logs/modsec_audit.log", str_repeat('c', 3000));
+$failing = static fn(): AuditLogRotator => new AuditLogRotator("$base/cli-logs/modsec_audit.log", static fn(): bool => false, null, 1000);
+$failContext = new EngineContext(0, 'root', null, null, "$base/cli-state", "$base/cli-state/profile.json", '/proc', "$base/cli-cache", $uid, null, $helper, $failing);
+[$code, $result] = run_cli(new Application([new Command\CacheCleanCommand($failContext)]), ['cache', 'clean']);
+check($code !== 0 && $result['audit_log']['result'] === 'failed' && $result['result'] === 'cleaned', 'a failed rotation fails the unit but the cache cleanup still ran');
 
 tree_remove($base);
 echo "Cache cleanup checks passed: $count\n";

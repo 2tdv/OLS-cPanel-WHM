@@ -116,11 +116,40 @@ final class CpanelSurface
         'RewriteRule (?:^|/)(?:\\.env(?:\\.[a-z0-9._-]+)?|\\.git/.*|[^/]+\\.(?:sql|sql\\.gz|sql\\.zip|bak|old|orig|save|swp)|debug\\.log|appsettings(?:\\.[a-z0-9_-]+)?\\.json|(?:backup|backups|db|database|dump|site|www|wordpress)\\.(?:zip|tar|tar\\.gz|tgz|gz|rar|7z))$ - [F,NC,L]'];
 
     /**
+     * WordPress login guard (RV-64, CMP-04). Operations\LoginGuard watches the access logs and lists a client address that
+     * floods a site's wp-login.php or xmlrpc.php in this rewrite map as "<domain>/<address> 1", with an expiry it enforces
+     * itself. OLS stats a txt map at most once a second when a rule reads it and reloads it when its mtime changed, so a
+     * block takes effect without a reload; the rule reads the map only for the two login paths. A missing or empty map
+     * blocks nobody. The file is root:nobody 0640 in a 0750 directory: OLS workers read it, tenants' PHP cannot.
+     */
+    public const GUARD_MAP = 'ols_login_guard';
+    public const GUARD_DIR = '/run/ols-cpanel/guard';
+    public const GUARD_FILE = self::GUARD_DIR . '/login.map';
+    public const GUARD_PATHS = '(?:^|/)(?:wp-login|xmlrpc)\\.php(?:/|$)';
+
+    /** The rewrite map declaration inside a vhost's rewrite block. */
+    public function guardMap(): string
+    {
+        return '    map                  ' . self::GUARD_MAP . " {\n        location         txt:" . self::GUARD_FILE . "\n    }\n";
+    }
+
+    /**
+     * The guard rule of one site: a listed client gets 403 for the two login paths only, before PHP (on hybrid vhosts
+     * before the pass-through to Apache).
+     * @return list<string>
+     */
+    public function guardRules(string $domain): array
+    {
+        return ['RewriteCond ${' . self::GUARD_MAP . ':' . $domain . '/%{REMOTE_ADDR}} =1', 'RewriteRule ' . self::GUARD_PATHS . ' - [F,NC,L]'];
+    }
+
+    /**
      * Vhost-level rules evaluated before the tenant's .htaccess rules. $domains are the vhost's
-     * service domains (its main or addon domains; none for a plain subdomain).
+     * service domains (its main or addon domains; none for a plain subdomain). $guard is the site whose
+     * login guard rule is added (tenant vhosts, which declare guardMap()).
      * @param list<string> $domains
      */
-    public function rewriteRules(array $domains, bool $activeSync = true, bool $sslRedirect = false): string
+    public function rewriteRules(array $domains, bool $activeSync = true, bool $sslRedirect = false, ?string $guard = null): string
     {
         $lines = ['RewriteCond %{REQUEST_URI} ' . self::DCV, 'RewriteRule ^ - [L]'];
         if ($sslRedirect) {
@@ -128,6 +157,10 @@ final class CpanelSurface
             // (unless a proxy in front says https) gets 301 to the same host and path; the query string is kept.
             array_push($lines, 'RewriteCond %{HTTP:X-Forwarded-Proto} !https', 'RewriteCond %{HTTPS} !^on$',
                 'RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]');
+        }
+        // After the DCV exemption and the redirect, before everything else (the lab twin has no redirect).
+        if ($guard !== null) {
+            array_push($lines, ...$this->guardRules($guard));
         }
         // Like Apache: upgrades go to cpsrvd's WebSocket endpoint; other service rules skip upgrades.
         foreach ($domains as $domain) {
@@ -391,22 +424,25 @@ final class CpanelSurface
      * and SNI (OLS patch 0010); ACME challenges, which OLS never rewrites, reach Apache through a proxy
      * context. Requests are logged by Apache only (client address from X-OLS-Client-IP, OLS patch 0010).
      * @param array{0:int,1:int} $ports
+     * @param bool $http3 false adds `enableQuic 0` to the TLS vhost (the per-domain HTTP/3 switch, CMP-07)
      */
     public function apacheVhost(string $docroot, string $name, string $ip, ?string $tls, string $errorLogDir,
-                                array $ports = self::HYBRID_PORTS, bool $secure = false): string
+                                array $ports = self::HYBRID_PORTS, bool $secure = false, bool $http3 = true): string
     {
         $vhost = $secure ? $this->hybridTlsName($name) : $name;
         $backend = $this->apacheBackendName($name, $secure);
-        $rules = "RewriteCond %{HTTP:Upgrade} websocket [NC]\nRewriteCond %{ORG_REQ_URI} ^(/.*)$\n"
+        // The login guard (RV-64) answers a listed client here, before Apache and its PHP see the request.
+        $rules = implode("\n", $this->guardRules($name)) . "\nRewriteCond %{HTTP:Upgrade} websocket [NC]\nRewriteCond %{ORG_REQ_URI} ^(/.*)$\n"
             . 'RewriteRule ^ ' . ($secure ? 'wss' : 'ws') . '://' . self::ipv4($ip) . ':' . ($secure ? $ports[1] : $ports[0]) . "%1 [P,L]\n"
             . "RewriteRule ^/?(.*)$ http://$backend/\$1 [P,L]\n";
         return 'docRoot                  ' . rtrim($docroot, '/') . "/\nvhDomain                 $name\n"
             . "errorlog $errorLogDir/$vhost-error.log {\n    useServer            0\n    logLevel             NOTICE\n}\n"
-            . "rewrite {\n    enable               1\n    autoLoadHtaccess     0\n    rules                <<<END_rules\n"
+            . "rewrite {\n    enable               1\n    autoLoadHtaccess     0\n" . $this->guardMap() . "    rules                <<<END_rules\n"
             . $rules . "END_rules\n}\n"
             . "context exp:^/\\.well-known/acme-challenge/ {\n  type                    proxy\n"
             . "  handler                 $backend\n  addDefaultCharset       off\n}\n"
-            . ($secure && $tls !== null ? "vhssl {\n    keyFile              $tls\n    certFile             $tls\n    certChain            1\n}\n" : '');
+            . ($secure && $tls !== null ? "vhssl {\n    keyFile              $tls\n    certFile             $tls\n    certChain            1\n"
+                . ($http3 ? '' : "    enableQuic           0\n") . "}\n" : '');
     }
 
     /**

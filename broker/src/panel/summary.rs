@@ -281,13 +281,25 @@ pub fn plan_digest(state: &Path, id: &str) -> Option<String> {
     read_bounded(&state.join("plans").join(format!("{id}.json")), MAX_SUMMARY).map(|bytes| sha256_hex(&bytes))
 }
 
-/// `plan.latest`: the newest plan with its digest, or `plan: null`.
+/// The largest stored preview that is read (CMP-03): a few hundred bytes per site.
+const MAX_PREVIEW: u64 = 4 << 20;
+
+/// The stored preview of a plan (`previews/<id>.json`, written by `install --preview`): how OpenLiteSpeed answers each site
+/// compared with Apache. None without one (a plan that was never previewed), or when the file is not a JSON object.
+pub fn plan_preview(state: &Path, id: &str) -> Option<Value> {
+    if !valid_plan_id(id) {
+        return None;
+    }
+    json_object(&read_bounded(&state.join("previews").join(format!("{id}.json")), MAX_PREVIEW)?)
+}
+
+/// `plan.latest`: the newest plan with its digest, or `plan: null`. The plan's preview rides along as `preview` (or null).
 pub fn latest_plan(config: &Config) -> Reply {
     let plan = plans(&config.state).into_iter().next().and_then(|(id, path, mtime)| {
         let bytes = read_bounded(&path, MAX_SUMMARY)?;
         let content = json_object(&bytes);
         Some(json!({"id": id, "digest": sha256_hex(&bytes), "modified_at": mtime, "valid": content.is_some(),
-                    "content": content.unwrap_or(Value::Null)}))
+                    "content": content.unwrap_or(Value::Null), "preview": plan_preview(&config.state, &id).unwrap_or(Value::Null)}))
     });
     Ok(json!({"observed_at": now(), "source": config.state.join("plans").display().to_string(), "plan": plan}))
 }
@@ -562,6 +574,20 @@ new.b.test: olscpb==root==sub==b.test==/home/olscpb/new==1.2.3.4:80==1.2.3.4:443
         assert_eq!(latest["plan"]["valid"], json!(true));
         assert_eq!(latest["plan"]["content"]["summary"]["hybrid_vhosts"], json!(["shop.a.test"]));
         assert_eq!(plan_digest(&f.config.state, "p2"), Some(digest));
+        // The preview of the plan (CMP-03) rides along; another plan's, a link or a non-object is never shown.
+        assert_eq!(latest["plan"]["preview"], Value::Null);
+        let previews = f.config.state.join("previews");
+        fs::create_dir_all(&previews).unwrap();
+        fs::write(previews.join("p2.json"), "{\"plan\": \"p2\", \"state\": \"complete\", \"summary\": {\"same\": 3}}").unwrap();
+        fs::write(previews.join("p1.json"), "{\"plan\": \"p1\"}").unwrap();
+        let latest = latest_plan(&f.config).unwrap();
+        assert_eq!((latest["plan"]["preview"]["state"].clone(), latest["plan"]["preview"]["summary"]["same"].clone()), (json!("complete"), json!(3)));
+        fs::write(previews.join("p2.json"), "[1]").unwrap();
+        assert_eq!(latest_plan(&f.config).unwrap()["plan"]["preview"], Value::Null);
+        fs::remove_file(previews.join("p2.json")).unwrap();
+        std::os::unix::fs::symlink(previews.join("p1.json"), previews.join("p2.json")).unwrap();
+        assert_eq!(latest_plan(&f.config).unwrap()["plan"]["preview"], Value::Null);
+        assert_eq!(plan_preview(&f.config.state, "../p1"), None);
         assert_eq!(plan_digest(&f.config.state, "missing"), None);
         assert_eq!(plan_digest(&f.config.state, "../p2"), None);
         for good in ["p1", "PLAN_2026-10-22", &"a".repeat(64)] {

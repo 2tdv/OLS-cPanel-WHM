@@ -1,0 +1,3 @@
+<FilesMatch "\.(php|phtml|phar)$">
+SetHandler none
+</FilesMatch>

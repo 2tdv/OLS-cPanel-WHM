@@ -1,0 +1,3 @@
+<FilesMatch "\.php$">
+ForceType text/plain
+</FilesMatch>

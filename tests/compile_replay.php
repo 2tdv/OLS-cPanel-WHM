@@ -88,11 +88,11 @@ function check(bool $condition, string $name): void
 
 /** @return array{0:array<string,mixed>, 1:ReplayRunner} */
 function compile_with(array $calls, string $template, array $tenants = TENANTS, ?array $hybridPorts = null, mixed $security = null,
-                      bool $http3 = true): array
+                      bool $http3 = true, array $http3Off = []): array
 {
     $runner = new ReplayRunner($calls);
     return [(new ServerConfigurationBuilder($runner, $tenants, $template, LOG_DIR, null, null, null, null, null, null,
-        $hybridPorts, $security, null, http3: $http3))->compile(), $runner];
+        $hybridPorts, $security, null, http3: $http3, http3Off: $http3Off))->compile(), $runner];
 }
 
 /**
@@ -328,6 +328,23 @@ check($off['config'] === str_replace(["    quicEnable           1\n", "    enabl
     ["    quicEnable           0\n", "    enableQuic           0\n"], $expected['config'])
     && canonical($off['vhconf']) === canonical($expected['vhconf']) && !str_contains($off['config'], 'enableQuic           1'),
     'HTTP/3 off: server quicEnable 0 and enableQuic 0 on every HTTPS listener, nothing else differs');
+// CMP-07: the per-domain off list adds `enableQuic 0` to the vhssl block of that vhost only; a name with no vhost changes nothing.
+$vssl = "    certChain            1\n}";
+check(str_contains($expected['vhconf'][A], $vssl), 'the recorded vhost has a certificate (vhssl)');
+$perDomain = compile_with($calls, $template, http3Off: [A])[0];
+check($perDomain['vhconf'][A] === str_replace($vssl, "    certChain            1\n    enableQuic           0\n}", $expected['vhconf'][A])
+    && $perDomain['config'] === $expected['config']
+    && canonical(array_diff_key($perDomain['vhconf'], [A => 1])) === canonical(array_diff_key($expected['vhconf'], [A => 1])),
+    'HTTP/3 off for one domain: only its vhconf gains enableQuic 0, the server configuration and the other vhosts are unchanged');
+check(canonical(compile_with($calls, $template, http3Off: ['gone.example'])[0]['vhconf']) === canonical($expected['vhconf'])
+    && canonical(compile_with($calls, $template, http3Off: [])[0]['vhconf']) === canonical($expected['vhconf']),
+    'HTTP/3 off for a name without a vhost, and an empty list: nothing changes');
+try {
+    compile_with($calls, $template, http3Off: ['Bad_Name']);
+    check(false, 'an invalid off domain is refused');
+} catch (InvalidArgumentException) {
+    check(true, 'an invalid off domain is refused');
+}
 // The production wiring reads the operator input (absent: enabled) and hands it to the builder; a malformed file refuses.
 $http3File = sys_get_temp_dir() . '/ols-http3-' . bin2hex(random_bytes(6)) . '.json';
 $seenHttp3 = [];
@@ -338,12 +355,13 @@ $wired = static function (string $path) use (&$seenHttp3): BuilderCompilation { 
             'data' => ['acct' => [['user' => 'olscpa', 'domain' => A]]]]), 'stderr' => ''];
     }
 }, dirname(__DIR__)
-    . '/build/vm-qualification/ols-lab/ownership_httpd_config.conf', LOG_DIR, static function ($r, $t, $tpl, $l, $ports, $security, $limits, $http3) use (&$seenHttp3) {
-        $seenHttp3[] = $http3;
+    . '/build/vm-qualification/ols-lab/ownership_httpd_config.conf', LOG_DIR, static function ($r, $t, $tpl, $l, $ports, $security, $limits, $http3, $off) use (&$seenHttp3) {
+        $seenHttp3[] = $http3 ? $off : false;
         throw new CompilationRefused('stop after the wiring');
     }, '/nonexistent/security.json', '/nonexistent/php-limits.json', $path);
 };
-foreach (['' => true, '{}' => true, '{"enabled": true}' => true, '{"enabled": false}' => false] as $text => $want) {
+foreach (['' => [], '{}' => [], '{"enabled": true}' => [], '{"enabled": false}' => false, '{"off": ["b.example", "a.example"]}' => ['a.example', 'b.example'],
+          '{"enabled": true, "off": []}' => []] as $text => $want) {
     @unlink($http3File);
     if ($text !== '') {
         file_put_contents($http3File, $text);
@@ -357,7 +375,9 @@ foreach (['' => true, '{}' => true, '{"enabled": true}' => true, '{"enabled": fa
             . var_export($text, true));
     }
 }
-foreach (['{"enabled": 1}', '{"enabled": false, "x": 1}', '[]', '[false]', '{bad', '"off"'] as $text) {
+foreach (['{"enabled": 1}', '{"enabled": false, "x": 1}', '[]', '[false]', '{bad', '"off"', '{"off": "a.example"}', '{"off": {"a": "a.example"}}',
+          '{"off": [1]}', '{"off": ["A.example"]}', '{"off": ["localhost"]}', '{"off": ["a.example", "a.example"]}', '{"off": ["a b.example"]}',
+          '{"off": ["a.example\n"]}', '{"off": ' . json_encode(array_map(static fn(int $i): string => "d$i.example", range(1, 257))) . '}'] as $text) {
     file_put_contents($http3File, $text);
     chmod($http3File, 0644);
     try {

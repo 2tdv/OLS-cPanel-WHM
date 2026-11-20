@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.15
+
+- Security: on sites served natively, a PHP file in a folder whose .htaccess refuses scripts with `<Files>` or
+  `<FilesMatch>` could still run through a URL with path info (`/uploads/x.php/anything`). Such URLs are now refused as
+  Apache refuses them. Three rarer .htaccess forms that could also let PHP run are handled the same way.
+- WordPress login protection: floods of `xmlrpc.php` and `wp-login.php` POSTs from one address are refused before PHP
+  runs (403 for those two paths of that site only, 15 minutes and longer on repeat). On by default; a WHM page shows
+  the blocked addresses.
+- A suspended account is served cPanel's suspended page as soon as the suspension finishes, and its cached pages are
+  no longer served (it took up to three minutes).
+- A changed .htaccess is applied within about ten seconds (it took up to a minute).
+- Preview in WHM before switching: every site is checked on OpenLiteSpeed beside Apache, with nothing changed.
+- Wordfence's firewall works on OpenLiteSpeed.
+- HTTP/3 can be turned off per domain in WHM.
+- The ModSecurity audit log is rotated by the product (the earlier logrotate rule could not run and is removed).
+
 ## 0.2.14
 
 - A busy site gets more PHP processes at its first wait instead of after three, and the change reaches the running PHP

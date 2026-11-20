@@ -1,0 +1,4 @@
+<IfModule mod_mime.c>
+RemoveHandler .php .phtml .php5
+RemoveType .php .phtml .php5
+</IfModule>

@@ -17,7 +17,7 @@ and marker comments can differ between releases. Files marked "live" were observ
 | --- | --- | --- |
 | Akismet | 5.x | live (WordPress default plugin) |
 | LiteSpeed Cache | 7.9.x | live (`wp-content/litespeed/.htaccess` LSCACHE_STATIC_PROTECT_V3, `debug/.htaccess`); browser cache block and cache rules reconstructed |
-| Wordfence | 7.x | reconstructed (`wflogs/.htaccess`, WAF section of the root file) |
+| Wordfence | 7.x | reconstructed (`wflogs/.htaccess`; the firewall section of the root file in its LiteSpeed form `root-waf`, mod_php form `root-waf-mod-php` and PHP-FPM form `root-waf-fpm`, whose prepend is in `.user.ini`) |
 | W3 Total Cache | 2.x | reconstructed (browser cache, page cache core, page cache directory) |
 | WP Super Cache | 1.x | reconstructed (root rules, `wp-content/cache/.htaccess`) |
 | WP Fastest Cache | 1.x | reconstructed (root rules) |
@@ -45,3 +45,9 @@ and marker comments can differ between releases. Files marked "live" were observ
   `Cache-Control: public, max-age=N` (Apache only `max-age=N`) and applies it to static files, not to dynamic responses.
 - `Header always set|unset|append|merge` is translated like `Header set`: OLS has one header table (applied whenever the
   context matches), no separate table for error responses.
+- A denied `<Files>`/`<FilesMatch>` name also gets a context for the same name followed by path info (CMP-09): OLS
+  matches regex contexts against the whole URI, so `x.php/y` would otherwise run a script Apache refuses.
+- Wordfence's firewall (CMP-08): `php_value auto_prepend_file '<path>/wordfence-waf.php'` inside `<IfModule LiteSpeed>`
+  of the document root becomes the root context's `phpIniOverride` when the path is a plain absolute path inside the
+  account's home; the compile checks the file as the account (a readable regular file it owns) and keeps the site on
+  Apache otherwise. Fixtures marked `"modules": "lab"` are translated with the lab Apache's module list.

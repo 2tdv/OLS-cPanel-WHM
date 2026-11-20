@@ -464,7 +464,8 @@ $lines = [];
 $loop->watch(60, $emit, 2);
 check(isset($lines[0]['action']) && $engine->events === [], 'watch: pending events trigger a pass at once');
 check(throws(fn() => (new Reconciler($engine, $builders))->watch(60, $emit, 1), LogicException::class), 'watch needs the paced engine');
-$engine->events = $events;
+$plainEvents = [['name' => '1761134400000000000-' . str_repeat('b', 32) . '.json', 'event' => ['event' => 'UAPI::SSL::install_ssl']]];
+$engine->events = $plainEvents;
 $engine->validation = ['valid' => false, 'report' => 'bad'];
 $engine->state['source_sha256'] = null;
 $lines = [];
@@ -472,8 +473,39 @@ $now = 0.0;
 (new Reconciler(new PacedEngine($engine, $emit, $clock), $builders, null, $production, '/nonexistent', null, $clock, $sleeper))
     ->watch(3600, $emit, 40);
 $failedPasses = count(array_filter($lines, static fn(array $l): bool => ($l['action'] ?? null) === 'invalid'));
-check($failedPasses === 3 && $engine->events === $events,
+check($failedPasses === 3 && $engine->events === $plainEvents,
     "watch: after a failed pass pending events retry every " . Reconciler::RETRY_SECONDS . " s, not every second ($failedPasses passes in 40 s)");
+// RV-65: a pending restriction (suspension) is never left behind the 15 s back-off.
+$engine->events = $events;
+$lines = [];
+$now = 0.0;
+(new Reconciler(new PacedEngine($engine, $emit, $clock), $builders, null, $production, '/nonexistent', null, $clock, $sleeper))
+    ->watch(3600, $emit, 40);
+$restrictTimes = array_column(array_filter($lines, static fn(array $l): bool => ($l['action'] ?? null) === 'invalid'), 'time');
+$gaps = array_map(static fn(float $a, float $b): float => $b - $a, array_slice($restrictTimes, 0, -1), array_slice($restrictTimes, 1));
+check(count($restrictTimes) >= 10 && max($gaps) <= Reconciler::RESTRICT_RETRY_SECONDS && $engine->events === $events,
+    'RV-65 watch: a failing pass with a pending suspension is retried every ' . Reconciler::RESTRICT_RETRY_SECONDS . ' s ('
+    . count($restrictTimes) . ' passes in 40 s)');
+check(Reconciler::restricting($events) && !Reconciler::restricting($plainEvents) && !Reconciler::restricting([['name' => 'x', 'error' => 'malformed']]),
+    'RV-65: restricting() recognises a pending suspension only');
+// RV-65: an event that arrives after a failed pass is tried at once, not after the back-off.
+$engine->events = $plainEvents;
+$lines = [];
+$now = 0.0;
+$arrived = null;
+$arriving = static function (int $seconds) use (&$now, &$arrived, $engine, $events): void {
+    $now += $seconds;
+    if ($now === 5.0) {
+        $engine->events = [...$engine->events, ...$events];
+        $arrived = $now;
+    }
+};
+(new Reconciler(new PacedEngine($engine, $emit, $clock), $builders, null, $production, '/nonexistent', null, $clock, $arriving))
+    ->watch(3600, $emit, 8);
+$passTimes = array_column(array_filter($lines, static fn(array $l): bool => ($l['action'] ?? null) === 'invalid'), 'time');
+check($arrived === 5.0 && $passTimes === [0.0, 5.0], 'RV-65 watch: a new event after a failed pass starts a pass at once ('
+    . json_encode($passTimes) . ')');
+$engine->events = $events;
 $engine->validation = ['valid' => true];
 $errors = [];
 $broken = new FakeEngine([]);
@@ -653,6 +685,88 @@ $loopReconciler->watch(60, $loopEmit, 130);
 $passLines = array_values(array_filter($loopLines, static fn(array $l): bool => isset($l['action'])));
 check(count($passLines) >= 3 && $passLines[0]['compiled'] === true && $passLines[1]['compiled'] === false && $passLines[1]['action'] === 'unchanged'
     && $loopCompiles === 1, 'watch: passes every interval and only the first compiles while nothing changes');
+
+// --- CMP-02: the .htaccess watch's token starts a pass at once -------------------------------------------------
+// One loop over the fixture with a digest and a token the test controls; $nudgeAt maps a loop time to the token written then
+// (as the watch writes it, after its one-second debounce), $digestAt to the digest from that time on.
+$nudgeLoop = static function (array $nudgeAt, array $digestAt, int $rounds, ?Closure $reader = null) use ($fixture, $builders, $production): array {
+    $engine = new FakeEngine($fixture['calls']);
+    $now = 0.0;
+    $token = null;
+    $digest = 'd0';
+    $clock = static function () use (&$now): float {
+        return $now;
+    };
+    $sleep = static function (int $seconds) use (&$now, &$token, &$digest, $nudgeAt, $digestAt, $engine): void {
+        $now += $seconds;
+        $key = (string) (int) $now;
+        $token = $nudgeAt[$key] ?? $token;
+        $digest = $digestAt[$key] ?? $digest;
+        // The generation a pass applied is the active one (the fake activator does not move the pointer itself).
+        $engine->state['source_sha256'] = $engine->applied === [] ? $engine->state['source_sha256']
+            : $engine->applied[count($engine->applied) - 1]['sourceSha256'];
+    };
+    $lines = [];
+    $emit = static function (array $l) use (&$lines): void {
+        $lines[] = $l;
+    };
+    $compiles = 0;
+    $builder = static function (Profile $profile, Engine $engine) use ($builders, &$compiles): array {
+        ++$compiles;
+        return $builders($profile, $engine);
+    };
+    (new Reconciler(new PacedEngine($engine, $emit, $clock), $builder, null, $production, '/nonexistent', null, $clock, $sleep,
+        static fn(): string => 'r20261022120000-0a1b2c', inputs: static function (Profile $p, int $e) use (&$digest): string {
+            return $digest;
+        }, nudge: $reader ?? static function () use (&$token): ?string {
+            return $token;
+        }))->watch(60, $emit, $rounds);
+    $passes = array_values(array_filter($lines, static fn(array $l): bool => isset($l['action'])));
+    return [$passes, $compiles];
+};
+// A changed .htaccess at t=10 (token at 11, after the watch's debounce): a pass at 11 that compiles, not at 60.
+[$passes, $compiles] = $nudgeLoop(['0' => '1-0 0', '11' => '1-1 11'], ['10' => 'd1'], 30);
+check(count($passes) === 2 && $passes[1]['time'] === 11.0 && ($passes[1]['trigger'] ?? null) === 'htaccess_watch'
+    && $passes[1]['compiled'] === true && $passes[1]['compile_reason'] === 'inputs_changed' && $compiles === 2,
+    'CMP-02: a new watch token starts a pass in the next round, and the changed digest compiles (' . json_encode(array_column($passes, 'time')) . ')');
+// A new .htaccess in a new directory is the same path: the token moves, the digest (which lists every .htaccess) changed.
+[$passes, $compiles] = $nudgeLoop(['0' => '1-0 0', '5' => '1-1 5', '40' => '1-2 40'], ['4' => 'd1', '39' => 'd2'], 50);
+check(array_column($passes, 'time') === [0.0, 5.0, 40.0] && $compiles === 3, 'CMP-02: every change is served without waiting for the interval');
+// Several tokens between two rounds (a burst the watch did not merge) give one pass; a burst during a pass gives one more.
+[$passes, $compiles] = $nudgeLoop(['0' => '1-0 0', '7' => '1-3 7'], ['6' => 'd1'], 20);
+check(array_column($passes, 'time') === [0.0, 7.0] && $compiles === 2, 'CMP-02: one pass for one token change, however many edits it stands for');
+// A nudge whose digest did not change (a symlinked .htaccess outside every document root, an .htaccess outside the
+// document roots): a pass that skips the compile (RV-48), never a compile.
+[$passes, $compiles] = $nudgeLoop(['0' => '1-0 0', '9' => '1-1 9'], [], 20);
+check(count($passes) === 2 && $passes[1]['compiled'] === false && $passes[1]['action'] === 'unchanged' && $compiles === 1,
+    'CMP-02: a nudge without a changed input skips the compile (the RV-48 skip still decides)');
+// The budget: a token that changes every second for two minutes starts at most NUDGE_PASSES passes a minute.
+$every = [];
+for ($t = 1; $t <= 120; ++$t) {
+    $every[(string) $t] = "1-$t $t";
+}
+[$passes, $compiles] = $nudgeLoop(['0' => '1-0 0'] + $every, [], 121);
+$watchPasses = array_values(array_filter($passes, static fn(array $l): bool => ($l['trigger'] ?? null) === 'htaccess_watch'));
+check(count($watchPasses) === 2 * Reconciler::NUDGE_PASSES && count($passes) <= 2 * Reconciler::NUDGE_PASSES + 3,
+    'CMP-02: at most ' . Reconciler::NUDGE_PASSES . ' nudged passes per ' . Reconciler::NUDGE_WINDOW . ' s (' . count($watchPasses) . ' in 120 s)');
+// Fallback: no watch (no token), or a reader that throws: periodic passes only, the loop never fails.
+[$passes, $compiles] = $nudgeLoop([], ['10' => 'd1'], 130);
+check(array_column($passes, 'time') === [0.0, 60.0, 120.0] && $passes[1]['compiled'] === true && !isset($passes[1]['trigger']),
+    'CMP-02: without the watch a change is applied by the periodic pass, as before');
+[$passes] = $nudgeLoop([], [], 70, static function (): ?string {
+    throw new RuntimeException('unreadable');
+});
+check(array_column($passes, 'time') === [0.0, 60.0], 'CMP-02: an unreadable token is no token');
+// The token file: written by the watch, read as a whole line; anything else is no token.
+$nudgeDir = temp_dir();
+check(Events\HtaccessNudge::token("$nudgeDir/htaccess.nudge") === null, 'CMP-02: an absent token file is no token');
+file_put_contents("$nudgeDir/htaccess.nudge", "1795182980123456789-3 1795182981\n");
+check(Events\HtaccessNudge::token("$nudgeDir/htaccess.nudge") === '1795182980123456789-3 1795182981'
+    && (Events\HtaccessNudge::reader("$nudgeDir/htaccess.nudge"))() === '1795182980123456789-3 1795182981', 'CMP-02: the token is read');
+foreach (["", "garbage\n", "1-2\n", "1-2 3 /home/x/.htaccess\n", str_repeat('9', 200)] as $bad) {
+    file_put_contents("$nudgeDir/htaccess.nudge", $bad);
+    check(Events\HtaccessNudge::token("$nudgeDir/htaccess.nudge") === null, 'CMP-02: a malformed token is no token: ' . json_encode(substr($bad, 0, 20)));
+}
 
 // --- RV-53: the automatic PHP children reach the compile as an input -----------------------------------------
 $limitsEngine = new FakeEngine($fixture['calls']);
@@ -1154,6 +1268,191 @@ rewind($err);
 check(stream_get_contents($out) === '1' && str_contains(stream_get_contents($err), 'restriction intent not recorded'),
     'unwritable spool and intent directory: still exactly 1, reported');
 
+// RV-65: cPanel's password caches refreshed by the hook (outside the broker's read-only /etc), page cache purged, and the
+// hook returns once the reconciler applied the restriction.
+$rvState = temp_dir();
+$rvSpool = "$rvState/events";
+$rvEtc = "$rvState/etc";
+mkdir($rvEtc);
+$changed = 1794579125;  // the second cPanel changed passwd and shadow
+touch("$rvEtc/passwd", $changed - 30);
+touch("$rvEtc/shadow", $changed);
+$rvNow = $changed + 0.4;
+$rvClock = static function () use (&$rvNow): float {
+    return $rvNow;
+};
+$consumeAfter = null;  // the reconciler consumes the spooled event after this many polls (null: never)
+$polls = 0;
+$rvSleep = static function (float $seconds) use (&$rvNow, &$consumeAfter, &$polls, $rvSpool): void {
+    $rvNow += $seconds;
+    $spooled = glob("$rvSpool/*.json") ?: [];
+    if ($consumeAfter !== null && $spooled !== [] && ++$polls >= $consumeAfter) {
+        array_map('unlink', $spooled);
+    }
+};
+$rvRunner = new class($rvSpool, $rvNow) implements CommandRunner {
+    public array $calls = [];
+    public int $active = 0;
+    public function __construct(private string $spool, private float &$now)
+    {
+    }
+    public function run(string $name, array $argv, int $timeout): array
+    {
+        $this->calls[] = ['name' => $name, 'argv' => $argv, 'spooled' => count(glob($this->spool . '/*.json') ?: []), 'at' => $this->now];
+        return match ($name) {
+            'restrict' => ['exit_code' => 0, 'stdout' => '{"epoch": 9}' . "\n", 'stderr' => ''],
+            'reconciler-active' => ['exit_code' => $this->active, 'stdout' => '', 'stderr' => ''],
+            default => ['exit_code' => 0, 'stdout' => '{}', 'stderr' => ''],
+        };
+    }
+};
+$purged = [];
+$purgeResult = ['result' => 'purged'];
+$purger = static function (string $account) use (&$purged, &$purgeResult): array {
+    $purged[] = $account;
+    return is_array($purgeResult) ? $purgeResult : throw new RuntimeException('cache tree unreadable');
+};
+$rvHook = new HookEntry($rvSpool, $rvRunner, '/opt/activator', "$rvState/restrictions", null, true, $purger, 30, $rvEtc, $rvClock, $rvSleep);
+$rvAnswer = static function (string $input) use ($rvHook): array {
+    $out = fopen('php://memory', 'w+');
+    $err = fopen('php://memory', 'w+');
+    $rvHook->handle($input, $out, $err);
+    rewind($out);
+    rewind($err);
+    return [stream_get_contents($out), stream_get_contents($err)];
+};
+$rvSuspend = json_encode(['context' => ['category' => 'Whostmgr', 'event' => 'Accounts::suspendacct', 'stage' => 'post', 'user' => 'root'],
+    'data' => ['user' => 'lthx04']]);
+$consumeAfter = 3;
+[$printed, $stderr] = $rvAnswer($rvSuspend);
+$names = array_column($rvRunner->calls, 'name');
+$reads = array_values(array_filter($rvRunner->calls, static fn(array $c): bool => $c['name'] === 'cpanel-cache-refresh'));
+check($printed === '1' && $names === ['restrict', 'cpanel-cache-refresh', 'cpanel-cache-refresh', 'reconciler-active']
+    && array_column($reads, 'argv') === HookEntry::CPANEL_CACHE_READS,
+    'RV-65 hook: suspension raises the epoch, then runs the compile\'s cPanel reads, then checks the reconciler');
+check($reads[0]['at'] >= $changed + 1 && $reads[0]['spooled'] === 0 && $reads[1]['spooled'] === 0,
+    'RV-65 hook: the reads run in a later second than the shadow change (cPanel\'s cache validity) and before the event is spooled');
+check($purged === ['lthx04'], 'RV-65 hook: the suspended account (data.user, not the operator in context.user) has its page cache purged');
+check($polls === 3 && glob("$rvSpool/*.json") === [] && $stderr === '',
+    'RV-65 hook: a suspension returns once the reconciler consumed the event (the restriction is served)');
+// Unsuspension: caches refreshed, nothing purged, no wait.
+$rvRunner->calls = [];
+$purged = [];
+$polls = 0;
+$consumeAfter = null;
+$rvNow = (float) ($changed + 100);
+[$printed] = $rvAnswer(json_encode(['context' => ['category' => 'Whostmgr', 'event' => 'Accounts::unsuspendacct', 'user' => 'root'],
+    'data' => ['user' => 'lthx04']]));
+check($printed === '1' && array_column($rvRunner->calls, 'name') === ['cpanel-cache-refresh', 'cpanel-cache-refresh'] && $purged === []
+    && $rvNow === (float) ($changed + 100) && count(glob("$rvSpool/*.json")) === 1,
+    'RV-65 hook: unsuspension refreshes the caches (no wait: the second has passed), purges nothing and does not wait');
+array_map('unlink', glob("$rvSpool/*.json"));
+// Other events: neither refresh nor purge nor wait.
+$rvRunner->calls = [];
+[$printed] = $rvAnswer(json_encode(['context' => ['category' => 'Cpanel', 'event' => 'UAPI::SSL::install_ssl', 'user' => 'lthx04'], 'data' => []]));
+check($printed === '1' && $rvRunner->calls === [] && $purged === [], 'RV-65 hook: other events run no cPanel read and purge nothing');
+array_map('unlink', glob("$rvSpool/*.json"));
+// Removal, reconciler never consuming: bounded wait, reported; a failed purge is reported; still exactly 1.
+$rvRunner->calls = [];
+$purgeResult = null;
+$started = $rvNow;
+[$printed, $stderr] = $rvAnswer(json_encode(['context' => ['category' => 'Whostmgr', 'event' => 'Accounts::Remove', 'user' => 'root'],
+    'data' => ['user' => 'lthx04']]));
+check($printed === '1' && $rvNow - $started >= 30 && $rvNow - $started < 31 && str_contains($stderr, 'not applied after 30 s')
+    && str_contains($stderr, 'page cache of lthx04 not purged') && count(glob("$rvSpool/*.json")) === 1,
+    'RV-65 hook: a restriction the reconciler does not apply ends the wait after the bound; a failed purge is reported');
+array_map('unlink', glob("$rvSpool/*.json"));
+// Reconciler service not running: no wait. Invalid account: no purge.
+$rvRunner->active = 3;
+$purgeResult = ['result' => 'purged'];
+$purged = [];
+$started = $rvNow;
+[$printed, $stderr] = $rvAnswer(json_encode(['context' => ['category' => 'Whostmgr', 'event' => 'Accounts::suspendacct', 'user' => 'root'],
+    'data' => ['user' => '../etc']]));
+check($printed === '1' && $rvNow === $started && $purged === [] && str_contains($stderr, 'no valid account'),
+    'RV-65 hook: no wait while the reconciler service is stopped; an invalid account name purges nothing');
+array_map('unlink', glob("$rvSpool/*.json"));
+// Settling is bounded: a passwd change stamped in the future never holds the hook more than two seconds.
+touch("$rvEtc/passwd", (int) $rvNow + 3600);
+$rvRunner->active = 3;
+$started = $rvNow;
+$rvAnswer($rvSuspend);
+check($rvNow - $started <= 2.2, 'RV-65 hook: waiting for the next second is bounded (' . round($rvNow - $started, 1) . ' s)');
+// A purge that left entries (partial) is reported.
+$purgeResult = ['result' => 'partial', 'error' => 'the purge is partial: 1 removal(s) failed'];
+[, $stderr] = $rvAnswer($rvSuspend);
+check(str_contains($stderr, 'page cache of lthx04: the purge is partial'), 'RV-65 hook: a partial purge is reported');
+array_map('unlink', glob("$rvSpool/*.json"));
+// Password change (Passwd::ChangePasswd, WHM passwd and UAPI Users::change_password): cache refresh only, after the shadow change's second.
+$rvRunner->calls = [];
+$rvRunner->active = 0;
+$purged = [];
+$polls = 0;
+$consumeAfter = 1;
+$rvNow = (float) ((int) $rvNow + 10) + 0.5;
+touch("$rvEtc/passwd", (int) $rvNow - 100);
+touch("$rvEtc/shadow", (int) $rvNow);
+$shadowSecond = (int) $rvNow;
+$passwordEvent = json_encode(['context' => ['category' => 'Passwd', 'event' => 'ChangePasswd', 'stage' => 'post', 'escalateprivs' => 1],
+    'data' => ['user' => 'lthx04', 'new_password' => 'never-record-this', 'origin' => 'cpanel']]);
+[$printed, $stderr] = $rvAnswer($passwordEvent);
+check($printed === '1' && array_column($rvRunner->calls, 'name') === ['cpanel-cache-refresh', 'cpanel-cache-refresh']
+    && array_column($rvRunner->calls, 'argv') === HookEntry::CPANEL_CACHE_READS && $rvRunner->calls[0]['at'] >= $shadowSecond + 1,
+    'RV-65 hook: a password change runs the cPanel reads in the second after the shadow change, and no restriction');
+check(glob("$rvSpool/*.json") === [] && (glob("$rvState/restrictions/*.json") ?: []) === [],
+    'RV-65 hook: a password change spools nothing (the payload holds the password) and records no restriction');
+check($purged === [] && $polls === 0 && $stderr === '', 'RV-65 hook: a password change purges nothing and does not wait');
+$rvRunner->calls = [];
+$wrongCategory = json_encode(['context' => ['category' => 'Whostmgr', 'event' => 'ChangePasswd', 'stage' => 'post'], 'data' => []]);
+$rvAnswer($wrongCategory);
+check($rvRunner->calls === [] && count(glob("$rvSpool/*.json")) === 1, 'RV-65 hook: only the Passwd category is the password change');
+array_map('unlink', glob("$rvSpool/*.json"));
+// Shell change (Whostmgr Accounts::set_shell: WHM Manage Shell Access, package change, restore): the same refresh only, after the
+// second of the /etc/passwd change.
+$rvRunner->calls = [];
+$rvRunner->active = 0;
+$purged = [];
+$polls = 0;
+$consumeAfter = 1;
+$rvNow = (float) ((int) $rvNow + 10) + 0.5;
+touch("$rvEtc/shadow", (int) $rvNow - 100);
+touch("$rvEtc/passwd", (int) $rvNow);
+$passwdSecond = (int) $rvNow;
+$shellEvent = json_encode(['context' => ['category' => 'Whostmgr', 'event' => 'Accounts::set_shell', 'stage' => 'post'],
+    'data' => ['user' => 'lthx04', 'new_shell' => '/usr/local/cpanel/bin/jailshell', 'current_shell' => '/sbin/nologin', 'rawout' => 'Shell changed']]);
+[$printed, $stderr] = $rvAnswer($shellEvent);
+check($printed === '1' && array_column($rvRunner->calls, 'name') === ['cpanel-cache-refresh', 'cpanel-cache-refresh']
+    && array_column($rvRunner->calls, 'argv') === HookEntry::CPANEL_CACHE_READS && $rvRunner->calls[0]['at'] >= $passwdSecond + 1,
+    'RV-65 hook: a shell change runs the cPanel reads in the second after the passwd change');
+check(glob("$rvSpool/*.json") === [] && (glob("$rvState/restrictions/*.json") ?: []) === [] && $purged === [] && $polls === 0 && $stderr === ''
+    && in_array(HookEntry::SHELL_EVENT, HookEntry::REFRESH_ONLY_EVENTS, true) && !in_array('Accounts::set_shell', HookEntry::ACCOUNT_EVENTS, true),
+    'RV-65 hook: a shell change spools nothing, records no restriction, purges nothing and does not wait');
+$rvRunner->calls = [];
+$rvAnswer(json_encode(['context' => ['category' => 'Cpanel', 'event' => 'Accounts::set_shell', 'stage' => 'post'], 'data' => []]));
+check($rvRunner->calls === [] && count(glob("$rvSpool/*.json")) === 1, 'RV-65 hook: only the Whostmgr category is the shell change');
+array_map('unlink', glob("$rvSpool/*.json"));
+// The production wiring (EngineContext::hook): the purge empties the account's stores through CacheManager; the wait only once cut over.
+$wireState = temp_dir();
+$wireCache = "$wireState/cache";
+$store = "$wireCache/lthx04@lthx04.example.test";
+mkdir("$store/a/b/c", 0755, true);
+file_put_contents("$store/a/b/c/0123456789abcdef", 'cached page');
+mkdir("$wireState/active");
+file_put_contents("$wireState/active/summary.json", json_encode(['vhosts' => ['lthx04.example.test' => ['user' => 'lthx04', 'aliases' => []]],
+    'cache' => ['lthx04.example.test' => ['enabled' => true, 'storage' => $store]]]));
+$wireContext = static fn(string $profile): EngineContext => new EngineContext(0, 'root', static fn(string $role): Engine => new FakeEngine([]), null,
+    $wireState, $profile, '/proc', $wireCache, posix_geteuid(),
+    static fn(string $root, string $name, int $uid, int $gid): array => (new OlsCpanel\Ols\Cache\CacheStorage($root, posix_geteuid()))->purgeStore($name));
+$wired = $wireContext('/nonexistent/profile.json')->hook();
+$property = static fn(HookEntry $h, string $name): mixed => (new ReflectionProperty(HookEntry::class, $name))->getValue($h);
+$wirePurge = $property($wired, 'purge')('lthx04');
+check($wirePurge['result'] === 'purged' && !file_exists("$store/a/b/c/0123456789abcdef") && is_dir($store),
+    'RV-65 wiring: the hook\'s purge empties the account\'s page cache store (CacheManager, confined helper)');
+touch("$wireState/profile.json");
+check($property($wired, 'applyWait') === 0 && $property($wireContext("$wireState/profile.json")->hook(), 'applyWait') === HookEntry::APPLY_WAIT
+    && $property($wired, 'refreshCpanelCaches') === (posix_geteuid() === 0),
+    'RV-65 wiring: the hook waits for the reconciler only once cut over; cPanel\'s caches are refreshed only by real root');
+
 // --- CLI dispatch and exit codes ---------------------------------------------------------------------
 $run = static function (Application $app, array $argv, $stdin = null): array {
     $out = fopen('php://memory', 'w+');
@@ -1473,6 +1772,53 @@ foreach ([['--lines=0'], ['--lines=20001'], ['--lines=x'], ['--lines'], ['extra'
 }
 [$code, $stdout] = $run(new Application([new Command\Http3StatusCommand($stranger, $h3Input, $h3Logs, $h3Firewall)]), ['http3', 'status', '--format=json']);
 check($code === 1 && json_decode($stdout, true)['result'] === 'refused', 'http3 status: root only');
+// http3 off / on (CMP-07, root): the per-domain switch writes the off list of the input, for a vhost of the active generation only.
+check(in_array('http3 off', array_map(static fn(Command $c): string => implode(' ', $c->words()), Application::defaultCommands()), true)
+    && in_array('http3 on', array_map(static fn(Command $c): string => implode(' ', $c->words()), Application::defaultCommands()), true),
+    'http3 off and http3 on registered in the application');
+$h3Switch = $secDir . '/http3-switch.json';
+$switchApp = new Application([new Command\Http3DomainCommand($h3Context, false, $h3Switch), new Command\Http3DomainCommand($h3Context, true, $h3Switch),
+    new Command\Http3StatusCommand($h3Context, $h3Switch, $h3Logs, $h3Firewall)]);
+[$code, $stdout] = $run($switchApp, ['http3', 'off', '--domain=b.test', '--format=json']);
+$r = json_decode($stdout, true);
+check($code === 0 && $r['changed'] === true && $r['off'] === ['b.test'] && $r['enabled'] === true
+    && file_get_contents($h3Switch) === "{\"off\":[\"b.test\"]}\n" && (fileperms($h3Switch) & 0777) === 0644, 'http3 off adds the domain to the input (0644, atomic)');
+[$code, $stdout] = $run($switchApp, ['http3', 'off', '--domain=a.test', '--format=json']);
+check($code === 0 && json_decode($stdout, true)['off'] === ['a.test', 'b.test'] && file_get_contents($h3Switch) === "{\"off\":[\"a.test\",\"b.test\"]}\n",
+    'http3 off keeps the list sorted');
+[$code, $stdout] = $run($switchApp, ['http3', 'off', '--domain=a.test', '--format=json']);
+check($code === 0 && json_decode($stdout, true)['changed'] === false, 'http3 off is idempotent');
+[$code, $stdout] = $run($switchApp, ['http3', 'status', '--format=json']);
+$h3 = json_decode($stdout, true);
+$flags = array_column($h3['protocol_share'], 'http3_off', 'vhost');
+check($code === 0 && $h3['input']['off'] === ['a.test', 'b.test'] && $h3['input']['off_unknown'] === [] && $flags === ['a.test' => true, 'b.test' => true],
+    'http3 status lists the domains that are off');
+[$code, $stdout] = $run($switchApp, ['http3', 'off', '--domain=c.test', '--format=json']);
+check($code === 1 && json_decode($stdout, true)['result'] === 'refused' && str_contains($stdout, 'not a vhost of the active generation')
+    && file_get_contents($h3Switch) === "{\"off\":[\"a.test\",\"b.test\"]}\n", 'http3 off refuses a domain that is not a vhost');
+file_put_contents($h3Switch, '{"off": ["gone.test", "a.test"]}');
+[$code, $stdout] = $run($switchApp, ['http3', 'status', '--format=json']);
+check($code === 0 && json_decode($stdout, true)['input']['off_unknown'] === ['gone.test'], 'http3 status names an off entry without a vhost');
+[$code, $stdout] = $run($switchApp, ['http3', 'on', '--domain=gone.test', '--format=json']);
+check($code === 0 && json_decode($stdout, true)['off'] === ['a.test'] && file_get_contents($h3Switch) === "{\"off\":[\"a.test\"]}\n",
+    'http3 on removes a stale name');
+[$code, $stdout] = $run($switchApp, ['http3', 'on', '--domain=a.test', '--format=json']);
+check($code === 0 && json_decode($stdout, true)['off'] === [] && file_get_contents($h3Switch) === "{}\n", 'http3 on removes the last domain: an empty object');
+file_put_contents($h3Switch, '{"enabled": false, "off": ["a.test"]}');
+[$code, $stdout] = $run($switchApp, ['http3', 'on', '--domain=a.test', '--format=json']);
+check($code === 0 && file_get_contents($h3Switch) === "{\"enabled\":false}\n", 'the switch keeps the global opt-out');
+file_put_contents($h3Switch, '{"off": "x"}');
+[$code, $stdout] = $run($switchApp, ['http3', 'off', '--domain=a.test', '--format=json']);
+check($code === 1 && file_get_contents($h3Switch) === '{"off": "x"}', 'a malformed input is refused and never overwritten');
+@unlink($h3Switch);
+@unlink($h3Switch . '.lock');
+foreach ([['http3', 'off'], ['http3', 'off', '--domain=A.test'], ['http3', 'off', '--domain=localhost'], ['http3', 'on', '--domain=a.test;x'],
+          ['http3', 'off', '--domain=' . str_repeat('a', 250) . '.com'], ['http3', 'off', 'a.test']] as $bad) {
+    [$code, $stdout] = $run($switchApp, $bad);
+    check($code === 64 && $stdout === '', 'http3 ' . $bad[1] . ' ' . ($bad[2] ?? '') . ': usage error');
+}
+[$code, $stdout] = $run(new Application([new Command\Http3DomainCommand($stranger, false, $h3Switch)]), ['http3', 'off', '--domain=a.test', '--format=json']);
+check($code === 1 && json_decode($stdout, true)['result'] === 'refused' && !file_exists($h3Switch), 'http3 off: root only');
 // A refused validation names its findings, which the report's tail (only the last output lines) loses.
 $tailOnly = str_repeat('2026-10-28 [WARN] Uid of /home/u is 0, smaller than minimum requirement 100, use server uid!' . "\n", 30);
 $invalid = LocalEngine::outcome('g9', ['valid' => false, 'report' => $tailOnly, 'stderr' => '',

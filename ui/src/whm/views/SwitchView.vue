@@ -15,7 +15,7 @@ import { formatDateTime } from '../../shared/format.js'
 import { errorMessage } from '../../shared/i18n.js'
 import { runningJob } from '../../shared/jobs.js'
 import { href } from '../../shared/router.js'
-import { normalizePlan, planFromLatest } from '../plan.js'
+import { normalizePlan, planFromLatest, PREVIEW_STATES } from '../plan.js'
 
 // Switch center: readiness (doctor, plan), prepare (ols.plan / ols.plan_hybrid), review the plan,
 // cut over (ols.cutover, typed plan id), return to Apache (ols.apache_return, typed phrase). Every
@@ -67,6 +67,15 @@ const doctorText = code => (te(`doctor.blockers.${code}`) ? t(`doctor.blockers.$
 // blockers, already cut over, a job running). Readiness findings stay visible in the confirmation.
 const cutoverBlocked = computed(() => !p.value || !p.value.valid || !p.value.digest || p.value.blockers.length > 0
   || isCutOver.value === true || jobRunning.value)
+// The preview (CMP-03) only needs a valid plan and a server that is not switched yet; the broker binds it to the plan's digest.
+const previewBlocked = computed(() => !p.value || !p.value.valid || !p.value.digest || isCutOver.value === true || jobRunning.value)
+const showSame = ref(false)
+const previewRows = computed(() => {
+  const sites = p.value?.preview?.sites ?? []
+  return showSame.value ? sites : sites.filter(site => site.state !== 'same')
+})
+const stateLabel = state => (PREVIEW_STATES.includes(state) ? t(`whm.switch.preview.states.${state}`) : '')
+const PREVIEW_TONE = { same: 'ok', different: 'warn', hybrid: 'info', unprobed: 'neutral', apache_silent: 'warn' }
 const prepareBlocked = computed(() => !statusDigest.value || jobRunning.value || isCutOver.value === true)
 const returnBlocked = computed(() => !statusDigest.value || jobRunning.value || isCutOver.value !== true)
 
@@ -82,6 +91,7 @@ async function start(name, payload) {
 }
 const prepare = () => start(ACTIONS.plan,
   { scope: 'server', digest: statusDigest.value })
+const preview = () => start(ACTIONS.preview, { scope: p.value.id, digest: p.value.digest })
 async function cutover() {
   if (await start(ACTIONS.cutover, { scope: p.value.id, digest: p.value.digest })) confirmCutover.value = false
 }
@@ -235,6 +245,59 @@ function onJobState(job) {
               <li v-for="h in p.held" :key="h.vhost"><span class="olsc-mono">{{ h.vhost }}</span> {{ h.reasons.join('; ') }}</li>
             </ul>
           </template>
+
+          <!-- Preview beside Apache (CMP-03): how OpenLiteSpeed answers each site compared with Apache, before the switch. -->
+          <h4 class="olsc-h4">{{ t('whm.switch.preview.title') }}</h4>
+          <p class="olsc-muted">{{ t('whm.switch.preview.body') }}</p>
+          <el-button :disabled="previewBlocked" :loading="action.busy.value" @click="preview">
+            {{ p.preview ? t('whm.switch.preview.runAgain') : t('whm.switch.preview.run') }}
+          </el-button>
+          <p v-if="previewBlocked && !jobRunning && isCutOver !== true && !p.valid" class="olsc-hint">{{ t('whm.switch.preview.blockedHint') }}</p>
+          <p v-if="!p.preview" class="olsc-muted">{{ t('whm.switch.preview.none') }}</p>
+          <template v-else>
+            <el-alert v-if="!p.preview.current" type="warning" :closable="false" show-icon class="olsc-gap-below"
+                      :title="t('whm.switch.preview.outdated')" />
+            <el-alert v-if="p.preview.failed" type="error" :closable="false" show-icon class="olsc-gap-below"
+                      :title="t('whm.switch.preview.failedTitle')" :description="p.preview.reason ?? ''" />
+            <template v-if="p.preview.failed">
+              <ul v-if="p.preview.log.length" class="olsc-list" :aria-label="t('whm.switch.preview.failedLog')">
+                <li v-for="(line, i) in p.preview.log" :key="i" class="olsc-mono">{{ line }}</li>
+              </ul>
+            </template>
+            <template v-else>
+              <p>
+                <StatusBadge :tone="p.preview.different ? 'warn' : 'ok'"
+                             :label="p.preview.different ? t('whm.switch.preview.states.different') : t('whm.switch.preview.states.same')" />
+                {{ t('whm.switch.preview.summary', { total: p.preview.sites.length, time: formatDateTime(p.preview.createdAt) ?? t('state.unknown'),
+                                                     same: p.preview.same, different: p.preview.different }) }}
+                <span v-if="p.preview.seconds !== null">{{ t('whm.switch.preview.took', { n: p.preview.seconds }) }}</span>
+              </p>
+              <p v-if="p.preview.notCompared" class="olsc-muted">{{ t('whm.switch.preview.notCompared', { n: p.preview.notCompared }) }}</p>
+              <p v-if="!p.preview.different" class="olsc-muted">{{ t('whm.switch.preview.allSame') }}</p>
+              <el-checkbox v-model="showSame">{{ t('whm.switch.preview.showSame') }}</el-checkbox>
+              <el-table v-if="previewRows.length" :data="previewRows" size="small" stripe :aria-label="t('whm.switch.preview.title')">
+                <el-table-column :label="t('fields.vhost')" min-width="200">
+                  <template #default="{ row }"><span class="olsc-mono">{{ row.vhost }}</span></template>
+                </el-table-column>
+                <el-table-column :label="t('whm.switch.preview.result')" width="190">
+                  <template #default="{ row }">
+                    <StatusBadge :tone="PREVIEW_TONE[row.state] ?? 'neutral'" :label="stateLabel(row.state)" />
+                  </template>
+                </el-table-column>
+                <el-table-column :label="t('whm.switch.preview.answers')" min-width="280">
+                  <template #default="{ row }">
+                    <ul class="olsc-list olsc-tight">
+                      <li v-for="(r, i) in row.requests" :key="i" class="olsc-mono">
+                        {{ r.differs ? t('whm.switch.preview.detail', r) : t('whm.switch.preview.detailSame', r) }}
+                      </li>
+                      <li v-if="row.state === 'hybrid'">{{ t('whm.switch.preview.hybridDetail') }}</li>
+                      <li v-if="row.reason">{{ row.reason }}</li>
+                    </ul>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </template>
+          </template>
         </template>
       </StateView>
     </section>
@@ -264,6 +327,9 @@ function onJobState(job) {
         <dt>{{ t('confirm.affected') }}</dt>
         <dd>{{ t('whm.switch.cutoverAffected', { n: p.vhosts ?? t('state.unknown') }) }}</dd>
         <dt>{{ t('confirm.blockers') }}</dt><dd>{{ p.blockers.length ? p.blockers.length : t('whm.switch.noBlockers') }}</dd>
+        <dt>{{ t('whm.switch.preview.confirm') }}</dt>
+        <dd>{{ p.preview && !p.preview.failed ? t('whm.switch.preview.confirmResult', { different: p.preview.different, same: p.preview.same })
+          : t('whm.switch.preview.confirmNone') }}</dd>
         <dt>{{ t('whm.switch.readiness') }}</dt>
         <dd><StatusBadge :tone="READINESS_TONE[readiness]" :label="t(`whm.switch.ready.${readiness}`)" /></dd>
         <dt v-if="p.hostChanges.length">{{ t('whm.switch.hostChanges') }}</dt>

@@ -300,6 +300,8 @@ final class ScriptHost implements CommandRunner
     public array $hookCalls = [];
     /** @var list<list<string>> */
     public array $calls = [];
+    /** @var array<string,array{type:string, owner:string, content:string}> files that stat, cat and rm answer for (RV-66) */
+    public array $files = [];
 
     public function run(string $name, array $argv, int $timeout): array
     {
@@ -361,7 +363,16 @@ final class ScriptHost implements CommandRunner
                 return $ok($args[0] === 'list' ? $this->hookList : '');
             case '/usr/bin/readlink':
                 return $ok($this->olsExe . "\n");
+            case '/usr/bin/stat':
+                $file = $this->files[end($args)] ?? null;
+                return $file === null ? $no(1) : $ok($file['type'] . '|' . $file['owner'] . "\n");
+            case '/usr/bin/rm':
+                unset($this->files[end($args)]);
+                return $ok();
             case '/usr/bin/cat':
+                if (isset($this->files[end($args)])) {
+                    return $ok($this->files[end($args)]['content']);
+                }
                 if (end($args) === '/run/ols-cpanel/lshttpd/lshttpd.pid') {
                     return $ok("4242\n");
                 }
@@ -405,11 +416,11 @@ $host = new ScriptHost();
 [$code, $result] = admin($host, ['upgrade']);
 check($code === 0 && $result['result'] === 'upgraded' && count($result['plugins'] ?? []) === 2 && $result['packages'][0] === ['package' => 'ols-cpanel', 'version' => '1.2.0-1.el9.x86_64', 'verified' => true]
     && $result['packages'][1]['package'] === 'ols-cpanel-openlitespeed', 'upgrade verifies both packages');
-check(array_column($result['units'], 'unit') === ['ols-cpanel-broker.service', 'ols-cpanel-reconciler.service']
-    && array_column($result['units'], 'action') === ['restarted', 'restarted'] && array_column($result['units'], 'active') === [true, true],
-    'the broker is restarted before the reconciler and both come back');
+check(array_column($result['units'], 'unit') === ['ols-cpanel-broker.service', 'ols-cpanel-reconciler.service', 'ols-cpanel-login-guard.service', 'ols-cpanel-htaccess-watch.service']
+    && array_column($result['units'], 'action') === ['restarted', 'restarted', 'restarted', 'restarted'] && array_column($result['units'], 'active') === [true, true, true, true],
+    'the broker is restarted before the reconciler and both come back; the login guard and the .htaccess watch run the new code too');
 $restarts = array_values(array_filter($host->calls, static fn(array $c): bool => ($c[1] ?? '') === 'restart'));
-check(array_column($restarts, 2) === ['ols-cpanel-broker.service', 'ols-cpanel-reconciler.service'], 'restart order in the commands');
+check(array_column($restarts, 2) === ['ols-cpanel-broker.service', 'ols-cpanel-reconciler.service', 'ols-cpanel-login-guard.service', 'ols-cpanel-htaccess-watch.service'], 'restart order in the commands');
 check(array_filter($host->calls, static fn(array $c): bool => in_array('ols-cpanel.service', $c, true) && ($c[1] ?? '') !== 'is-active') === []
     && $result['ols'] === 'not-running', 'a stopped OLS server is never touched');
 check($result['php_environment_units'] === true && ($host->enabled['ols-cpanel-php.path'] ?? false) && ($host->enabled['ols-cpanel-php.timer'] ?? false)
@@ -420,9 +431,10 @@ check($result['hybrid_trust_timer'] === true && ($host->enabled['ols-cpanel-hybr
     'upgrade enables the hybrid trust timer on a prepared host');
 check($result['cache_clean_timer'] === true && ($host->enabled['ols-cpanel-cache-clean.timer'] ?? false),
     'upgrade enables the hourly LSCache cleanup timer on hosts prepared before it existed');
-check($result['operations_timers'] === ['ols-cpanel-notify.timer' => true, 'ols-cpanel-schedule.timer' => true]
-    && ($host->enabled['ols-cpanel-notify.timer'] ?? false) && ($host->enabled['ols-cpanel-schedule.timer'] ?? false),
-    'upgrade enables the notification and maintenance-window timers on hosts prepared before they existed (FV-07)');
+check($result['operations_timers'] === ['ols-cpanel-notify.timer' => true, 'ols-cpanel-schedule.timer' => true, 'ols-cpanel-login-guard.service' => true, 'ols-cpanel-htaccess-watch.service' => true]
+    && ($host->enabled['ols-cpanel-notify.timer'] ?? false) && ($host->enabled['ols-cpanel-schedule.timer'] ?? false)
+    && ($host->enabled['ols-cpanel-login-guard.service'] ?? false),
+    'upgrade enables the notification and maintenance-window timers and the login guard on hosts prepared before they existed (FV-07, RV-64)');
 check($result['account_state_timer'] === true && ($host->enabled['ols-cpanel-objcache.timer'] ?? false),
     'upgrade enables account-state cleanup even without explicit object cache accounts');
 
@@ -444,6 +456,27 @@ check($result['hybrid_firewall'] === 'enabled' && file_get_contents($env->state 
 $host->enableFails['ols-cpanel-hybrid-firewall.service'] = true;
 [$code, $result] = run_cli($app, ['upgrade']);
 check($result['result'] === 'failed' && in_array('hybrid_firewall', $result['incomplete'], true), 'a firewall unit that cannot be enabled leaves the upgrade pending');
+
+// RV-66: the logrotate rule of 0.2.13 and 0.2.14 is removed by the upgrade when it is the product's file, and only then.
+$ruleText = "# OLS-cPanel: rotation of the ModSecurity audit log (RV-57). OpenLiteSpeed rotates its own error and access logs\n"
+    . "/usr/local/lsws/logs/modsec_audit.log {\n    size 50M\n    rotate 4\n    compress\n    copytruncate\n}\n";
+$rule = OlsCpanel\Deployment\LegacyLogrotateRule::PATH;
+$host = new ScriptHost();
+$host->files[$rule] = ['type' => 'regular file', 'owner' => 'root:root:644', 'content' => $ruleText];
+$env = world($host);
+$ruleRun = (new Upgrade($env))->run();
+check($ruleRun['result'] === 'upgraded' && $ruleRun['legacy_logrotate_rule'] === 'removed' && !isset($host->files[$rule]),
+    'upgrade removes /etc/logrotate.d/ols-cpanel when it is the product\'s file');
+$ruleRun = (new Upgrade($env))->run();
+check($ruleRun['legacy_logrotate_rule'] === 'absent' && $ruleRun['result'] === 'upgraded', 'a host without the rule is untouched (idempotent)');
+foreach (['an administrator\'s own rule' => ['type' => 'regular file', 'owner' => 'root:root:644', 'content' => "/var/log/other.log {\n    weekly\n}\n"],
+          'a link' => ['type' => 'symbolic link', 'owner' => 'root:root:777', 'content' => $ruleText],
+          'a file of another owner' => ['type' => 'regular file', 'owner' => 'nobody:nobody:644', 'content' => $ruleText]] as $label => $other) {
+    $host = new ScriptHost();
+    $host->files[$rule] = $other;
+    $ruleRun = (new Upgrade(world($host)))->run();
+    check($ruleRun['legacy_logrotate_rule'] === 'absent' && isset($host->files[$rule]), "upgrade keeps $label");
+}
 
 // Automatic upgrade after a package transaction: pending until an upgrade recorded the installed versions.
 $host = new ScriptHost();

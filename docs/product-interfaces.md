@@ -11,7 +11,7 @@ and tested against this document; a change here comes first.
 | Product root | `/usr/local/ols-cpanel` (`bin/ols-cpanel`, `lib/`, `libexec/ols-cpanel-broker`, `libexec/ols-cpanel-activator`) |
 | State | `/var/lib/ols-cpanel` (root 0755; contents below) |
 | Broker sockets | `/run/ols-cpanel-broker/admin.sock` (root), `tenant.sock` (any local user), `engine.sock` (root and `olscpanel`) |
-| Units | `ols-cpanel.service` (OLS), `ols-cpanel-logs.service`, `ols-cpanel-broker.service` (root), `ols-cpanel-reconciler.service` (`olscpanel`, runs `ols-cpanel sync --watch`), the object cache units of "Object cache", `ols-cpanel-hybrid-firewall.service` (root oneshot at boot, before the network and Apache: loads `/var/lib/ols-cpanel/hybrid.nft`, the persisted hybrid firewall ruleset, so Apache's backend ports are never open after a reboot; enabled at cutover and by `upgrade`, skipped when the file is absent), `ols-cpanel-php.path`, `.service` and `.timer` ("PHP environment": lsphp, OPcache and the redis extension for every EA4 PHP version, root) |
+| Units | `ols-cpanel.service` (OLS), `ols-cpanel-logs.service`, `ols-cpanel-broker.service` (root), `ols-cpanel-reconciler.service` (`olscpanel`, runs `ols-cpanel sync --watch`), the object cache units of "Object cache", `ols-cpanel-hybrid-firewall.service` (root oneshot at boot, before the network and Apache: loads `/var/lib/ols-cpanel/hybrid.nft`, the persisted hybrid firewall ruleset, so Apache's backend ports are never open after a reboot; enabled at cutover and by `upgrade`, skipped when the file is absent), `ols-cpanel-php.path`, `.service` and `.timer` ("PHP environment": lsphp, OPcache and the redis extension for every EA4 PHP version, root), `ols-cpanel-login-guard.service` (root watcher of the WordPress login guard, "Login guard"), `ols-cpanel-htaccess-watch.service` (root, `libexec/ols-cpanel-broker --htaccess-watch=/run/ols-cpanel-watch`: the tenant `.htaccess` watch of "Fast .htaccess changes") |
 
 State directory:
 
@@ -24,6 +24,7 @@ State directory:
 | `cache-clean.json` | root 0600 | Record of the last automatic cleanup: time, caps used, emergency flag, totals and files, bytes and failures removed per store; written atomically by `cache clean`. |
 | `notify.json` | root 0600 | Notification settings (FV-07): `{"emails": [..], "webhook": "https://..." \| null, "events": [..], "enabled_since", "updated_at"}`. Written by the broker's `admin.notify_set` (the webhook URL may hold a secret and is never an argument, never shown again, never audited or logged). Absent or without a channel = notifications off. |
 | `notify-ledger.json`, `notify.lock` | root 0600 | What `notify run` sent: key => time (de-duplication), the times of the last 24 hours (the daily limit), observed sets, the channels already delivered and the attempts per key and channel (only a failed channel is retried), the last ten messages and the last delivery error. |
+| `login-guard.json`, `login-guard-state.json`, `login-guard.lock` | root 0600 | WordPress login guard ("Login guard"): the switch and the operator's allow list `{"enabled", "allow": [..], "changed_at"}` (absent = on, nothing extra allowed); the active blocks, repeats, recent blocks and counters. |
 | `schedule.json`, `schedule.lock`, `schedule-run.lock` | root 0600 | Maintenance windows (FV-07): `{"entries": [{id, action, scope, digest, at, window_minutes, state, claimed, created, updated, job, note}]}`. Every read-modify-write holds `schedule.lock` (5 s wait); a pass claims an entry (`claimed`) before its broker calls, so a cancel then is refused as already started; `schedule-run.lock` keeps passes from overlapping. |
 | `update-check.json` | root 0600 | The last update check (15-minute cache; a result with an error one minute). Removed by `update install`. |
 | `installed-release.json` | root 0600 | Written by `install.sh` after a verified install or upgrade: `{"version", "platform", "manifest_sha256", "packages": [name-version-release.arch, ..], "installed_at"}` (the signed manifest's digest and every package it listed). Read by `update check` (`release_verified`). |
@@ -32,6 +33,8 @@ State directory:
 | `events/`, `events/done/`, `events/quarantine/` | root 0700 | Hook spool (one JSON file per event). Read and consumed only through the broker; malformed entries are moved to `quarantine/`. |
 | `restrictions/` | root 0700, files root 0600 | Durable restriction intents of the hook (format in "Locks, deadlines and recovery"). Folded into the restriction epoch by the broker and by every reconcile pass. |
 | `plans/<id>.json` | root 0600 | Cutover plans from `install --prepare` (`schema_version` 2: `compile_sha256` covers the configuration and the sha256 of every referenced certificate, key and password file, listed in `referenced_files`). |
+| `previews/<plan id>.json` | root 0700 dir, files root 0600 | The preview of a plan (`install --preview`, CMP-03): how OpenLiteSpeed answers each site compared with Apache. One file per plan, replaced by the next preview, removed with its plan. |
+| `preview/` | root 0711 | The private server root of a running preview (configuration, links to the live OpenLiteSpeed tree). Traversable (not listable) because the server's workers (`nobody`) reach lscgid's socket in `preview/server/cgid/`; the request lists in it are root 0600. Removed when the preview ends, also on failure (sockets and FIFOs included, links never followed), and cleared at the start of the next one. |
 | `backups/<id>/` | root 0700 | Byte-exact copies of everything a cutover changes, `recover.sh`, `manifest.json`, `cutover.json` (outcome). |
 | `tls/default.key`, `tls/default.crt` | root 0700 dir | The listeners' neutral self-signed default certificate, created by `install --prepare`. |
 | `deployment.lock` | root:olscpanel 0640 | Exclusive for prepare, cutover, apache-return, hooks, uninstall and `recover.sh`; shared by every reconcile pass (lock order below). Only root and the reconciler's group may open it, so no other user can hold it. |
@@ -83,6 +86,9 @@ exactly these mounts.
 - `/usr/sbin/runuser -u <user> -- /usr/bin/cat <path>/.htaccess` and the `.htaccess` listing
   `/usr/sbin/runuser -u <user> -- /usr/bin/find -H <docroot> -name .htaccess ( -type f -o -type l ) -printf %y%p\0`,
   where the path lies in that user's home directory
+- `/usr/sbin/runuser -u <user> -- /usr/bin/find -P <path>/wordfence-waf.php -maxdepth 0 -type f -readable -printf %u\0`,
+  where the path lies in that user's home directory (CMP-08: the file a translated Wordfence firewall line prepends must be
+  a regular file the tenant can read and owns; the output is the owner's name, nothing else)
 - `/opt/cpanel/<version>/root/usr/bin/php -n -r <the builder's constant code, byte-identical>`
 - `/usr/bin/hostname -f`, `/usr/sbin/ip -6 -o addr show scope global`
 - `/usr/bin/systemctl start --no-block ols-cpanel-php.service` (exactly this argv; FV-10: the reconciler asks the root PHP
@@ -138,6 +144,7 @@ returns `{"job": id}`; `job.status {"job": id}` returns `{"state": "running" | "
 | `ols.rollback` | `ols-cpanel rollback --format=json` |
 | `ols.plan` | `ols-cpanel install --prepare --format=json` |
 | `ols.cutover` | `ols-cpanel install --cutover --plan=<scope> --yes --format=json` (scope = plan id) |
+| `ols.preview` | `ols-cpanel install --preview --plan=<scope> --format=json` (scope = plan id; a transient unit like `ols.plan`; "Preview before the switch") |
 | `ols.apache_return` | `ols-cpanel apache-return --execute --yes --format=json` |
 | `ols.cache_purge` | `ols-cpanel cache purge (--all \| --account=<user> \| --domain=<domain>) --format=json`; scope `server` \| `account:<user>` \| `domain:<domain>` ("LSCache management") |
 | `ols.php_restart` | `ols-cpanel php restart (--all \| --account=<user>) --format=json`; scope `server` \| `account:<user>` ("PHP manager") |
@@ -147,7 +154,7 @@ returns `{"job": id}`; `job.status {"job": id}` returns `{"state": "running" | "
 | `ols.support_bundle_raw` | `ols-cpanel support bundle --no-anonymize --format=json`; scope `server` ("Operations", names and addresses kept) |
 | `ols.update` | `ols-cpanel update install --latest --format=json`; scope `server`; a transient unit like `ols.plan` ("Operations", Updates) |
 
-`ols.plan`, `ols.plan_hybrid` and `ols.update` run as the root transient unit `ols-cpanel-job-<id>.service` (systemd-run through
+`ols.plan`, `ols.plan_hybrid`, `ols.preview` and `ols.update` run as the root transient unit `ols-cpanel-job-<id>.service` (systemd-run through
 PID 1, outside the broker's mount namespace and cgroup). A broker restart ends only the systemd-run client; the unit keeps running and
 writing to the job's files. The restarted broker watches such a job through `systemctl is-active` until the unit ends and records its
 outcome from the `code` of the command's JSON report (every CLI failure report carries it; `update install` reports `"code": 0` on
@@ -169,26 +176,29 @@ commands add `"command"` and their details). `hook` is the one exception: it alw
 | `doctor [--read-only]` | Platform and readiness report (existing). |
 | `status` | Server owner of 80/443, profile, active generation, pending events, epoch, hybrid vhosts, `hybrid_firewall` (`present`, `missing`, `not-hybrid`, or `unknown` for the non-root engine user). |
 | `install --prepare` | Preflight (`doctor` rules), a full compile with `production: true` and the requested profile (configuration lint included, nothing staged), write `plans/<id>.json` (hybrid vhosts listed, ports, backups needed). Apache keeps serving. The hybrid profile is the default (HR-D14): the plan always carries `hybrid_ports` 81/444 (Apache in standby behind OLS, closed to the outside), needs Apache's `suexec_module`, and lists the vhosts that Apache serves today with their reasons (possibly none). Options: `--native` (explicit opt-out: no standby Apache; any untranslatable change then refuses the compile for safety); `--hybrid` is accepted as a no-op alias of the default; the two cannot be combined. Also (FV-10, reported under `php_environment`, never fatal): the PHP environment is made complete for every EA4 PHP version, the units that keep it so are enabled and the recommended EA4 profile is written. |
+| `install --preview --plan=<id>` | CMP-03, before the switch: how OpenLiteSpeed would answer every site compared with Apache, with Apache serving and nothing changed ("Preview before the switch"). Exit 0 when the preview ran (differences are results, not errors), 1 when it was refused or the server could not be started. |
 | `install --cutover --plan=<id> [--yes]` | Under the deployment lock: the plan read again and required unchanged since the approval, its full compile digest (configuration and referenced files) checked, and checked again immediately before the first host change; backups and `recover.sh`, recovery timer, hooks registered, hybrid changes (tweaks, `mod_remoteip` include, nftables table, Apache restarted on 81/444 and verified) in every default plan, with or without hybrid vhosts (only `--native` plans skip them), Apache off 80/443, `profile.json`, the activation of exactly the plan's digest (`ConfigurationActivator::activate(digest)` refuses any other compile), OLS started, health of every vhost, `cutover.json` written, then the timer disarmed and its recovery service verified stopped; any failure (the record and the disarm included) runs `recover.sh`. |
 | `apache-return --prepare \| --execute [--yes]` | Runs the latest backup's `recover.sh` (OLS stopped, Apache restored and verified, profile removed), then the CLI removes the hook registrations (`recover.sh` does not depend on the product). `--execute` takes the deployment lock after the approval (waiting up to 900 s for a running reconcile pass), selects and validates the backup again under it and refuses one other than the approved; the recovery timer is disarmed only after Apache is verified serving, otherwise kept or armed again (10 min). |
-| `sync [--watch] [--interval=N] [--force]` | Reconcile once (or as the service loop, with the 5 s enforcement thread). Runs as `olscpanel` through `engine.sock`, or as root directly. The service loop compiles only when a source changed (RV-48): before compiling, a pass takes the metadata digest of the compile's inputs (`Events\InputDigest`: the profile and epoch, the product input files, cPanel's userdata, accounts, certificates, PHP handlers, Apache and ModSecurity files, the EasyApache PHP trees, the tenants' `.htaccess` files by path, type, inode, size, mtime and ctime, the IPv6 addresses and the automatic PHP limits) and, when it equals the one of the pass that produced the active generation, reports `{"action": "unchanged", "compiled": false}` without compiling. Every compiling pass reports `"compiled": true` and `"compile_reason"` (`no_baseline`, `events`, `inputs_changed`, `interval`, `transient`, `generation_changed`, `unhealthy`, `inputs_unavailable`, `forced`). It compiles anyway at least every 15 minutes (`Reconciler::FULL_COMPILE_SECONDS`, for what the digest cannot see: the root-owned `.htaccess` above the homes, the global alias directories), after a pass that failed, while events are pending, and after a pass that met an unreadable `.htaccess` or PHP-FPM pool or kept an lsphp back. A single pass (no `--watch`) always compiles. |
-| `hook` | cPanel hook entry: reads the event on stdin, raises the restriction epoch for restricting events (or, when that fails, writes a durable restriction intent first), spools the event, always prints exactly `1`. |
-| `hooks install \| verify \| remove` | Registers the product hook entry `/usr/local/ols-cpanel/libexec/ols-cpanel-hook` (a fixed wrapper running `ols-cpanel hook`; cPanel runs script hooks without arguments) on stage `post` for the events in `ols_events.RESTRICTING` and the account, domain, PHP, certificate and `.htaccess` change events (`Deployment\Hooks::EVENTS`), through `manage_hooks`. |
+| `sync [--watch] [--interval=N] [--force]` | Reconcile once (or as the service loop, with the 5 s enforcement thread). Runs as `olscpanel` through `engine.sock`, or as root directly. The service loop compiles only when a source changed (RV-48): before compiling, a pass takes the metadata digest of the compile's inputs (`Events\InputDigest`: the profile and epoch, the product input files, cPanel's userdata, accounts, certificates, PHP handlers, Apache and ModSecurity files, the EasyApache PHP trees, the tenants' `.htaccess` files by path, type, inode, size, mtime and ctime, the IPv6 addresses and the automatic PHP limits) and, when it equals the one of the pass that produced the active generation, reports `{"action": "unchanged", "compiled": false}` without compiling. Every compiling pass reports `"compiled": true` and `"compile_reason"` (`no_baseline`, `events`, `inputs_changed`, `interval`, `transient`, `generation_changed`, `unhealthy`, `inputs_unavailable`, `forced`). It compiles anyway at least every 15 minutes (`Reconciler::FULL_COMPILE_SECONDS`, for what the digest cannot see: the root-owned `.htaccess` above the homes, the global alias directories), after a pass that failed, while events are pending, and after a pass that met an unreadable `.htaccess` or PHP-FPM pool or kept an lsphp back. A single pass (no `--watch`) always compiles. The service loop also runs a pass at once (`"trigger": "htaccess_watch"`) when the tenant `.htaccess` watch's token changed, at most 6 such passes a minute ("Fast .htaccess changes", CMP-02). |
+| `hook` | cPanel hook entry: reads the event on stdin, raises the restriction epoch for restricting events (or, when that fails, writes a durable restriction intent first), spools the event, always prints exactly `1`. RV-65: after an account event (create, modify, package change, suspend, unsuspend, remove, restore, transfer) it first waits for the second after the last `/etc/passwd`/`/etc/shadow` change and runs `whmapi1 listaccts` and `php_get_vhost_versions` as root, so cPanel's password caches (`/etc/passwd.cache`, `/etc/shadow.nouids.cache`, which the broker's read-only `/etc` cannot rebuild) are current for the reconciler's first pass; after a suspension or removal it purges the account's page cache stores; after a restricting event, once cut over and while the reconciler service runs, it returns only when the reconciler has consumed the event (at most 45 s; the restriction deadline is unchanged). The reconciler retries a failed pass every 3 s (instead of 15 s) while a restricting event is pending, and at once when a new event arrives. |
+| `hooks install \| verify \| remove` | Registers the product hook entry `/usr/local/ols-cpanel/libexec/ols-cpanel-hook` (a fixed wrapper running `ols-cpanel hook`; cPanel runs script hooks without arguments) on stage `post` for the events in `ols_events.RESTRICTING` and the account, domain, PHP, certificate and `.htaccess` change events (`Deployment\Hooks::EVENTS`), plus cPanel's password change (`Passwd::ChangePasswd`, cache refresh only), through `manage_hooks`; `Cpanel` and `Passwd` events with `--escalateprivs=1`. Upgrade registers a missing event; remove and uninstall remove every registration of the entry. |
 | `generation list \| inspect <id>`, `rollback`, `recover` | Activator views and operations. |
 | `waf status`, `waf blocked [--limit=N]` | WAF state of the active generation with `security.json`'s exceptions, and the newest blocked requests (FV-02; formats under "WAF and security"). |
-| `http3 status [--lines=N]` | HTTP/3 input, the UDP 443 firewall state (read-only inspection) and the HTTP/1.x, HTTP/2 and HTTP/3 share of each vhost of the active generation (FV-04, root; "HTTP/3"). |
+| `http3 status [--lines=N]` | HTTP/3 input (with the per-domain off list), the UDP 443 firewall state (read-only inspection) and the HTTP/1.x, HTTP/2 and HTTP/3 share of each vhost of the active generation (FV-04, root; "HTTP/3"). |
+| `http3 off --domain=D`, `http3 on --domain=D` | The per-domain HTTP/3 switch (CMP-07, root): adds a vhost of the active generation to the input's `off` list, or removes a name from it; the next reconciler pass compiles it ("HTTP/3"). |
 | `objcache status [--account=U]`, `enable --account=U [--memory=MB]`, `disable --account=U`, `flush --account=U`, `configure-wordpress --account=U --path=DIR [--php=ea-phpNN]`, `package --name=P (--memory=MB \| --remove)`, `reconcile` | Per-account object cache (FV-09), root only; see "Object cache". |
 | `php-ext status`, `install [--php=ea-phpNN]`, `remove`, `sync` | The PHP `redis` extension in every EA4 PHP version (root), see "PHP redis extension (object cache)". `remove` clears the wish to keep it active (the PHP environment service keeps running for lsphp and OPcache). |
 | `hybrid refresh-trust` | Keeps the hybrid include `/etc/apache2/conf.d/ols-cpanel-remoteip.conf` trusting every local address of the host (root; HR-D14 follow-up). Result `{"command": "hybrid refresh-trust", "result": "not-hybrid" \| "unchanged" \| "updated" \| "failed", "trusted", "firewall": "present" \| "restored" \| "failed", "error"}`; `not-hybrid` (the include does not exist) changes nothing. While the include exists the pass also checks the nftables table `inet ols_cpanel_hybrid` and loads it again from `/var/lib/ols-cpanel/hybrid.nft` (or from the profile's ports) when it is missing (RV-40; a table that cannot be restored is `failed`). The trusted list is loopback plus every address of `ip -o addr show` (IPv4, global IPv6; sorted, deduplicated), which is safe because the nftables table admits the backend ports only over loopback and only from root and OLS's user. A changed list is staged, installed 0644 root:root with a sha256 check, tested with `httpd -t` (on failure the previous include is put back and the exit code is 1) and Apache reloaded with `restartsrv_httpd --graceful`. Run by `ols-cpanel-hybrid-trust.service`, started by `ols-cpanel-hybrid-trust.timer` (boot plus 2 min, then every 15 minutes; enabled by `install --prepare`) and by the reconciler right after a pass whose compiled plan has an address the include does not list (the allowlisted `systemctl start --no-block`, at most once every two minutes). No operator action is ever needed after a new server IP or an account move to a new IP. |
 | `php env status`, `php env sync`, `php env repair` | The PHP environment applier (root), see "PHP environment (EasyApache compatibility, FV-10)". `sync` is what `ols-cpanel-php.service` runs; `repair` (job `ols.php_env_repair`, the WHM button) ignores the back-off. |
 | `notify show`, `notify set [--emails=a@x,b@y\|none] [--webhook=https://...\|none] [--events=a,b\|none]`, `notify test`, `notify run` | Notifications (FV-07, root; "Operations"). `run` is what `ols-cpanel-notify.timer` starts every five minutes; `set` is the command-line form of the WHM Notifications form (the WHM form is written by the broker so the webhook URL never appears in a process list). |
+| `login-guard status`, `login-guard set [--enabled=yes\|no] [--allow=<address or range>,..\|none]`, `login-guard unblock --address=<ip> [--domain=<site>]`, `login-guard run [--once]` | WordPress login guard (RV-64, CMP-04, root; "Login guard"). `run` is `ols-cpanel-login-guard.service` (a pass every five seconds); `set --enabled` is what the WHM switch calls. |
 | `schedule list`, `schedule add --action=ols.cutover\|ols.apache_return --scope=<plan id>\|server --digest=<sha256> --at=<unix time> [--window=<minutes>]`, `schedule cancel --id=<id>`, `schedule run` | Maintenance windows (FV-07, root). `run` is what `ols-cpanel-schedule.timer` starts every minute. |
 | `update check [--refresh]` | The installed version against the latest GitHub release, and per installed package its rpm signature state and whether it is a verified release build (root, read-only; "Operations"). |
 | `update install --version=<v> \| --latest` | Installs a newer release from GitHub after verifying its `install.sh` against the release key shipped in the package (root; job `ols.update`; "Operations"). |
 | `support bundle [--no-anonymize]`, `support list` | The redacted support bundle (root; "Operations"). |
 | `cache stats [--account=U] [--domain=D]` | LSCache entries and bytes per store (root; "LSCache management"). |
 | `cache purge (--all \| --account=U \| --domain=D)` | Deletes the entries of the selected stores and records the purge time of every store emptied completely (root); exit 1 with `result` `partial` or `failed` when a removal failed. `--account` may accompany `--domain` as an ownership check. |
-| `cache clean` | The automatic LSCache cleanup (root; run hourly by `ols-cpanel-cache-clean.timer`, enabled by `install --prepare` and `upgrade`): removes expired entries, keeps every store under its cap and the server under its cap, trims harder on a nearly full disk, records the run in `cache-clean.json`; exit 1 (`result` `partial`) when a removal failed ("LSCache management"). |
+| `cache clean` | The automatic LSCache cleanup (root; run hourly by `ols-cpanel-cache-clean.timer`, enabled by `install --prepare` and `upgrade`; the same pass rotates the ModSecurity audit log, see the `waf blocked` description): removes expired entries, keeps every store under its cap and the server under its cap, trims harder on a nearly full disk, records the run in `cache-clean.json`; exit 1 (`result` `partial`) when a removal failed ("LSCache management"). |
 | `cache limits [--per-site-mb=N] [--server-percent=N] [--server-max-gb=N]` | Shows the cleanup limits, the caps they give on this disk and the last cleanup (root); with options it saves the limits to `cache-limits.json` after checking the bounds (exit 1 outside them). |
 | `cache clean-store --root=R --store=S --cutoff=T --cap=N --now=T` | Internal helper of `cache clean`, confined like `cache purge-store` (refuses to run as root). |
 | `cache purge-store --root=R --store=S [--retire]` | Internal helper of `cache purge`: purges one store (retirement also empties obsolete index files) with the privileges of the process running it and refuses to run as root ("LSCache management", purge confinement). |
@@ -198,6 +208,67 @@ commands add `"command"` and their details). `hook` is the one exception: it alw
 | `php processes [--account=U]` | lsphp processes per account with runaway detection (root, read only); see "PHP manager". |
 | `php opcache status [--version=ea-phpNN]`, `php opcache install (--version=ea-phpNN \| --all)`, `php opcache reconcile` | OPcache per EA4 PHP version (root); see "PHP manager". `install --prepare` also installs OPcache everywhere unless `--no-opcache` is given. |
 | `uninstall [--dry-run] [--keep-packages]` | `apache-return` when cut over or when Apache is not verified serving (refused without a backup), then Apache verified serving before anything is removed; hooks removed, units stopped (a unit that does not stop aborts); LiteSpeed Cache's object cache turned off as the site owner on the sites the product set, only while their object host is still the product socket (a failure is an action with `ok: false`, never fatal); instances stopped; per-account systemd drop-ins removed with one `daemon-reload`; the product's OPcache and redis INI files removed (marker line only); cPanel's add-on update stamp `/var/cpanel/version/addons_update/whostmgr_ols-cpanel` removed after the WHM plugin is unregistered; state kept in `backups/` only; then, unless `--keep-packages`, `systemd-run --unit=ols-cpanel-remove-packages --no-block --collect /usr/bin/dnf -y remove <installed product packages>`. Kept: backups, logs, the `olscpanel` user, the OPcache packages. |
+
+## Preview before the switch (CMP-03)
+
+`ols-cpanel install --preview --plan=<id>` (job `ols.preview`, WHM switch center, step 2) shows, site by site, how the prepared
+generation will answer compared with Apache, before the operator approves the switch. Apache keeps serving; the preview never
+changes Apache, the live configuration (`/usr/local/lsws`, the active generation, `profile.json`), the firewall, cPanel tweaks or
+ports 80/443.
+
+Steps, all under the exclusive deployment lock (so no cutover, recovery or reconcile pass runs beside it):
+
+1. Refused unless the host is as before a switch: no `profile.json`, `ols-cpanel.service` not active, the OpenLiteSpeed binary
+   installed, the plan present. The cPanel state is compiled again with the plan's profile and its full digest
+   (`compile_sha256`) must equal the plan's, exactly as the cutover requires (otherwise: run `install --prepare` again).
+2. Apache's answer (status code of `GET /`) is recorded for every vhost of the plan over HTTP and HTTPS at the vhost's own IPv4
+   address (loopback without one), with the vhost as Host header and SNI: the same requests and the same recording as the
+   cutover's baseline, sent eight at a time, each limited to 8 s. Vhosts served by Apache behind OpenLiteSpeed (hybrid) are not
+   requested: Apache answers for them in both worlds.
+3. The plan's generation is built (`GenerationTree`) below `preview/` with every listener rewritten: IPv6 listeners dropped,
+   every IPv4 listener (wildcard or one address) and the generation marker moved to `127.0.0.1:<port>`, QUIC left off. The ports
+   are chosen from 20000-29999 (below the ephemeral range) that `ss -ltn` does not show listening, never 80, 443, 81, 444, 8080,
+   8443, 8097 or the cPanel ports. The final text is checked again (`PreviewConfig::assertLoopback`): a listener that is not
+   `127.0.0.1:<unreserved port>` refuses the preview before anything starts.
+4. One script runs OpenLiteSpeed inside `unshare --mount --pid --fork --kill-child --mount-proc` with the private server root
+   (`LSWS_HOME`; the live root's other entries are linked read-only): `/run`, `/tmp` and `/dev/shm` are fresh tmpfs, so the live
+   PID file, LSAPI and cgid sockets and shared memory (OLS patches 0009 and 0011 keep them below `/run/ols-cpanel`) are neither
+   seen nor touched; every directory an access or error log names, and the page cache tree, are tmpfs too, so a request reaches no
+   live log, no log-shipper FIFO and no cache store. The script checks the chosen ports again, waits up to 25 s for the first
+   listener, verifies with `ss` that every port is bound to 127.0.0.1 only, sends each site's requests to the loopback ports (Host
+   header of the site, SNI by name, certificate not verified; at most 60 s), stops OpenLiteSpeed and exits. When it ends for any
+   reason (or the CLI is killed) the kernel ends every process of the namespace.
+   Two conditions the cutover itself creates are given to the namespace, without changing a file outside `preview/`:
+   - The workers run as `nobody` and start every PHP process through lscgid's socket below the private root, so `preview/` and
+     its generation directory are 0711 (with 0700 no LSAPI process starts: "cgidSuEXEC failed", WordPress answered 403).
+   - While Apache (with `mod_ruid2`) serves, cPanel FileProtect leaves every `public_html` `user:user 0750`; the cutover runs
+     `enablefileprotect` once OpenLiteSpeed serves, which makes it `user:nobody 0750`. In the namespace only, a private copy of
+     `/etc/group` (on the namespace's `/tmp`, bind-mounted over `/etc/group`) makes the configuration's `user` (`nobody`) a
+     member of each probed account's own primary group (`PreviewConfig::accountGroups`: a group named like the account with its
+     primary gid, gid 500 or above; never root's or a system group). Without it every native site answered 404. The workers
+     can then also read files that are readable by the account's group, which `nobody` cannot after the cutover; for the
+     `GET /` of the preview this changes no answer of the lab sites.
+5. The two sets of answers are compared with `Cutover::differences`, the comparison the cutover uses (an answer differs when its
+   status code is not Apache's).
+6. The private root is removed (also after a failure); anything the removal could not delete is reported as `"cleanup":
+   "not removed: <paths>"` (otherwise `"removed"`). The result is stored in `previews/<plan id>.json`.
+
+A site's own code runs for a request as it does for any visitor (a WordPress page may write its own cache or session files); a
+request is one `GET /` per scheme. The time is bounded: 25 sites (50 requests) take well under a minute, and the whole script is
+killed after 110 s.
+
+Result (`schema_version` 1): `{"plan", "schema_version", "compile_sha256", "created", "seconds", "state": "complete" | "failed",
+"ports": {"bind": "127.0.0.1", "listeners": [{"address", "port"}]}, "cleanup"}`; on `complete` also `"summary"` (`same`, `different`,
+`hybrid`, `unprobed`, `apache_silent`, `total`) and `"sites"`, sorted, each `{"vhost", "state"}` with `"requests": [{"request",
+"apache", "ols"}]` (`same`, `different` or `apache_silent`) or `"reason"` (`unprobed`: no IPv4 listener maps its address;
+`hybrid`: not requested), and as `"log"` the last 40 `[ERROR]` and `[WARN]` lines of the server's and the vhosts'
+error logs (which live only in the namespace); on `failed` a `"reason"` and the tail of OpenLiteSpeed's error log as `"log"`. `plan.latest` carries
+the stored result of the latest plan as `preview`.
+
+WHM gateway: `POST ?action=ols.preview` with `{"scope": <plan id>, "digest": <the plan file's digest plan.latest reports>}`, like
+`ols.cutover`; the broker refuses a stale digest (`STALE`) or a missing plan (`NOT_FOUND`). The switch center shows the result
+under the plan: one row per site, the difference as both codes (for example "Apache 200, OpenLiteSpeed 404"), and states that the
+preview is for the plan shown.
 
 ## Engine classes (PHP, `OlsCpanel\`)
 
@@ -221,7 +292,9 @@ commands add `"command"` and their details). `hook` is the one exception: it alw
 - `Events\Reconciler`: port of `ols_events.reconcile` and `watch` (restriction intents folded first; source digest
   over configuration, vhosts, epoch and referenced certificate/key/password files; recover with grace when
   incoherent; unchanged and healthy → no activation; valid events marked done after a committed activation or an
-  unchanged and healthy pass; malformed entries quarantined at once).
+  unchanged and healthy pass; malformed entries quarantined at once; the service loop runs a pass at once when the
+  `.htaccess` watch's token changed, CMP-02).
+- `Events\HtaccessNudge`: reads the `.htaccess` watch's token (`/run/ols-cpanel-watch/htaccess.nudge`; absent or malformed = none).
 - `Events\HookEntry`: port of `ols_events.hook` (restriction intent when the epoch cannot be raised).
 - `Ols\Generation\Engine` (interface, written): `BrokerEngine` and `LocalEngine`. `Deployment\ConfigurationActivator`
   (interface, written): the reconciler's forced pass, used by cutover after `profile.json` is written, under the
@@ -249,6 +322,8 @@ array removes the final tenant's vhosts while keeping the cPanel proxy and defau
 | `PkgAcct` | `Restore` | Apply the restored account's object cache package after restoration finishes, and refresh hybrid trust. |
 | `Whostmgr` | `Transfers::Session` | Reconcile after a Transfer Tool session and apply account state and hybrid trust, without needing an account identity in the session payload. |
 | `Whostmgr` | `Accounts::Create`, `Accounts::Remove` | Apply package settings on creation; removal, including after transfer away, stops and removes the old instance and orphan state. Removal also raises the restriction epoch. |
+| `Passwd` | `ChangePasswd` | The one password change hook of cPanel (`Cpanel::ChangePasswd`, reached by WHM `passwd` and UAPI `Users::change_password`), registered with escalated privileges: only refreshes cPanel's password caches (RV-65); nothing is spooled (the payload holds the password), no restriction, no wait. |
+| `Whostmgr` | `Accounts::set_shell` | cPanel's shell change (`Whostmgr::Accounts::Shell::set_shell`, which also serves the shell steps of a package change and of a restore), post stage: only refreshes cPanel's password caches (RV-65), because `/etc/passwd` changed; nothing is spooled, no restriction, no wait. WHM "Manage Shell Access" goes through `modifyacct`, which also raises `Accounts::Modify`. |
 
 A rename is durably recorded in `account-renames/<nanoseconds>-<random>.json` (root directory 0700, file 0600;
 only `olduser` and `newuser`, no complete hook payload). The root `ols-cpanel-objcache.service` processes these jobs
@@ -549,6 +624,80 @@ not loaded there and refuses only if it still is not. `install --prepare` report
 Uninstall: removing the product with instances running leaves them running until `objcache disable` (open: the
 `uninstall` command does not yet stop them).
 
+## Login guard (RV-64, CMP-04)
+
+WordPress login floods are stopped before PHP. On 2026-11-12 one address sent about 250 `POST /xmlrpc.php` a minute to each of
+four WordPress accounts (71,179 in the day, about 46 ms of PHP CPU each, the 2-CPU server at 100% for an hour).
+
+- **Rule (compiler).** Every tenant vhost (native and both hybrid pass-through vhosts) declares the rewrite map
+  `ols_login_guard` (`txt:/run/ols-cpanel/guard/login.map`) and, right after the DCV exemption (and cPanel's Force HTTPS
+  redirect), `RewriteCond ${ols_login_guard:<domain>/%{REMOTE_ADDR}} =1` + `RewriteRule (?:^|/)(?:wp-login|xmlrpc)\.php(?:/|$) - [F,NC,L]` (path info after the script name runs the script, so it is matched too).
+  The map is read only for those two paths; OLS stats a txt map at most once a second and reloads it when its mtime changed, so
+  a block applies within a second, with no compile and no graceful restart. A missing or empty map blocks nobody.
+- **Watcher (`ols-cpanel-login-guard.service`, root).** Every five seconds it reads the new whole lines of cPanel's domlogs
+  (`/etc/apache2/logs/domlogs/<domain>` and `<domain>-ssl_log`: written by splitlogs for OLS and by Apache for hybrid sites; the
+  first pass starts at the end, a truncated log is read from its start, at most 16 MiB per file and pass). It counts `POST`s to
+  `wp-login.php` and `xmlrpc.php` (decoded path, any directory) per site and client address within 60 s of the log's own time.
+  More than 20 (`wp-login.php`) or 30 (`xmlrpc.php`) blocks that address for that site for 15 minutes; a repeat within a day
+  doubles the time (at most 24 hours). Expired blocks leave the map; the map is written atomically (root:nobody 0640 in a 0750
+  directory, a strictly newer mtime on every change). At most 2,000 blocks.
+- **Never blocked:** loopback, the server's own addresses (`/proc/net`), Jetpack's published ranges (`192.0.64.0/18`,
+  `195.234.108.0/22`, `122.248.245.244`, `54.217.201.243`, `54.232.116.4`) and the operator's `allow` list.
+- **Normal use stays below the limits:** a site owner's login is one or two `POST`s, the WordPress apps and Jetpack a few
+  `xmlrpc.php` calls a minute, the soak harness a few logins per session; `admin-ajax.php`, the REST API and logged-in pages are
+  not counted. A slow guesser (below the limits) is not a flood and is left to WordPress.
+- **Switch:** on by default (no settings file). `login-guard set --enabled=no` (the WHM Login guard page) ends every block and
+  empties the map at once. `login-guard unblock` lifts a block at once; the watcher works on the saved state, so it keeps the unblock.
+- **Residual:** an attacker below 30 requests a minute per site and address, or one spread over many addresses, is not stopped
+  (WordPress itself refuses further password checks in a `system.multicall` after the first failure). A proxy in front of the
+  server (a CDN) that hides client addresses makes the CDN's address the client; it is blocked only for the two login paths.
+
+## Fast .htaccess changes (CMP-02)
+
+Apache reads a tenant's `.htaccess` on every request; OLS serves the translated rules of the active generation. Before
+CMP-02 a changed `.htaccess` reached OLS with the reconciler's next periodic pass (up to 60 s, then the compile). OLS's core
+is not patched: a root watch tells the reconciler that an `.htaccess` changed, and the ordinary pass does the rest.
+
+- **Watch (`ols-cpanel-htaccess-watch.service`, root, CAP_SYS_ADMIN only, no network).** The broker binary in watch mode
+  (`ols_cpanel_broker::watch`) puts one fanotify filesystem mark (`FAN_MARK_FILESYSTEM`, `FAN_REPORT_DFID_NAME`) on every
+  filesystem holding `/home` or a `/home*` directory of `/` (never through a symlink; re-checked every 5 minutes) for
+  `FAN_CREATE`, `FAN_DELETE`, `FAN_MOVED_FROM`, `FAN_MOVED_TO`, `FAN_ATTRIB` and `FAN_CLOSE_WRITE` of non-directory entries.
+  It reads only the event records and compares the entry name with `.htaccess`; it never resolves a handle, opens, reads or
+  follows a file, and it serves no socket (the broker's allowlist is unchanged). A queue overflow or a record that does not
+  parse counts as a change.
+- **Debounce.** A nudge is due 1 s after the last matching event, at most 4 s after the first: 20 edits in 2 s give one
+  nudge about 3 s after the first edit.
+- **Nudge.** `/run/ols-cpanel-watch/htaccess.nudge` (root 0644 in a 0755 directory, replaced atomically): one line
+  `<process start ns>-<sequence> <unix time>`; it names no account or file. A new token is also written when the watch
+  starts (events may have been missed while it was down). `status.json` beside it: `watching`, `filesystems`, `unwatched`
+  (root and error), `reason` (why the watch is unavailable), and the counters `events`, `matched`, `overflows`, `nudges`
+  (refreshed every minute).
+- **Reconciler.** The service loop (`sync --watch`) reads the token every round (1 s) and runs a pass at once when it differs
+  from the token read before the previous pass (`"trigger": "htaccess_watch"` in the line). That pass is an ordinary pass: it
+  takes the input digest and compiles only when it changed (RV-48), so a nudge for an `.htaccess` outside every document
+  root, or for a write that changed nothing the digest sees, costs a digest and no compile; the translation and the
+  fail-closed review (a site whose rules cannot be reproduced stays on Apache) are those of every compile. A token that
+  changes during a pass gives one more pass. At most `Reconciler::NUDGE_PASSES` (6) nudged passes run within
+  `NUDGE_WINDOW` (60 s); beyond that, and after a failed pass within the back-off (15 s), the change waits for the periodic
+  pass.
+- **Delay.** Write to served change: the debounce (1 s) + the next loop round (up to 1 s) + the digest (about 1 s at 25
+  accounts) + the compile (about 5 s at 25 accounts) + the activation and graceful restart (about 1.5 s): about 9-10 s on the
+  lab, against up to about 70 s before. The compile is now the larger part; it grows with the number of accounts.
+- **Why not inotify.** One inotify watch per directory: the 25 lab document roots hold about 36,000 directories, 64% of the
+  default `fs.inotify.max_user_watches` (56,567 with 7 GiB of RAM), and the limit is shared with every root process; 1,000
+  WordPress accounts would need 0.5 to 3 million watches (about 1 KiB of kernel memory each), and every new directory
+  would race its own watch. A filesystem mark costs one mark per filesystem, sees new directories by construction and
+  measured about 0.04% of one CPU at about 50-600 events a second on the lab (0.05 s of CPU in 120 s, 2 MiB resident).
+  A shorter digest pass (every 2-5 s) was also rejected: the `.htaccess` part of the digest is one `runuser find` per
+  document root (about 1 s at 25 accounts, so 20-50% of a core at that rate, and more than the period itself at 1,000).
+- **Not seen by the watch, left to the periodic digest (60 s) and the forced compile (15 minutes):** a directory tree with an
+  `.htaccess` renamed into a document root (no event is named `.htaccess`), a filesystem that refuses the mark (listed in
+  `unwatched`), the content of an `.htaccess` written through a descriptor that is never closed, and events while the
+  service is stopped.
+- **Unavailable** (kernel without `FAN_REPORT_DFID_NAME`, no CAP_SYS_ADMIN, no home filesystem accepted the mark): the service
+  stays up idle with `"watching": false` and the reason, writes no token, and the reconciler works as before. Enabled by
+  `install --prepare` and `upgrade` (restarted onto new code by `upgrade`), removed by `uninstall`.
+
 ## HTTP/3 (FV-04)
 
 QUIC is the UDP twin of OLS's HTTPS listeners: the same address and port over UDP. Reference: `build/vm-qualification/http3.py`
@@ -573,13 +722,26 @@ production listeners and the lab's `tenantsTls` and `tenantsTlsExternal`); plain
 certificates need nothing more: the vhost's own `vhssl` block serves TLS and QUIC alike. Alt-Svc is OLS's own header, added
 by default; the product adds none.
 
-Operator input `/var/lib/ols-cpanel/http3.json` (root, not writable by group or others, at most 4096 bytes): a JSON object whose only
-key is `enabled` (boolean). Absent, `{}` and `{"enabled": true}` mean enabled. `{"enabled": false}` compiles `quicEnable 0` and
+Operator input `/var/lib/ols-cpanel/http3.json` (root, not writable by group or others, at most 16384 bytes): a JSON object whose keys
+are `enabled` (boolean) and `off` (CMP-07, a list of at most 256 distinct lower-case domain names, default empty). Absent, `{}` and
+`{"enabled": true}` mean enabled. `{"enabled": false}` compiles `quicEnable 0` and
 `enableQuic 0` (no UDP socket, no Alt-Svc) and the cutover touches no firewall: use it where UDP 443 is not reachable, so that
-clients are not advertised HTTP/3 they cannot use. Anything else (another key, a non-boolean, invalid JSON, a symbolic link, a
-writable file) refuses `install --prepare`, the cutover and every reconcile pass (fail closed). The file is read by every compile,
+clients are not advertised HTTP/3 they cannot use. Anything else (another key, a non-boolean, an `off` that is not a
+list of valid names, a duplicate, invalid JSON, a symbolic link, a writable file) refuses `install --prepare`, the cutover and every reconcile pass (fail closed). The file is read by every compile,
 so a change takes effect at the next reconcile pass (the QUIC engine is configured at OLS start: `systemctl restart ols-cpanel`
 for a running server) and, being part of the compiled configuration, makes an unapproved plan stale.
+
+Per domain (CMP-07). `{"off": ["example.com"]}` keeps HTTP/3 for every other vhost and compiles `enableQuic 0` into the `vhssl` block of
+the listed vhost (and of its hybrid TLS vhost), for sites behind a CDN or with QUIC trouble. OLS 1.9.3 (`HttpVHost::configVHost`)
+reads that key into the vhost's `VH_QUIC_LISTENER` feature; only a vhost with the feature gets `VH_QUIC` when it is mapped on a QUIC
+listener, and only `VH_QUIC` makes `HttpSession::finalizeHeader` add `Alt-Svc`. So the listed vhost stops advertising HTTP/3 and
+browsers keep HTTP/2; OLS has no per-vhost refusal, so a client that already speaks HTTP/3 to the UDP listener (cached Alt-Svc
+until its `ma` expires, or forced) is still answered. A vhost has one switch: its aliases and parked domains share it. A name
+that matches no vhost compiles to nothing (a deleted account never breaks a compile) and is reported by `http3 status` as
+`input.off_unknown`. `ols-cpanel http3 off --domain=D` adds a vhost of the active generation (anything else is refused), `http3 on
+--domain=D` removes a name (a stale one too); both are idempotent, keep `enabled`, never overwrite a malformed file and write the
+file atomically (root, 0644); the reconciler notices the file (it is part of its input digest) and compiles within its next pass.
+The WHM page "HTTP/3" is the interactive form (`admin.http3`).
 
 Firewall at cutover (`Deployment\Http3Firewall`, every command a fixed argv through the command runner). `install --prepare`
 inspects it read-only and shows the change under `http3` in its result and in the approval text; the cutover repeats the
@@ -601,12 +763,13 @@ and reported by `apache-return` as `http3_firewall_restored: false`, but never k
 the opt-out does not open the firewall: open UDP 443 yourself (`http3 status` shows what the product would change).
 
 Protocol share. `ols-cpanel http3 status [--lines=N]` (root; N 1..20000, default 2000) prints
-`{"active_generation", "enabled" (true, false, or null when the input is invalid), "input": {"path", "present", "error"?},
+`{"active_generation", "enabled" (true, false, or null when the input is invalid), "input": {"path", "present", "error"?, "off" (the
+per-domain off list), "off_unknown" (its names without a vhost)},
 "firewall" (null with the opt-out, else the inspection without any file text: "type", "action", "detail", "warnings"),
 "log_dir", "lines", "protocol_share": [...]}`. Each `protocol_share` row, for every vhost of the active generation, reads the
 last `N` lines of `/etc/apache2/logs/domlogs/<vhost>` and `<vhost>-ssl_log` (the files the log shipper fills from the access
 format `<domain>:%p %a %l %u %t "%r" %>s ...`; cPanel's `splitlogs` drops the `<domain>:<port> ` prefix, the parser accepts both):
-`{"vhost", "lines" (parsed and unparsed), "h1" (HTTP/1.0 and 1.1), "h2", "h3", "other" (another or no version), "unparsed",
+`{"vhost", "http3_off" (the vhost is on the off list), "lines" (parsed and unparsed), "h1" (HTTP/1.0 and 1.1), "h2", "h3", "other" (another or no version), "unparsed",
 "sources": [files read], "share_bp": {"h1", "h2", "h3"}}`. The shares are integers in basis points (1/10000, rounded half up,
 over the parsed lines; 0 when there are none), identical in PHP and Python. The read is bounded (at most 4 MiB from the end of
 each file, lines over 8192 bytes are not parsed), never follows a symbolic link and reads only regular files; the domain must be
@@ -718,8 +881,18 @@ when it is invalid). `ols-cpanel waf blocked [--limit=N]` (N 1..1000, default 50
 log with `ModSecurityAuditLog` and prints `{log, available, limit, records, skipped}`, records newest first. The blocked-request log is OLS's serial audit log
 `/usr/local/lsws/logs/modsec_audit.log` (root 0600) read through `ModSecurityAuditLog::parse` (a bounded tail; records
 `{time, client, vhost, uri, rule_id, message, action}`, printable ASCII, no headers other than Host). The engine is `RelevantOnly`
-(a WHM setting of `On`, which would log every request, is replaced by it) and the log is rotated by `/etc/logrotate.d/ols-cpanel`
-(50 MB, four compressed generations, `copytruncate`). The generated OLS error logs use `logLevel NOTICE`.
+(a WHM setting of `On`, which would log every request, is replaced by it) and the log is rotated by the product itself
+(RV-66), not by logrotate: the distribution's `logrotate.service` runs with `ProtectSystem=full`, so `/usr/local/lsws/logs` is read-only
+for it (release 0.2.13 shipped `/etc/logrotate.d/ols-cpanel`, which failed every night and stopped the rotation of every other log;
+`upgrade` and `uninstall` remove that file when it is the product's). OpenLiteSpeed's `rollingSize` applies to its own error and
+access logs only; the ModSecurity module hands `SecAuditLog` to libmodsecurity, which never rolls or reopens it. The hourly
+`ols-cpanel-cache-clean.service` (`cache clean`, root, `Nice=19`, idle I/O, `ReadWritePaths=/var/lib/ols-cpanel -/usr/local/lsws/logs`)
+runs `AuditLogRotator` first in its pass: a file over 50 MB is renamed to `modsec_audit.log.1` (same inode, so no line is lost, no
+copy-and-truncate) and OLS is reloaded gracefully (`systemctl reload ols-cpanel.service`), after which OLS creates the new file with
+its own mode (0600); the old copy is gzip-compressed once it has been quiet for ten minutes. Four compressed generations are kept
+(`.1.gz` to `.4.gz`), older ones are dropped. Links are never followed and a failed reload puts the file back. The result is the
+`audit_log` object of the `cache clean` output (`result`: `absent`, `current`, `rotated` or `failed`, `bytes`, `compressed`,
+`problems`); a failure fails the unit. The generated OLS error logs use `logLevel NOTICE`.
 
 ### Admin socket operations (root; WHM gateway)
 
@@ -730,11 +903,13 @@ log with `ModSecurityAuditLog` and prints `{log, available, limit, records, skip
 | `admin.metrics` | `{"resolution": "hour"\|"day"\|"week", "vhost": domain}` (both optional; default the server, one hour) | The metrics history (FV-05, "Metrics history"): `{"observed_at", "source", "scope": "server"\|"vhost", "vhost", "resolution", "start", "step", "count", "samples", "interval", "channels": {<name>: [value \| null, ...]}, "vhosts": [names with a ring]}`, oldest first, `null` for a bucket without samples. `BAD_ARGS` for another resolution or a vhost that is not a domain name. |
 | `inventory.accounts` (extended) | `{"query": text, "page": int, "size": 1..200}` (all optional) | server-side search and paging over domains: `{"total", "page", "size", "domains": [{user, domain, type, docroot, engine: "ols"\|"hybrid"\|"apache"\|"unknown", php_handler, tls: bool, suspended: bool}]}` |
 | `compat.findings` | `{"query", "page", "size"}` | blockers and hybrid reasons per vhost with file and line where known, severity, explanation key |
-| `plan.latest` | none | the latest plan or null |
+| `plan.latest` | none | the latest plan or null: `{id, digest, modified_at, valid, content, preview}`; `preview` is the stored preview of that plan ("Preview before the switch") or null |
 | `generation.list` | none | `ols-cpanel generation list --format=json` |
 | `doctor.report` | none | `ols-cpanel doctor --read-only --format=json` (cached 60 s) |
 | `cache.stats` | `{"account": text, "domain": text}` (both optional) | `ols-cpanel cache stats [--account=..] [--domain=..] --format=json`, as `generation.list` gives its own: `{observed_at, source, exit_code, output}` with `output` the report of "LSCache management"; a refusal (unknown account or domain) is `REFUSED`. Synchronous, 30 s limit. |
 | `admin.objcache` | none (read), or `{"automatic": true\|false}` (write) | `ols-cpanel objcache status --format=json` as `{observed_at, source, exit_code, output}` (every account with its `origin`, the `automatic` mode; "Object cache"). A write first runs `ols-cpanel objcache auto --on\|--off --format=json` (anything else is `BAD_ARGS`), is appended to the audit log (`event: objcache_automatic_set`, `args: ["--on"\|"--off"]`) and answers with the status after the change. Admin socket only. |
+| `admin.login_guard` | none (read), or `{"enabled": true\|false}` (write) | `ols-cpanel login-guard status --format=json` as `{observed_at, source, exit_code, output}` (the switch, limits, blocked addresses with their counts, recent blocks; "Login guard"). A write first runs `ols-cpanel login-guard set --enabled=yes\|no --format=json` (anything else is `BAD_ARGS`), is appended to the audit log (`event: login_guard_set`) and answers with the status after the change. Admin socket only. |
+| `admin.http3` | none (read), or `{"domain": name, "enabled": true\|false}` (write) | `ols-cpanel http3 status --format=json` as `{observed_at, source, exit_code, output}` (the input with its off list, the firewall state, the protocol share per vhost; "HTTP/3"). A write first runs `ols-cpanel http3 on\|off --domain=<domain> --format=json` (a domain that is not a vhost of the active generation is `REFUSED`; a malformed name, only one of the two keys or anything else is `BAD_ARGS`), is appended to the audit log (`event: http3_domain_set`, `args: ["on"\|"off", domain]`) and answers with the status after the change. Admin socket only. |
 | `admin.cache_limits` | none (read), or any of `{"per_site_mb": 16..102400, "server_percent": 1..50, "server_max_gb": 1..2048}` (whole numbers, write) | `ols-cpanel cache limits [--per-site-mb=..] [--server-percent=..] [--server-max-gb=..] --format=json`, as `cache.stats` gives its report: `{observed_at, source, exit_code, output}` with `output` the report of "LSCache management" (automatic cleanup). A write validates the bounds before any command runs (`BAD_ARGS`; the engine checks them again, `REFUSED`) and is appended to the audit log (`event: cache_limits_set`). Admin socket only. |
 | `admin.audit` | `{"query", "page", "size", "event", "result"}` (all optional; `event` lower-case letters and underscores, `result` `ok` or `failed`) | The broker's audit log, newest first ("Operations"): `{"observed_at", "source", "total", "page", "size", "records": [{"time", "event", "actor", "action", "scope", "job", "result": "ok"\|"failed", "detail"}], "events": [names present], "truncated", "window_bytes"}`. Reads the last 4 MiB of the log; digests are never shown. |
 | `admin.notify` | none | `ols-cpanel notify show --format=json` as `{observed_at, source, exit_code, output}`: the settings (the webhook as `{"set", "host"}` only), the limits (20 per day, one per event key per 6 h), messages sent in the last 24 hours, the last delivery error and the last ten messages. |
@@ -760,7 +935,7 @@ returns `{"job"}`. Actions and commands are the table in "Admin socket: jobs for
 Mount namespace of the preparation jobs (RV-31 item 7). The broker unit runs under `ProtectSystem=full` with a short
 `ReadWritePaths`, but `install --prepare` deploys the WHM and cPanel plugins into `/usr/local/cpanel` and registers them with
 cPanel's own tools, which write wherever cPanel keeps its plugin state. Widening the broker's writable paths for that would
-loosen the sandbox of every other broker operation, so only `ols.plan` and `ols.plan_hybrid` run as a transient root unit
+loosen the sandbox of every other broker operation, so only `ols.plan`, `ols.plan_hybrid` (and `ols.preview`, which needs mount and PID namespaces and writes below `/var/lib/ols-cpanel`) run as a transient root unit
 `ols-cpanel-job-<id>.service`, started through PID 1 with `systemd-run --wait --collect --pipe --quiet` (so it does not inherit the
 broker's mount namespace; `--pipe` keeps stdout and stderr in the job's files and the client's exit status is the job's), with
 `User=root`, `WorkingDirectory=/`, `UMask=0077` (the broker's), `NoNewPrivileges=yes`, `ProtectKernelTunables=yes`,
@@ -771,7 +946,7 @@ ols-cpanel-job-<id>.service`. Every other action stays a plain child of the brok
 
 ### As implemented by the broker (plugin backend)
 
-`cap.execute` checks the capability's digest against the current state: for `ols.cutover` the SHA-256 of
+`cap.execute` checks the capability's digest against the current state: for `ols.cutover` and `ols.preview` the SHA-256 of
 `plans/<scope>.json` (as `plan.latest` reports it), otherwise `server.status`'s `digest` (SHA-256 of the sorted
 JSON of `ols_active`, `apache_active`, `active_generation`, `cut_over`, `profile`, `epoch`, `hybrid_vhosts`); a
 mismatch is `STALE`, a missing plan `NOT_FOUND`. Job ids are `j<unix seconds>-<8 hex>`; a job's `job.json`,
@@ -803,12 +978,12 @@ a domain the summary does not contain. `install --prepare` embeds the compile su
 ### Gateways
 
 WHM `index.cgi` (root only, as today): `GET ?api=<name>` for the read operations (names: `status`, `metrics`,
-`inventory`, `compat`, `plan`, `generations`, `doctor`, `jobs`, `job`, `cache`, `cache_limits`, `objcache`, `php`, `history`, `requests`, `audit`, `notify`, `schedule`, `update`, `bundle`), query arguments validated against the
+`inventory`, `compat`, `plan`, `generations`, `doctor`, `jobs`, `job`, `cache`, `cache_limits`, `objcache`, `login_guard`, `http3`, `php`, `history`, `requests`, `audit`, `notify`, `schedule`, `update`, `bundle`), query arguments validated against the
 operation's schema; `POST ?action=<name>` with a JSON body `{"scope", "digest"}` for mutations (cpsrvd's
 session token in the URL is the CSRF boundary; the gateway also requires the header
 `X-OLS-cPanel-Request: 1`). `?api=cache` takes the optional `account` (`^[a-z0-9][a-z0-9_-]{0,31}$`) and `domain` (a lower-case
 domain name) and calls `cache.stats`; `POST ?action=ols.cache_purge` takes the scope `server`, `account:<user>` or
-`domain:<domain>` (the same grammar) with the status digest, like every server-scoped action; `?api=cache_limits` takes no argument and calls `admin.cache_limits`, and `POST ?action=cache_limits` (header required, no digest: a settings change, not a job) takes a JSON object of at least one of `per_site_mb`, `server_percent`, `server_max_gb` as whole numbers inside their bounds and relays `admin.cache_limits`; `?api=objcache` takes no argument and calls `admin.objcache`, and `POST ?action=objcache_automatic` (header required, no digest) takes exactly `{"automatic": true|false}` and relays `admin.objcache`; `?api=php` takes no argument and calls `php.status`; the Operations reads ("Operations") `?api=audit` (`query`, `page`, `size`, `event`, `result`; `admin.audit`), `?api=notify`, `?api=schedule`, `?api=bundle` (no argument) and `?api=update` (optional `refresh=1`; `admin.update`), `POST ?action=notify_settings` / `notify_test` / `schedule_add` / `schedule_cancel` (header required, no digest, a strict JSON body per action as in the table above; they relay `admin.notify_set`, `admin.notify_test`, `admin.schedule_add`, `admin.schedule_cancel`), the jobs `ols.support_bundle`, `ols.support_bundle_raw` and `ols.update` with scope `server`, and `GET ?download=bundle-<10 digits>-<8 hex>.tar.gz`, which serves that file of `/var/lib/ols-cpanel/support/` as an attachment (never through a link, at most 21 MiB; any other name is `BAD_QUERY`); `?api=history` takes the optional `resolution` (`hour`, `day`, `week`) and `vhost` (a lower-case domain name) and calls `admin.metrics`; `ols.php_restart` takes `server` or `account:<user>`, `ols.opcache_install` `server` or `version:ea-phpNN`, `ols.php_env_repair` `server`. cPanel `index.live.php`:
+`domain:<domain>` (the same grammar) with the status digest, like every server-scoped action; `?api=cache_limits` takes no argument and calls `admin.cache_limits`, and `POST ?action=cache_limits` (header required, no digest: a settings change, not a job) takes a JSON object of at least one of `per_site_mb`, `server_percent`, `server_max_gb` as whole numbers inside their bounds and relays `admin.cache_limits`; `?api=objcache` takes no argument and calls `admin.objcache`, and `POST ?action=objcache_automatic` (header required, no digest) takes exactly `{"automatic": true|false}` and relays `admin.objcache`; `?api=login_guard` takes no argument and calls `admin.login_guard`, and `POST ?action=login_guard` (header required, no digest) takes exactly `{"enabled": true|false}` and relays `admin.login_guard`; `?api=http3` takes no argument and calls `admin.http3`, and `POST ?action=http3_domain` (header required, no digest) takes exactly `{"domain": <lower-case domain>, "enabled": true|false}` and relays `admin.http3`; `?api=php` takes no argument and calls `php.status`; the Operations reads ("Operations") `?api=audit` (`query`, `page`, `size`, `event`, `result`; `admin.audit`), `?api=notify`, `?api=schedule`, `?api=bundle` (no argument) and `?api=update` (optional `refresh=1`; `admin.update`), `POST ?action=notify_settings` / `notify_test` / `schedule_add` / `schedule_cancel` (header required, no digest, a strict JSON body per action as in the table above; they relay `admin.notify_set`, `admin.notify_test`, `admin.schedule_add`, `admin.schedule_cancel`), the jobs `ols.support_bundle`, `ols.support_bundle_raw` and `ols.update` with scope `server`, and `GET ?download=bundle-<10 digits>-<8 hex>.tar.gz`, which serves that file of `/var/lib/ols-cpanel/support/` as an attachment (never through a link, at most 21 MiB; any other name is `BAD_QUERY`); `?api=history` takes the optional `resolution` (`hour`, `day`, `week`) and `vhost` (a lower-case domain name) and calls `admin.metrics`; `ols.php_restart` takes `server` or `account:<user>`, `ols.opcache_install` `server` or `version:ea-phpNN`, `ols.php_env_repair` `server`. cPanel `index.live.php`:
 `GET ?api=sites|htaccess|status|cache|php|objcache|logs|php_errors|perf|requests|htaccess_backups|history` (`cache` calls `tenant.cache_stats`, `php` calls `tenant.php`, `objcache` calls `tenant.objcache`; none of these takes a query argument; `history` calls `tenant.metrics` and takes only the optional `resolution` and `vhost`, the broker refusing a vhost that is not the account's) and
 `POST ?action=cache_purge` or `?action=php_restart` with the header `X-OLS-cPanel-Request: 1` and a JSON body `{}` or `{"domain": <domain>}` for the purge, `{}` for the restart (at most 1 KiB,
 no other key), which calls `tenant.cache_purge` or `tenant.php_restart` on the tenant socket (40 s client timeout) and needs the account's feature

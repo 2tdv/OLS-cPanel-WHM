@@ -52,6 +52,8 @@ final class Application
             new Command\WafStatusCommand($context),
             new Command\WafBlockedCommand($context),
             new Command\Http3StatusCommand($context),
+            new Command\Http3DomainCommand($context, false),
+            new Command\Http3DomainCommand($context, true),
             ...array_map(static fn(string $action): Command => new Command\ObjectCacheCommand($context, $action,
                 static fn(): \OlsCpanel\ObjectCache\ObjectCacheManager => new \OlsCpanel\ObjectCache\ObjectCacheManager(
                     new \OlsCpanel\Infrastructure\Process\LocalCommandRunner(\OlsCpanel\Infrastructure\Process\LocalCommandRunner::MAX_OUTPUT, true),
@@ -70,6 +72,8 @@ final class Application
             // FV-07 operations: notifications, maintenance windows, the update channel view and the support bundle.
             ...array_map(static fn(string $action): Command => new Command\NotifyCommand($context, $action), array_keys(Command\NotifyCommand::ACTIONS)),
             ...array_map(static fn(string $action): Command => new Command\ScheduleCommand($context, $action), array_keys(Command\ScheduleCommand::ACTIONS)),
+            // RV-64 / CMP-04: the WordPress login guard.
+            ...array_map(static fn(string $action): Command => new Command\LoginGuardCommand($context, $action), array_keys(Command\LoginGuardCommand::ACTIONS)),
             new Command\UpdateCheckCommand($context),
             new Command\UpdateInstallCommand($context),
             ...array_map(static fn(string $action): Command => new Command\SupportBundleCommand($context, $action), ['bundle', 'list']),

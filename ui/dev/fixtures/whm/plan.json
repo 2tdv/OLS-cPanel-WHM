@@ -70,6 +70,38 @@
       "summary": {
         "compiled_at": "2026-10-22T10:15:00+00:00"
       }
+    },
+    "preview": {
+      "schema_version": 1,
+      "plan": "p20261022101500-a1b2c3",
+      "compile_sha256": "9c1e2a7b3f5d8e0a4c6b2d9f1e3a5c7b9d0f2e4a6c8b1d3f5e7a9c0b2d4f6e8a",
+      "created": "2026-10-22T10:20:00+00:00",
+      "seconds": 14.2,
+      "state": "complete",
+      "ports": {
+        "bind": "127.0.0.1",
+        "listeners": [
+          { "address": "*:80", "port": 24811 },
+          { "address": "*:443", "port": 24812 },
+          { "address": "127.0.0.1:8097", "port": 24813 }
+        ]
+      },
+      "summary": { "same": 3, "different": 1, "hybrid": 1, "unprobed": 0, "apache_silent": 0, "total": 5 },
+      "sites": [
+        { "vhost": "blog.fixture-domain.test", "state": "same", "requests": [
+          { "request": "http://blog.fixture-domain.test/", "apache": "301", "ols": "301" },
+          { "request": "https://blog.fixture-domain.test/", "apache": "200", "ols": "200" } ] },
+        { "vhost": "legacy.fixture-domain.test", "state": "hybrid" },
+        { "vhost": "shop.fixture-domain.test", "state": "different", "requests": [
+          { "request": "http://shop.fixture-domain.test/", "apache": "301", "ols": "301" },
+          { "request": "https://shop.fixture-domain.test/", "apache": "404", "ols": "200" } ] },
+        { "vhost": "cdn.shop.fixture-domain.test", "state": "same", "requests": [
+          { "request": "http://cdn.shop.fixture-domain.test/", "apache": "403", "ols": "403" },
+          { "request": "https://cdn.shop.fixture-domain.test/", "apache": "403", "ols": "403" } ] },
+        { "vhost": "docs.fixture-domain.test", "state": "same", "requests": [
+          { "request": "http://docs.fixture-domain.test/", "apache": "200", "ols": "200" },
+          { "request": "https://docs.fixture-domain.test/", "apache": "200", "ols": "200" } ] }
+      ]
     }
   }
 }

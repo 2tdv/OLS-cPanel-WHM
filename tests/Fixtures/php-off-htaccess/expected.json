@@ -1,0 +1,351 @@
+{
+  "addhandler-php-on-generic.htaccess": {
+    "blocker": "AddHandler",
+    "outcome": "blocker",
+    "reason": "turns PHP on: never translated",
+    "without_modules": "blocker"
+  },
+  "addhandler-php-on.htaccess": {
+    "blocker": "AddHandler",
+    "outcome": "blocker",
+    "reason": "turns PHP on (even for .jpg): never translated",
+    "without_modules": "blocker"
+  },
+  "addtype-mixed-case.htaccess": {
+    "blocker": "addtype TEXT/PLAIN",
+    "outcome": "blocker",
+    "reason": "any spelling stays a blocker",
+    "without_modules": "blocker"
+  },
+  "addtype-text-plain.htaccess": {
+    "blocker": "AddType text/plain",
+    "outcome": "blocker",
+    "reason": "only an AddType equal to OLS's default type is a no-op",
+    "without_modules": "blocker"
+  },
+  "drupal-sethandler-mixed-case.htaccess": {
+    "blocker": "sethandler",
+    "outcome": "blocker",
+    "reason": "only Drupal's exact spelling is recognised; any other stays a blocker",
+    "without_modules": "blocker"
+  },
+  "drupal-sethandler.htaccess": {
+    "outcome": "translated",
+    "reason": "Drupal's no-scripts idiom (SA-2006-006, SA-2013-003): the directory maps every script suffix to a static type (RV-46); the mod_php section is dropped like Apache drops it",
+    "static_scripts": [
+      "x.php",
+      "a/b/x.php",
+      "x.phtml",
+      "x.php/y",
+      "x.php/",
+      "a/x.phtml/y/z"
+    ],
+    "without_modules": "blocker"
+  },
+  "files-tilde-regex.htaccess": {
+    "blocker": "unsupported",
+    "outcome": "blocker",
+    "reason": "the regex form of <Files> is not certified",
+    "without_modules": "blocker"
+  },
+  "files-wildcard-deny.htaccess": {
+    "allowed": [
+      "x.jpg",
+      "a/x.png",
+      "x.php.jpg",
+      ".well-known/x.txt"
+    ],
+    "denied": [
+      "x.php",
+      "a/x.php",
+      "x.php/y",
+      "x.php/"
+    ],
+    "outcome": "translated",
+    "reason": "WPForms' style; lowercase directives",
+    "without_modules": "translated"
+  },
+  "filesmatch-authz-sections.htaccess": {
+    "allowed": [
+      "x.jpg",
+      "a/x.png",
+      "x.php.jpg",
+      ".well-known/x.txt"
+    ],
+    "denied": [
+      "x.php",
+      "a/b/x.php",
+      "x.phtml",
+      "x.php/y",
+      "x.php/",
+      "a/x.phtml/y/z"
+    ],
+    "outcome": "translated",
+    "reason": "both Apache generations, as plugins write it",
+    "without_modules": "translated"
+  },
+  "filesmatch-deny-from-all.htaccess": {
+    "allowed": [
+      "x.jpg",
+      "a/x.png",
+      "x.php.jpg",
+      ".well-known/x.txt"
+    ],
+    "denied": [
+      "x.php",
+      "a/b/x.php",
+      "x.phtml",
+      "x.php/y",
+      "x.php/",
+      "a/x.phtml/y/z"
+    ],
+    "outcome": "translated",
+    "reason": "Apache 2.2 syntax of the same denial",
+    "without_modules": "translated"
+  },
+  "filesmatch-inline-flag.htaccess": {
+    "blocker": "unsupported <FilesMatch> pattern",
+    "outcome": "blocker",
+    "reason": "inline flags are not certified",
+    "without_modules": "blocker"
+  },
+  "filesmatch-inner-anchor.htaccess": {
+    "allowed": [
+      "x.jpg",
+      "a/x.png",
+      "x.php.jpg",
+      ".well-known/x.txt"
+    ],
+    "denied": [
+      "x.php",
+      "a/b/x.php",
+      "x.phtml",
+      "x.php/y",
+      "x.php/",
+      "a/x.phtml/y/z"
+    ],
+    "outcome": "translated",
+    "reason": "a \"^\" inside a group: the basename search keeps Apache's meaning (CMP-09: before, the branch could never match and the scripts ran under OLS)",
+    "without_modules": "blocker"
+  },
+  "filesmatch-require-denied.htaccess": {
+    "allowed": [
+      "x.jpg",
+      "a/x.png",
+      "x.php.jpg",
+      ".well-known/x.txt"
+    ],
+    "denied": [
+      "x.php",
+      "a/b/x.php",
+      "x.phtml",
+      "x.php/y",
+      "x.php/",
+      "a/x.phtml/y/z"
+    ],
+    "outcome": "translated",
+    "reason": "a deny regex context, plus the same name followed by path info (CMP-09)",
+    "without_modules": "translated"
+  },
+  "filesmatch-top-level-branch.htaccess": {
+    "allowed": [
+      "x.php",
+      "ashell.php",
+      "x.jpg"
+    ],
+    "denied": [
+      "a.txt",
+      "shell.php",
+      "a/shell.php",
+      "shell.php/x"
+    ],
+    "outcome": "translated",
+    "reason": "a top-level \"|\": the basename search keeps the alternatives inside this directory (CMP-09: before, the second branch escaped the directory prefix and never matched)",
+    "without_modules": "blocker"
+  },
+  "filesmatch-uppercase-alternatives.htaccess": {
+    "allowed": [
+      "x.jpg",
+      "x.pHp"
+    ],
+    "denied": [
+      "x.php",
+      "x.PHP",
+      "x.Php/y"
+    ],
+    "outcome": "translated",
+    "reason": "case spelled out in the regex",
+    "without_modules": "translated"
+  },
+  "forcetype-filesmatch.htaccess": {
+    "blocker": "with unsupported body",
+    "outcome": "blocker",
+    "reason": "no OLS equivalent is certified",
+    "without_modules": "blocker"
+  },
+  "forcetype.htaccess": {
+    "blocker": "ForceType",
+    "outcome": "blocker",
+    "reason": "no OLS equivalent is certified",
+    "without_modules": "blocker"
+  },
+  "options-execcgi-addhandler.htaccess": {
+    "blocker": "AddHandler",
+    "outcome": "blocker",
+    "reason": "AddHandler is never translated; \"Options -ExecCGI\" alone is a no-op outside cgi-bin",
+    "without_modules": "blocker"
+  },
+  "options-execcgi.htaccess": {
+    "allowed": [
+      "x.php",
+      "a/b/x.php",
+      "x.phtml",
+      "x.php/y",
+      "x.php/",
+      "a/x.phtml/y/z"
+    ],
+    "outcome": "translated",
+    "reason": "OLS runs CGI only in its cgi-bin context: already off; PHP is not CGI and runs under both",
+    "without_modules": "blocker"
+  },
+  "php-admin-flag-engine-off-mod-php-loaded.htaccess": {
+    "blocker": "php_admin_flag engine off",
+    "extra_modules": [
+      "php7_module"
+    ],
+    "outcome": "blocker",
+    "reason": "mod_php7 loaded: Apache turns PHP off; no OLS equivalent",
+    "without_modules": "blocker"
+  },
+  "php-admin-flag-engine-off-mod-php.htaccess": {
+    "allowed": [
+      "x.php",
+      "a/b/x.php",
+      "x.phtml",
+      "x.php/y",
+      "x.php/",
+      "a/x.phtml/y/z"
+    ],
+    "outcome": "translated",
+    "reason": "mod_php is not loaded: Apache ignores the section",
+    "without_modules": "blocker"
+  },
+  "php-admin-flag-engine-off.htaccess": {
+    "blocker": "php_admin_flag engine off",
+    "outcome": "blocker",
+    "reason": "as php_flag",
+    "without_modules": "blocker"
+  },
+  "php-flag-engine-off-litespeed-mixed-case.htaccess": {
+    "blocker": "php_flag Engine Off",
+    "outcome": "blocker",
+    "reason": "as above, any spelling of the setting",
+    "without_modules": "blocker"
+  },
+  "php-flag-engine-off-litespeed.htaccess": {
+    "blocker": "php_flag engine off",
+    "outcome": "blocker",
+    "reason": "LiteSpeed's own switch: lsphp has no \"engine\" setting, OLS would keep running PHP (CMP-09: refused, was a phpIniOverride)",
+    "without_modules": "blocker"
+  },
+  "php-flag-engine-off-mixed-case.htaccess": {
+    "blocker": "PHP_FLAG Engine Off",
+    "outcome": "blocker",
+    "reason": "any spelling stays a blocker",
+    "without_modules": "blocker"
+  },
+  "php-flag-engine-off-mod-php-loaded.htaccess": {
+    "blocker": "php_flag engine off",
+    "extra_modules": [
+      "php7_module"
+    ],
+    "outcome": "blocker",
+    "reason": "mod_php7 loaded: Apache turns PHP off; no OLS equivalent",
+    "without_modules": "blocker"
+  },
+  "php-flag-engine-off-mod-php.htaccess": {
+    "allowed": [
+      "x.php",
+      "a/b/x.php",
+      "x.phtml",
+      "x.php/y",
+      "x.php/",
+      "a/x.phtml/y/z"
+    ],
+    "outcome": "translated",
+    "reason": "mod_php is not loaded: Apache ignores the sections and runs PHP (PHP-FPM); OLS does the same (nothing to apply)",
+    "without_modules": "blocker"
+  },
+  "php-flag-engine-off.htaccess": {
+    "blocker": "php_flag engine off",
+    "outcome": "blocker",
+    "reason": "Apache with PHP-FPM refuses the directive (500); not reproducible",
+    "without_modules": "blocker"
+  },
+  "php-value-engine-off-litespeed.htaccess": {
+    "blocker": "php_value engine 0",
+    "outcome": "blocker",
+    "reason": "as above, through php_value",
+    "without_modules": "blocker"
+  },
+  "removehandler-litespeed.htaccess": {
+    "blocker": "RemoveHandler",
+    "outcome": "blocker",
+    "reason": "only rewrite, cache and plain php_value lines are taken from a LiteSpeed section",
+    "without_modules": "blocker"
+  },
+  "removehandler-mixed-case.htaccess": {
+    "blocker": "removehandler",
+    "outcome": "blocker",
+    "reason": "directive names are case-insensitive in Apache; any spelling stays a blocker",
+    "without_modules": "blocker"
+  },
+  "removehandler-mod-mime.htaccess": {
+    "blocker": "RemoveHandler",
+    "outcome": "blocker",
+    "reason": "mod_mime is loaded: Apache applies the section; without a module list the section itself is refused",
+    "without_modules": "blocker"
+  },
+  "removehandler.htaccess": {
+    "blocker": "RemoveHandler",
+    "outcome": "blocker",
+    "reason": "removes the PHP handler; no OLS equivalent",
+    "without_modules": "blocker"
+  },
+  "removetype-mixed-case.htaccess": {
+    "blocker": "REMOVETYPE",
+    "outcome": "blocker",
+    "reason": "any spelling stays a blocker",
+    "without_modules": "blocker"
+  },
+  "removetype.htaccess": {
+    "blocker": "RemoveType",
+    "outcome": "blocker",
+    "reason": "no OLS equivalent",
+    "without_modules": "blocker"
+  },
+  "sethandler-default-handler.htaccess": {
+    "blocker": "SetHandler default-handler",
+    "outcome": "blocker",
+    "reason": "as SetHandler none",
+    "without_modules": "blocker"
+  },
+  "sethandler-none-filesmatch.htaccess": {
+    "blocker": "with unsupported body",
+    "outcome": "blocker",
+    "reason": "Apache serves the scripts as files (source); no OLS equivalent is certified",
+    "without_modules": "blocker"
+  },
+  "sethandler-none.htaccess": {
+    "blocker": "SetHandler none",
+    "outcome": "blocker",
+    "reason": "on cPanel the vhost's <FilesMatch> SetHandler for PHP-FPM is merged after the directory, so Apache may still run PHP: not reproducible",
+    "without_modules": "blocker"
+  },
+  "sethandler-php-on.htaccess": {
+    "blocker": "with unsupported body",
+    "outcome": "blocker",
+    "reason": "turns PHP on for images: never translated",
+    "without_modules": "blocker"
+  }
+}

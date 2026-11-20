@@ -19,7 +19,8 @@ use OlsCpanel\Ols\Http3\ProtocolShare;
 /**
  * HTTP/3 (FV-04; root): the operator input (/var/lib/ols-cpanel/http3.json), what the host firewall says about UDP 443
  * (read-only inspection, never a change) and the HTTP/1.x, HTTP/2 and HTTP/3 share of each vhost of the active
- * generation, from the last lines of its domlogs (--lines=N, 1..20000, default 2000). Read-only.
+ * generation, from the last lines of its domlogs (--lines=N, 1..20000, default 2000). Read-only. The per-domain switch
+ * (CMP-07) is `http3 off|on --domain=D` (Http3DomainCommand); the status lists the domains that are off.
  */
 final class Http3StatusCommand implements Command
 {
@@ -51,8 +52,9 @@ final class Http3StatusCommand implements Command
         $lines = $text === null ? ProtocolShare::LINES : (int) $text;
         $this->context->root();
         $input = ['path' => $this->inputPath, 'present' => file_exists($this->inputPath) || is_link($this->inputPath)];
+        $off = [];
         try {
-            $enabled = Http3Input::load($this->inputPath);
+            ['enabled' => $enabled, 'off' => $off] = Http3Input::settings($this->inputPath);
         } catch (CompilationRefused $error) {
             $enabled = null;
             $input['error'] = $error->getMessage();
@@ -66,6 +68,9 @@ final class Http3StatusCommand implements Command
                 $vhosts[] = (string) $name;
             }
         }
+        // CMP-07: the per-domain off list; names without a vhost in the active generation are stale and change nothing.
+        $input['off'] = $off;
+        $input['off_unknown'] = array_values(array_diff($off, $vhosts));
         $firewall = null;
         if ($enabled !== false) {
             try {
@@ -77,7 +82,8 @@ final class Http3StatusCommand implements Command
         }
         $out->result(['active_generation' => $generation, 'enabled' => $enabled, 'input' => $input, 'firewall' => $firewall,
             'log_dir' => $this->logDir, 'lines' => $lines,
-            'protocol_share' => ProtocolShare::shares($this->logDir, $vhosts, $lines)]);
+            'protocol_share' => array_map(static fn(array $row): array => $row + ['http3_off' => in_array($row['vhost'] ?? null, $off, true)],
+                ProtocolShare::shares($this->logDir, $vhosts, $lines))]);
         return Application::EXIT_OK;
     }
 }

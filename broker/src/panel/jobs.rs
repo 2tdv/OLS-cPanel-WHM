@@ -72,10 +72,10 @@ pub struct Action {
 /// WHM preparation jobs (`ols.plan`, `ols.plan_hybrid`) deploy the WHM and cPanel plugins into /usr/local/cpanel and
 /// register them with cPanel's own tools, which write wherever cPanel keeps its plugin state. Widening the broker's
 /// writable paths for that (and for whatever install_plugin writes beside them) would loosen the sandbox of every
-/// other broker operation; instead only these two jobs run as a root transient unit `ols-cpanel-job-<id>` started
+/// other broker operation; instead only these jobs run as a root transient unit `ols-cpanel-job-<id>` started
 /// through PID 1 (D-Bus), so it does not inherit the broker's mount namespace, with explicit hardening that fits a
 /// deployment (no extra privileges, kernel tunables and cgroups read-only, a private /tmp, the broker's UMask, a
-/// runtime cap). The broker still watches the systemd-run client (`--wait --pipe`: its exit status is the job's) and
+/// runtime cap). `ols.preview` (CMP-03: OpenLiteSpeed on loopback ports in private namespaces) is one too. The broker still watches the systemd-run client (`--wait --pipe`: its exit status is the job's) and
 /// stops the unit when it must end the job.
 #[derive(Clone)]
 pub struct Launcher {
@@ -118,6 +118,9 @@ pub const ACTIONS: &[Action] = &[
     Action { name: "ols.plan", args: &["install", "--prepare", "--format=json"], scope: Scope::Server, unit: true },
     Action { name: "ols.plan_hybrid", args: &["install", "--prepare", "--hybrid", "--format=json"], scope: Scope::Server, unit: true },
     Action { name: "ols.cutover", args: &["install", "--cutover", "--plan=", "--yes", "--format=json"], scope: Scope::Plan, unit: false },
+    // CMP-03: starts the prepared generation on loopback ports in a private namespace and compares every site with Apache. A
+    // unit job: it needs mount and PID namespaces and writes below /var/lib/ols-cpanel, which the broker's own sandbox forbids.
+    Action { name: "ols.preview", args: &["install", "--preview", "--plan=", "--format=json"], scope: Scope::Plan, unit: true },
     Action { name: "ols.apache_return", args: &["apache-return", "--execute", "--yes", "--format=json"], scope: Scope::Server, unit: false },
     Action { name: "ols.cache_purge", args: &["cache", "purge"], scope: Scope::Cache, unit: false },
     Action { name: "ols.php_restart", args: &["php", "restart"], scope: Scope::PhpRestart, unit: false },
@@ -621,6 +624,7 @@ esac"#;
             ("ols.plan", "install --prepare --format=json".to_string()),
             ("ols.plan_hybrid", "install --prepare --hybrid --format=json".to_string()),
             ("ols.cutover", "install --cutover --plan=p20261022120000-a1b2c3 --yes --format=json".to_string()),
+            ("ols.preview", "install --preview --plan=p20261022120000-a1b2c3 --format=json".to_string()),
             ("ols.apache_return", "apache-return --execute --yes --format=json".to_string()),
             ("ols.cache_purge", "cache purge --all --format=json".to_string()),
             ("ols.php_restart", "php restart --all --format=json".to_string()),
@@ -630,6 +634,13 @@ esac"#;
             ("ols.support_bundle_raw", "support bundle --no-anonymize --format=json".to_string()),
             ("ols.update", "update install --latest --format=json".to_string()),
         ]);
+        // CMP-03: the preview takes a plan id only, never "server" or something that reads like an option, and runs as a unit.
+        let preview = action("ols.preview").unwrap();
+        assert!(preview.unit && preview.scope == Scope::Plan);
+        assert!(valid_scope(preview, "p20261022120000-a1b2c3"));
+        for bad in ["", "server", "-x", "--plan=p1", "../p", "p1 p2", "a/b"] {
+            assert!(!valid_scope(preview, bad), "{bad}");
+        }
         let restart = action("ols.php_restart").unwrap();
         for (scope, flag) in [("server", "--all"), ("account:olscpa", "--account=olscpa")] {
             assert!(valid_scope(restart, scope), "{scope}");

@@ -19,8 +19,8 @@ namespace OlsCpanel\Deployment;
 final class Upgrade
 {
     public const PACKAGES = [CutoverPlan::PRODUCT_PACKAGE, CutoverPlan::OLS_PACKAGE];
-    /** Restart order: the reconciler requires the broker. */
-    public const UNITS = [CutoverPlan::BROKER_UNIT, Cutover::RECONCILER];
+    /** Long-running units restarted onto the new code; restart order: the reconciler requires the broker. The login guard (RV-64), the .htaccess watch (CMP-02). */
+    public const UNITS = [CutoverPlan::BROKER_UNIT, Cutover::RECONCILER, 'ols-cpanel-login-guard.service', 'ols-cpanel-htaccess-watch.service'];
     /** The unit that runs this command after a package transaction. */
     public const SERVICE = 'ols-cpanel-upgrade.service';
     /** Installed versions applied by the last successful upgrade (root 0600 JSON in the state directory). */
@@ -96,6 +96,9 @@ final class Upgrade
             throw DeploymentError::step('daemon-reload', 'systemctl daemon-reload failed: ' . Host::tail(($reload['stderr'] ?? '') . $reload['stdout'])
                 . ' (nothing was restarted)', ['packages' => $packages]);
         }
+        // RV-66: the logrotate rule of 0.2.13 and 0.2.14 (never able to run, it failed logrotate.service) is removed when it is
+        // the product's file; the audit log is rotated by the cache cleanup unit from now on.
+        $logrotate = LegacyLogrotateRule::retire($host);
         // The plugin copies cPanel serves must match the installed engine (a stale copy misreports the site).
         $plugins = $this->env->plugins()->deploy();
         // FV-10: the recommended EA4 profile follows cPanel's own default profile and the packages EasyApache offers now.
@@ -165,12 +168,13 @@ final class Upgrade
             'cache_clean_timer' => !$cacheClean,
             'account_state_timer' => !$accountState,
             'operations_timers' => in_array(false, $operationsTimers, true),
+            'legacy_logrotate_rule' => $logrotate === 'failed',
         ]));
         $failed = $failed || $incomplete !== [];
         if (!$failed) {
             $this->record(array_combine(array_column($packages, 'package'), array_column($packages, 'version')));
         }
-        return ['result' => $failed ? 'failed' : 'upgraded', 'incomplete' => $incomplete, 'ols' => $ols, 'packages' => $packages, 'plugins' => $plugins, 'ea4_profile' => $profile, 'php_environment_units' => $phpUnits, 'hybrid_trust_timer' => $trust, 'hybrid_firewall' => $firewall, 'cache_clean_timer' => $cacheClean, 'account_state_timer' => $accountState, 'operations_timers' => $operationsTimers, 'hooks' => $hookResult, 'units' => $units,
+        return ['result' => $failed ? 'failed' : 'upgraded', 'incomplete' => $incomplete, 'ols' => $ols, 'packages' => $packages, 'plugins' => $plugins, 'ea4_profile' => $profile, 'php_environment_units' => $phpUnits, 'hybrid_trust_timer' => $trust, 'hybrid_firewall' => $firewall, 'cache_clean_timer' => $cacheClean, 'account_state_timer' => $accountState, 'operations_timers' => $operationsTimers, 'legacy_logrotate_rule' => $logrotate, 'hooks' => $hookResult, 'units' => $units,
             'note' => 'The active generation was not touched.'];
     }
 

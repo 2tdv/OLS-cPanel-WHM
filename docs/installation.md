@@ -171,6 +171,11 @@ For each installed package the Updates view shows **Signed** (the package carrie
 is imported) or **Verified release** (the installer checked exactly this build against the signed release; it records
 this in `/var/lib/ols-cpanel/installed-release.json`). A build installed by hand is shown as not from a verified release.
 
+The ModSecurity audit log (`/usr/local/lsws/logs/modsec_audit.log`) is rotated by the product, not by logrotate: the
+hourly cleanup pass renames it when it is over 50 MB, reloads OpenLiteSpeed gracefully, and keeps four gzip-compressed
+copies. The upgrade removes `/etc/logrotate.d/ols-cpanel`, the rule that releases 0.2.13 and 0.2.14 installed (it could
+not run and made the system's `logrotate.service` fail); only the product's own file is removed.
+
 To apply an upgrade by hand (support only): `/usr/local/ols-cpanel/bin/ols-cpanel upgrade`.
 
 ## Going back to Apache
@@ -211,6 +216,9 @@ Uninstall first returns the server to Apache if OLS is still serving, and verifi
   `/opt/cpanel/ea-php*/root/etc/php.d/`. Only a file that carries the product's own first line is removed;
   another file of that name, a link, or any other INI stays. The `ea-php*-php-opcache` packages stay installed;
 - the recommended EasyApache profile file the product added;
+- the logrotate rule `/etc/logrotate.d/ols-cpanel` of releases 0.2.13 and 0.2.14, if it is still there and is the
+  product's file (a link, another owner or other content stays). From the release that fixes this the product rotates the ModSecurity
+  audit log itself (see Upgrading) and ships no logrotate rule;
 - cPanel's update-check stamp of the WHM add-on, `/var/cpanel/version/addons_update/whostmgr_ols-cpanel`,
   removed right after the WHM plugin is unregistered (a fixed path, never followed as a link; absent is fine);
 - the three product packages (`ols-cpanel`, `ols-cpanel-openlitespeed`, `ols-cpanel-php-redis`, the ones that

@@ -5,9 +5,11 @@
 //! command or an account from the request (accounts come from SO_PEERCRED in the broker).
 
 pub mod cache;
+pub mod guard;
 pub mod history;
 pub mod certificate;
 pub mod jobs;
+pub mod http3;
 pub mod objcache;
 pub mod ops;
 pub mod php;
@@ -294,6 +296,14 @@ impl Panel {
 
     pub fn objcache(&self, args: Value) -> Reply {
         objcache::admin_objcache(&self.config, args)
+    }
+
+    pub fn login_guard(&self, args: Value) -> Reply {
+        guard::admin_login_guard(&self.config, args)
+    }
+
+    pub fn http3(&self, args: Value) -> Reply {
+        http3::admin_http3(&self.config, args)
     }
 
     pub fn tenant_objcache(&self, user: &str) -> Reply {

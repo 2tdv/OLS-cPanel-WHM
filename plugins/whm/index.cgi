@@ -31,6 +31,9 @@ const API = [
     'cache' => ['cache.stats', ['account', 'domain']],
     'cache_limits' => ['admin.cache_limits', []],
     'objcache' => ['admin.objcache', []],
+    // RV-64: the WordPress login guard (switch, blocked addresses).
+    'login_guard' => ['admin.login_guard', []],
+    'http3' => ['admin.http3', []],
     'php' => ['php.status', []],
     'history' => ['admin.metrics', ['resolution', 'vhost']],
     'requests' => ['admin.requests', []],
@@ -59,7 +62,7 @@ const INTEGER_PARAMS = ['page', 'size'];
 const BOOLEAN_PARAMS = ['refresh'];
 /** POST ?action=<name>: the job actions and the scope each takes ("server", a plan id, or a cache purge scope). */
 const ACTIONS = ['ols.sync' => 'server', 'ols.rollback' => 'server', 'ols.plan' => 'server', 'ols.plan_hybrid' => 'server',
-    'ols.cutover' => 'plan', 'ols.apache_return' => 'server', 'ols.cache_purge' => 'cache', 'ols.php_restart' => 'php_restart',
+    'ols.cutover' => 'plan', 'ols.preview' => 'plan', 'ols.apache_return' => 'server', 'ols.cache_purge' => 'cache', 'ols.php_restart' => 'php_restart',
     'ols.opcache_install' => 'opcache', 'ols.php_env_repair' => 'server', 'ols.support_bundle' => 'server', 'ols.support_bundle_raw' => 'server',
     'ols.update' => 'server'];
 /** The scope of ols.cache_purge: "server", "account:<user>" or "domain:<domain>". */
@@ -73,7 +76,9 @@ const DIGEST = '/^[0-9a-f]{64}$/D';
 const CACHE_LIMITS = ['per_site_mb' => [16, 102400], 'server_percent' => [1, 50], 'server_max_gb' => [1, 2048]];
 /** POST ?action=<name> settings changes and small operations (no job, no digest): the broker operation each relays to. */
 const SETTINGS = ['cache_limits' => 'admin.cache_limits', 'request_status' => 'admin.request_status', 'notify_settings' => 'admin.notify_set', 'notify_test' => 'admin.notify_test',
-    'schedule_add' => 'admin.schedule_add', 'schedule_cancel' => 'admin.schedule_cancel', 'objcache_automatic' => 'admin.objcache'];
+    'schedule_add' => 'admin.schedule_add', 'schedule_cancel' => 'admin.schedule_cancel', 'objcache_automatic' => 'admin.objcache',
+    'login_guard' => 'admin.login_guard',
+    'http3_domain' => 'admin.http3'];
 const EMAIL = '/^[A-Za-z0-9][A-Za-z0-9._%+-]{0,63}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/D';
 const WEBHOOK = '/^https:\/\/[A-Za-z0-9._~:\/?#@!$&()*+,;=%-]{1,500}$/D';
 const NOTIFY_EVENTS = ['job', 'held', 'php_env', 'upgrade', 'cache_emergency', 'disk', 'objcache', 'schedule'];
@@ -120,6 +125,15 @@ function settings_body_valid(string $name, mixed $body): bool
     if ($name === 'objcache_automatic') {
         // {automatic: true|false}: the object cache's automatic mode for accounts with WordPress and LiteSpeed Cache.
         return is_array($body) && !array_is_list($body) && array_keys($body) === ['automatic'] && is_bool($body['automatic']);
+    }
+    if ($name === 'login_guard') {
+        // {enabled: true|false}: the WordPress login guard (RV-64).
+        return is_array($body) && !array_is_list($body) && array_keys($body) === ['enabled'] && is_bool($body['enabled']);
+    }
+    if ($name === 'http3_domain') {
+        // {domain, enabled}: HTTP/3 advertised (true) or not (false) for one domain (CMP-07).
+        return is_array($body) && !array_is_list($body) && count($body) === 2 && is_string($body['domain'] ?? null)
+            && preg_match(PARAMS['domain'], $body['domain']) === 1 && is_bool($body['enabled'] ?? null);
     }
     if (!is_array($body) || $body === [] || array_is_list($body)) {
         return false;

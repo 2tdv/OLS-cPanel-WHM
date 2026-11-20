@@ -19,7 +19,9 @@ namespace OlsCpanel\Ols\Compiler;
  * bodies and the negated forms are dropped; ExpiresActive/ExpiresDefault/ExpiresByType become the context's
  * enableExpires/expiresDefault/expiresByType; a lone directory-level "Require all denied" plus <Files>/<FilesMatch>
  * blocks holding only "Require all granted" becomes one regex context with a negative lookahead exempting the
- * allowed basenames. Output is kept byte-identical to the lab-proven
+ * allowed basenames. A denied name also denies the same name followed by path info (CMP-09), and Wordfence's firewall
+ * prepend inside <IfModule LiteSpeed> of the document root becomes the root context's phpIniOverride (CMP-08; the
+ * compile checks the file, prependFiles()). Output is kept byte-identical to the lab-proven
  * build/vm-qualification/htaccess_translate.py (checked by tests/compiler_equivalence.py).
  */
 final class HtaccessTranslator
@@ -62,6 +64,29 @@ final class HtaccessTranslator
      * phpIniOverride. Outside that section a php_value stays a blocker (Apache with PHP-FPM refuses it).
      */
     private const LITESPEED_PHP_VALUE = '/^php_(value|flag)[ \t]+([A-Za-z0-9_.]+)[ \t]+([A-Za-z0-9_.,:\/+-]+|"[A-Za-z0-9_.,:\/ +-]*")$/D';
+    /**
+     * Settings the rule above never takes (CMP-08, CMP-09): "engine" is mod_php's switch, which lsphp does not know
+     * (LiteSpeed Enterprise turns PHP off for the directory, OLS would silently keep running it); a prepended or appended
+     * file must exist, or every script of the site fails (only Wordfence's firewall file is accepted, below).
+     */
+    private const LITESPEED_PHP_REFUSED = ['engine', 'auto_prepend_file', 'auto_append_file'];
+    /**
+     * CMP-08: Wordfence's firewall ("extended protection") on LiteSpeed: "php_value auto_prepend_file
+     * '<ABSPATH>wordfence-waf.php'" in <IfModule LiteSpeed> (and in <IfModule lsapi_module>, which Apache's module list
+     * decides) of the site root's .htaccess. Accepted only in the document root's own context, for that file name, as an
+     * absolute path inside the account's home whose components are plain names, single-, double- or unquoted; the compile
+     * checks, as the tenant, that the file is a readable regular file owned by the account (ServerConfigurationBuilder).
+     */
+    private const WORDFENCE_PREPEND = '/^php_value[ \t]+auto_prepend_file[ \t]+([\'"]?)(\/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*\/)+wordfence-waf\.php)\1$/D';
+    private const HOME_DIRECTORY = '/^\/home[A-Za-z0-9_-]*\/[a-z0-9][a-z0-9_-]{0,31}$/D';
+    private const PREPEND_LINE = '/^php_value auto_prepend_file (\/\S+)$/m';
+    /**
+     * CMP-09: OLS matches a regex context against the whole URI, path info included, and splits the path info off only
+     * afterwards; Apache matches <Files>/<FilesMatch> against the file the request resolves to. Every denied basename
+     * therefore gets a second context for the same segment followed by "/" (path info), when that segment ends in a
+     * script-like suffix (references in build/vm-qualification/htaccess_translate.py).
+     */
+    private const PATH_INFO_SEGMENT = '(?=[^/]*\.[A-Za-z0-9]+/)';
     private const SCRIPT_EXTENSIONS = ['php', 'php3', 'php4', 'php5', 'php7', 'php8', 'phtml', 'phar', 'cgi', 'pl', 'py', 'sh',
         'shtml', 'asp', 'aspx', 'jsp'];
     private const IFMODULE_OPEN = '/^<IfModule[ \t]+(!?)([^\s>]+)[ \t]*>$/i';
@@ -228,15 +253,17 @@ final class HtaccessTranslator
                 // The structure is checked too (soak test 2026-10-30): a back-reference or a stray quantifier ("*a") made
                 // an invalid OLS regex, and one tenant's file would have failed the whole server's configuration test.
                 if (!preg_match('/^[A-Za-z0-9._@\\\\^$|()?*+\[\]-]+$/D', $pattern) || str_contains($pattern, '/')
-                    || (strtolower($kind) === 'filesmatch' && !$this->regexSupported($pattern))) {
+                    || (strtolower($kind) === 'filesmatch' && (!$this->regexSupported($pattern) || $this->innerAnchorOrBranch($pattern)))) {
                     $search = $loaded !== null && strtolower($kind) === 'filesmatch' ? $this->basenameSearch($pattern) : null;
                     if ($search === null) {
                         $blockers[] = "$uri: unsupported <$kind> pattern " . $this->pyRepr($pattern);
                         continue;
                     }
-                    // The path reaches the start of the last segment, then the basename is searched (Drupal's pattern).
-                    $regexContexts[] = 'context exp:^' . $this->pyEscape($uri) . '(?:.*/)?(?=[^/]*$)[^/]*?(?:' . $search
-                        . ") {\n  allowBrowse             0\n}\n";
+                    // The path reaches the start of the last segment, then the basename is searched (Drupal's pattern); the
+                    // second context is the same segment followed by path info.
+                    $regexContexts[] = $this->denyContext('exp:^' . $this->pyEscape($uri) . '(?:.*/)?(?=[^/]*$)[^/]*?(?:' . $search . ')');
+                    $regexContexts[] = $this->denyContext('exp:^' . $this->pyEscape($uri) . '(?:.*/)?' . self::PATH_INFO_SEGMENT
+                        . '[^/]*?(?:' . $this->segmentEnd($search) . ')');
                     ++$fileDenies;
                     continue;
                 }
@@ -254,6 +281,9 @@ final class HtaccessTranslator
                 // <Files> matches the basename in this directory and below.
                 $regexContexts[] = 'context exp:^' . $this->pyEscape($uri) . '(.*/)?' . ltrim($regex, '^')
                     . (str_ends_with($regex, '$') ? '' : '$') . " {\n  allowBrowse             0\n}\n";
+                // The same basename followed by path info (CMP-09).
+                $regexContexts[] = $this->denyContext('exp:^' . $this->pyEscape($uri) . '(.*/)?' . self::PATH_INFO_SEGMENT
+                    . $this->segmentEnd(ltrim($regex, '^')));
                 ++$fileDenies;
             }
             $remaining = preg_replace(self::FILES, '', $remaining);
@@ -266,9 +296,9 @@ final class HtaccessTranslator
                     $contexts[$uri]['rewrite'] = $rewrite;
                 }
             }
-            $lines = array_values(array_map(static fn(array $t): string => $t[0],
-                array_filter($tagged, fn(array $t): bool => !$this->isRewrite($t[0], $t[1]))));
-            $litespeedLines = array_column(array_filter($tagged, static fn(array $t): bool => $t[1]), 0);
+            // [line, inside <IfModule LiteSpeed>]: the same text outside the section is not LiteSpeed's.
+            $entries = array_values(array_filter($tagged, fn(array $t): bool => !$this->isRewrite($t[0], $t[1])));
+            $lines = array_column($entries, 0);
             $denyLines = array_values(array_filter($lines,
                 static fn(string $l): bool => in_array(strtolower($l), self::DENY_LINES, true)));
             $allowList = false;
@@ -306,7 +336,7 @@ final class HtaccessTranslator
             }
             $expiresTypes = [];
             $indexIgnore = false;
-            foreach ($lines as $line) {
+            foreach ($entries as [$line, $litespeed]) {
                 if (in_array($line, $denyLines, true)) {
                     continue;
                 }
@@ -366,7 +396,18 @@ final class HtaccessTranslator
                             $staticHeaders[] = [$extension, ['Header set Content-Encoding gzip']];
                         }
                     }
-                } elseif ($loaded !== null && in_array($line, $litespeedLines, true) && preg_match(self::LITESPEED_PHP_VALUE, $line, $setting)) {
+                } elseif ($loaded !== null && $litespeed && $uri === '/' && preg_match(self::WORDFENCE_PREPEND, $line, $prepend)
+                    && $this->inHome($prepend[2], $docroot)) {
+                    $override = 'php_value auto_prepend_file ' . $prepend[2];
+                    $current = array_values(array_filter($contexts[$uri]['phpIniOverride'] ?? [],
+                        static fn(string $o): bool => str_starts_with($o, 'php_value auto_prepend_file ')));
+                    if ($current !== [] && $current !== [$override]) {
+                        $blockers[] = "$uri: conflicting auto_prepend_file " . $this->pyRepr($line);
+                    } elseif ($current === []) {
+                        $contexts[$uri]['phpIniOverride'][] = $override;
+                    }
+                } elseif ($loaded !== null && $litespeed && preg_match(self::LITESPEED_PHP_VALUE, $line, $setting)
+                    && !in_array(strtolower($setting[2]), self::LITESPEED_PHP_REFUSED, true)) {
                     $contexts[$uri]['phpIniOverride'][] = "php_{$setting[1]} {$setting[2]} {$setting[3]}";
                 } elseif ($loaded !== null && preg_match(self::DRUPAL_NO_SCRIPTS, $line)) {
                     $contexts[$uri]['addMIMEType'] = self::NO_SCRIPTS_MIME;
@@ -409,6 +450,22 @@ final class HtaccessTranslator
             }
         }
         return [$realms, [...$rendered, ...$regexContexts, ...array_values($errorPages)], $blockers];
+    }
+
+    /**
+     * The files the translated "/" context prepends to every script (CMP-08); the compile checks each as the tenant.
+     * @param list<string> $blocks
+     * @return list<string>
+     */
+    public function prependFiles(array $blocks): array
+    {
+        $files = [];
+        foreach ($blocks as $block) {
+            if (str_starts_with($block, "context / {\n") && preg_match_all(self::PREPEND_LINE, $block, $found)) {
+                array_push($files, ...$found[1]);
+            }
+        }
+        return $files;
     }
 
     /**
@@ -977,6 +1034,76 @@ final class HtaccessTranslator
         $body = ltrim($pattern, '^');
         $anchored = preg_match('/(\\\\*)\$$/D', $body, $tail) === 1 && strlen($tail[1]) % 2 === 0;
         return (str_starts_with($pattern, '^') ? '' : '[^/]*') . '(?:' . $body . ')' . ($anchored ? '' : '[^/]*');
+    }
+
+    /**
+     * The regex with every end anchor ("$" outside a class and not escaped) replaced by "the segment ends here and a "/"
+     * follows", and that condition appended when the regex does not end with one (CMP-09).
+     */
+    private function segmentEnd(string $regex): string
+    {
+        $out = '';
+        $i = 0;
+        $n = strlen($regex);
+        while ($i < $n) {
+            $c = $regex[$i];
+            if ($c === '\\') {
+                $out .= substr($regex, $i, 2);
+                $i += 2;
+            } elseif ($c === '[') {
+                $j = strpos($regex, ']', $i + (substr($regex, $i + 1, 1) === '^' ? 2 : 1));
+                $out .= substr($regex, $i, $j + 1 - $i);
+                $i = $j + 1;
+            } else {
+                $out .= $c === '$' ? '(?=/)' : $c;
+                ++$i;
+            }
+        }
+        return str_ends_with($out, '(?=/)') ? $out : $out . '(?=/)';
+    }
+
+    /**
+     * Whether a <FilesMatch> regex has a "^" after its first character or a "|" outside every group: after the directory
+     * prefix of a path regex such a "^" never matches (less denied than under Apache) and such a "|" escapes the prefix
+     * (CMP-09). The basename search handles both.
+     */
+    private function innerAnchorOrBranch(string $pattern): bool
+    {
+        $depth = 0;
+        $i = 0;
+        $n = strlen($pattern);
+        while ($i < $n) {
+            $c = $pattern[$i];
+            if ($c === '\\') {
+                $i += 2;
+                continue;
+            }
+            if ($c === '[') {
+                $i = strpos($pattern, ']', $i + (substr($pattern, $i + 1, 1) === '^' ? 2 : 1)) + 1;
+                continue;
+            }
+            if ($c === '(') {
+                ++$depth;
+            } elseif ($c === ')') {
+                --$depth;
+            } elseif (($c === '|' && $depth === 0) || ($c === '^' && $i > 0)) {
+                return true;
+            }
+            ++$i;
+        }
+        return false;
+    }
+
+    private function denyContext(string $regex): string
+    {
+        return "context $regex {\n  allowBrowse             0\n}\n";
+    }
+
+    /** Whether an absolute path lies below the account's home (/<home mount>/<user>: the document root's first two components). */
+    private function inHome(string $path, string $docroot): bool
+    {
+        $home = implode('/', array_slice(explode('/', rtrim($docroot, '/')), 0, 3));
+        return preg_match(self::HOME_DIRECTORY, $home) === 1 && str_starts_with($path, $home . '/');
     }
 
     /** @param list<string> $lines */

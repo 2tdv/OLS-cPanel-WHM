@@ -349,7 +349,9 @@ final class LocalEngine implements Engine
 
     public static function remove(string $path): void
     {
-        if (is_link($path) || is_file($path)) {
+        // A link is removed itself (never followed); so is every other non-directory: a file, a socket (lscgid's
+        // cgid.sock in a preview root), a FIFO or a device node.
+        if (is_link($path) || (file_exists($path) && !is_dir($path))) {
             @unlink($path);
             return;
         }

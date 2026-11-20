@@ -18,6 +18,15 @@ ExecStart=/usr/local/ols-cpanel/bin/ols-cpanel sync --watch
 Restart=on-failure
 RestartSec=5
 UMask=0077
+# A mild lower priority for the compile (soak 2026-11-17 02:25: the host's own maintenance saturated the 2 CPUs while a full
+# recompile ran, and the web sites slowed down). Nice=5 gives the compile about a third of the CPU weight of a normal
+# process only while the CPUs are contended; on an idle or lightly loaded host it runs at full speed. The best-effort
+# I/O class at priority 6 (the default is 4) does the same for the disk. It is deliberately not Nice=19 or the idle class:
+# this process also applies suspensions and event-driven changes, which a starved process would delay without bound; with
+# a mild value a suspension is still applied promptly after the event, only slightly later than at normal priority, on a saturated host.
+Nice=5
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
 
 # Hardening. The reconciler needs no writable path of its own: spool consumption, staging and activation
 # are broker operations, and cPanel inputs and tenant files are read by the broker.

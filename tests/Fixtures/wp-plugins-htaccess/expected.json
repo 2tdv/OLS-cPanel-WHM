@@ -84,10 +84,20 @@
     "outcome": "translated",
     "reason": "directory deny"
   },
+  "wordfence/root-waf-fpm.htaccess": {
+    "modules": "lab",
+    "outcome": "translated",
+    "reason": "PHP-FPM form: the prepend lives in .user.ini, which lsphp reads itself (LSPHP_ENABLE_USER_INI); the .htaccess only denies .user.ini"
+  },
+  "wordfence/root-waf-mod-php.htaccess": {
+    "modules": "lab",
+    "outcome": "translated",
+    "reason": "mod_php form: no mod_php on the lab Apache, which ignores the sections; dropped likewise (with mod_php loaded: blocker); the .user.ini denial translates"
+  },
   "wordfence/root-waf.htaccess": {
-    "blocker": "php_value auto_prepend_file",
-    "outcome": "blocker",
-    "reason": "PHP ini override inside LiteSpeed/lsapi sections (the WAF prepend); not expressible per directory"
+    "modules": "lab",
+    "outcome": "translated",
+    "reason": "CMP-08: the firewall prepend of <IfModule LiteSpeed> becomes the root context's phpIniOverride (Wordfence's file, inside the home); the compile checks the file as the tenant; <IfModule lsapi_module> follows Apache's module list (dropped; with mod_lsapi loaded, or without a module list: blocker)"
   },
   "wordfence/wp-content/wflogs/.htaccess": {
     "outcome": "translated",

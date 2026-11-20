@@ -22,6 +22,8 @@ import whmCache from './fixtures/whm/cache.json'
 import whmPhp from './fixtures/whm/php.json'
 import whmCacheLimits from './fixtures/whm/cache_limits.json'
 import whmObjcache from './fixtures/whm/objcache.json'
+import whmLoginGuard from './fixtures/whm/login_guard.json'
+import whmHttp3 from './fixtures/whm/http3.json'
 import whmAudit from './fixtures/whm/audit.json'
 import whmNotify from './fixtures/whm/notify.json'
 import whmSchedule from './fixtures/whm/schedule.json'
@@ -46,7 +48,7 @@ import whmRequests from './fixtures/whm/requests.json'
 export const FIXTURES = {
   whm: {
     status: whmStatus, metrics: whmMetrics, inventory: whmInventory, compat: whmCompat, plan: whmPlan,
-    generations: whmGenerations, doctor: whmDoctor, jobs: whmJobs, job: whmJob, cache: whmCache, cache_limits: whmCacheLimits, objcache: whmObjcache, php: whmPhp,
+    generations: whmGenerations, doctor: whmDoctor, jobs: whmJobs, job: whmJob, cache: whmCache, cache_limits: whmCacheLimits, objcache: whmObjcache, login_guard: whmLoginGuard, http3: whmHttp3, php: whmPhp,
     history: whmHistory, requests: whmRequests, audit: whmAudit, notify: whmNotify, schedule: whmSchedule, update: whmUpdate, bundle: whmBundle,
   },
   cpanel: {
@@ -85,11 +87,11 @@ function tenantTools(state, name, params, scenario) {
 // plugins/whm/index.cgi: ACTIONS (scope "server", a plan id, or a cache purge scope) and the query grammars.
 const ACTION_SCOPES = {
   'ols.sync': 'server', 'ols.rollback': 'server', 'ols.plan': 'server', 'ols.plan_hybrid': 'server',
-  'ols.cutover': 'plan', 'ols.apache_return': 'server', 'ols.cache_purge': 'cache', 'ols.php_restart': 'php_restart', 'ols.opcache_install': 'opcache', 'ols.php_env_repair': 'server',
+  'ols.cutover': 'plan', 'ols.preview': 'plan', 'ols.apache_return': 'server', 'ols.cache_purge': 'cache', 'ols.php_restart': 'php_restart', 'ols.opcache_install': 'opcache', 'ols.php_env_repair': 'server',
   'ols.support_bundle': 'server', 'ols.support_bundle_raw': 'server', 'ols.update': 'server',
 }
 export const ACTION_NAMES = Object.keys(ACTION_SCOPES)
-const API_PARAMS = { inventory: ['query', 'page', 'size'], compat: ['query', 'page', 'size'], job: ['job'], cache: ['account', 'domain'], cache_limits: [], objcache: [], php: [], history: ['resolution', 'vhost'],
+const API_PARAMS = { inventory: ['query', 'page', 'size'], compat: ['query', 'page', 'size'], job: ['job'], cache: ['account', 'domain'], cache_limits: [], objcache: [], login_guard: [], http3: [], php: [], history: ['resolution', 'vhost'],
   audit: ['query', 'page', 'size', 'event', 'result'], notify: [], schedule: [], update: ['refresh'], bundle: [] }
 // plugins/whm/index.cgi CACHE_LIMITS: the settings of the automatic cache cleanup (POST ?action=cache_limits), inclusive bounds.
 const CACHE_LIMIT_BOUNDS = { per_site_mb: [16, 102400], server_percent: [1, 50], server_max_gb: [1, 2048] }
@@ -173,6 +175,8 @@ function createState(scenario) {
     cache: clone(FIXTURES.whm.cache.output),
     cacheLimits: clone(FIXTURES.whm.cache_limits.output),
     objcache: clone(FIXTURES.whm.objcache.output),
+    loginGuard: clone(FIXTURES.whm.login_guard.output),
+    http3: clone(FIXTURES.whm.http3.output),
     cpanelCache: clone(FIXTURES.cpanel.cache),
     lastTenantPurge: 0,
     lastTenantRestart: 0,
@@ -193,6 +197,10 @@ function createState(scenario) {
   if (scenario === 'empty') {
     Object.assign(state, { plan: null, jobs: [], domains: [], compat: [], audit: [], bundles: [], requests: [] })
     state.objcache.accounts = []
+    state.loginGuard.blocked = []
+    state.loginGuard.recent = []
+    state.http3.protocol_share = []
+    state.http3.input.off = []
     state.schedule.entries = []
     state.cache = { ...state.cache, stores: [], totals: cacheTotals([]) }
     state.cpanelCache = { ...state.cpanelCache, stores: [], totals: cacheTotals([]) }
@@ -220,6 +228,8 @@ const SCRIPTS = {
   'ols.plan_hybrid': ['preflight: platform almalinux 9', 'compile: 14 vhosts, 2 kept on Apache', 'suexec_module: loaded', 'plan written'],
   'ols.cutover': ['backup written', 'recover.sh written, recovery timer armed', 'Apache moved to 81/444', 'OLS started on 80/443',
     'health: 14 of 14 vhosts answer'],
+  'ols.preview': ['plan checked against the current cPanel state', 'Apache answers recorded for every site', 'OpenLiteSpeed started on 127.0.0.1 only',
+    'every site requested, OpenLiteSpeed stopped', 'result stored'],
   'ols.apache_return': ['OLS stopped', 'Apache restored on 80/443', 'Apache verified', 'profile removed, hooks unregistered'],
   'ols.rollback': ['candidate generation selected', 'validated', 'activated'],
   'ols.sync': ['source digest unchanged', 'nothing to activate'],
@@ -284,6 +294,22 @@ function finishJob(state, detail) {
     state.cache.totals = cacheTotals(state.cache.stores)
     detail.output = { command: 'cache purge', scope: scopeSelector(detail.scope), purged_at: purgedAt, stores: selected,
       totals: cacheTotals(selected) }
+  } else if (detail.action === 'ols.preview') {
+    // The stored preview of the plan: the sites of the inventory, the hybrid ones not requested, every ninth one answering differently.
+    const hybrid = new Set((state.plan?.content.hybrid_vhosts ?? []).map(h => h.vhost))
+    const names = [...new Set(state.domains.slice(0, 14).map(d => d.vhost))]
+    const sites = names.map((vhost, i) => {
+      if (hybrid.has(vhost)) return { vhost, state: 'hybrid' }
+      const differs = i % 9 === 4
+      return { vhost, state: differs ? 'different' : 'same', requests: [
+        { request: `http://${vhost}/`, apache: '301', ols: '301' },
+        { request: `https://${vhost}/`, apache: differs ? '404' : '200', ols: '200' }] }
+    })
+    const count = s => sites.filter(x => x.state === s).length
+    state.plan.preview = { schema_version: 1, plan: state.plan.id, compile_sha256: state.plan.content.compile_sha256, created: new Date().toISOString(),
+      seconds: 9.4, state: 'complete', ports: { bind: '127.0.0.1', listeners: [{ address: '*:80', port: 24811 }, { address: '*:443', port: 24812 }] },
+      summary: { same: count('same'), different: count('different'), hybrid: count('hybrid'), unprobed: 0, apache_silent: 0, total: sites.length }, sites }
+    detail.output = { command: 'install --preview', ...clone(state.plan.preview) }
   } else if (detail.action === 'ols.plan' || detail.action === 'ols.plan_hybrid') {
     const id = `p${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}-${hex(6)}`
     const content = { ...clone(FIXTURES.whm.plan.plan.content), id, created: new Date().toISOString() }
@@ -398,6 +424,9 @@ function read(state, app, name, params, scenario) {
     case 'cache_limits': return ok({ observed_at: nowSeconds(), source: FIXTURES.whm.cache_limits.source, exit_code: 0,
       output: { ...clone(state.cacheLimits), observed_at: nowSeconds() } })
     case 'objcache': return ok({ observed_at: nowSeconds(), source: FIXTURES.whm.objcache.source, exit_code: 0, output: clone(state.objcache) })
+    case 'login_guard': return ok({ observed_at: nowSeconds(), source: FIXTURES.whm.login_guard.source, exit_code: 0,
+      output: { ...clone(state.loginGuard), checked_at: nowSeconds() } })
+    case 'http3': return ok({ observed_at: nowSeconds(), source: FIXTURES.whm.http3.source, exit_code: 0, output: clone(state.http3) })
     case 'php': return ok({ observed_at: nowSeconds(), source: FIXTURES.whm.php.source, exit_code: 0, output: { ...clone(state.php), observed_at: nowSeconds() } })
     case 'history': {
       const vhosts = FIXTURES.whm.history.vhosts
@@ -461,7 +490,7 @@ function setCacheLimits(state, body) {
 // plugins/whm/index.cgi SETTINGS: settings changes and small operations (no job, no digest), strict bodies.
 const EMAIL = /^[A-Za-z0-9][A-Za-z0-9._%+-]{0,63}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/
 const NOTIFY_EVENTS = ['job', 'held', 'php_env', 'upgrade', 'cache_emergency', 'disk', 'objcache', 'schedule']
-const SETTINGS = ['cache_limits', 'request_status', 'notify_settings', 'notify_test', 'schedule_add', 'schedule_cancel', 'objcache_automatic']
+const SETTINGS = ['cache_limits', 'request_status', 'notify_settings', 'notify_test', 'schedule_add', 'schedule_cancel', 'objcache_automatic', 'login_guard', 'http3_domain']
 const BAD_BODY = 'The body does not fit this action: see docs/product-interfaces.md, "Gateways".'
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 const webhookOk = value => {
@@ -484,6 +513,41 @@ function setObjcacheAutomatic(state, body) {
   state.audit.unshift({ time: nowSeconds(), event: 'objcache_automatic_set', actor: 'system', action: null, scope: null, job: null, result: 'ok',
     detail: body.automatic ? '--on' : '--off' })
   return ok({ observed_at: nowSeconds(), source: FIXTURES.whm.objcache.source, exit_code: 0, output: clone(out) })
+}
+
+// POST ?action=login_guard: exactly {enabled: bool}; off ends every block at once, the reply is the state after the change
+// (admin.login_guard).
+function setLoginGuard(state, body) {
+  if (!isObject(body) || Object.keys(body).join() !== 'enabled' || typeof body.enabled !== 'boolean') return fail(400, 'BAD_BODY', BAD_BODY)
+  const out = state.loginGuard
+  out.enabled = body.enabled
+  if (!body.enabled) {
+    const now = nowSeconds()
+    out.recent = [...out.blocked.map(b => ({ ...b, ended: now, reason: 'guard_off' })), ...out.recent]
+    out.blocked = []
+  }
+  state.audit.unshift({ time: nowSeconds(), event: 'login_guard_set', actor: 'system', action: null, scope: null, job: null, result: 'ok',
+    detail: body.enabled ? '--enabled=yes' : '--enabled=no' })
+  return ok({ observed_at: nowSeconds(), source: FIXTURES.whm.login_guard.source, exit_code: 0, output: clone(out) })
+}
+
+// POST ?action=http3_domain: exactly {domain, enabled: bool}; a domain that is not a vhost is refused (the command checks the
+// active generation); the reply is the state after the change (admin.http3). The reconciler compiles it within a minute.
+const HTTP3_DOMAIN = /^(?=.{3,253}$)[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+$/
+function setHttp3Domain(state, body) {
+  if (!isObject(body) || Object.keys(body).length !== 2 || typeof body.domain !== 'string' || !HTTP3_DOMAIN.test(body.domain)
+    || typeof body.enabled !== 'boolean') return fail(400, 'BAD_BODY', BAD_BODY)
+  const out = state.http3
+  const row = out.protocol_share.find(r => r.vhost === body.domain)
+  if (!row && !body.enabled && out.input.off.includes(body.domain)) out.input.off = out.input.off.filter(d => d !== body.domain)
+  else if (!row) return fail(422, 'REFUSED', `${body.domain} is not a vhost of the active generation`)
+  else {
+    row.http3_off = !body.enabled
+    out.input.off = out.protocol_share.filter(r => r.http3_off).map(r => r.vhost).sort()
+  }
+  state.audit.unshift({ time: nowSeconds(), event: 'http3_domain_set', actor: 'system', action: null, scope: null, job: null, result: 'ok',
+    detail: `${body.enabled ? 'on' : 'off'} ${body.domain}` })
+  return ok({ observed_at: nowSeconds(), source: FIXTURES.whm.http3.source, exit_code: 0, output: clone(out) })
 }
 
 function setRequestStatus(state, change) {
@@ -574,7 +638,7 @@ function act(state, parsed, headers, body) {
     try {
       parsedBody = JSON.parse(body)
     } catch { /* refused below */ }
-    return { request_status: setRequestStatus, notify_settings: setNotify, notify_test: testNotify, schedule_add: addSchedule, schedule_cancel: cancelSchedule, objcache_automatic: setObjcacheAutomatic }[action](state, parsedBody)
+    return { request_status: setRequestStatus, notify_settings: setNotify, notify_test: testNotify, schedule_add: addSchedule, schedule_cancel: cancelSchedule, objcache_automatic: setObjcacheAutomatic, login_guard: setLoginGuard, http3_domain: setHttp3Domain }[action](state, parsedBody)
   }
   let payload = null
   try {
@@ -588,9 +652,11 @@ function act(state, parsed, headers, body) {
   if (!payload || Array.isArray(payload) || Object.keys(payload).length !== 2 || !scopeOk || !/^[0-9a-f]{64}$/.test(payload.digest ?? '')) {
     return fail(400, 'BAD_BODY', 'The body must be {"scope", "digest"} with the scope this action takes and a SHA-256 digest.')
   }
-  if (action === 'ols.cutover') {
+  if (action === 'ols.cutover' || action === 'ols.preview') {
     if (state.plan?.id !== payload.scope) return fail(404, 'NOT_FOUND', 'no such plan')
     if (state.plan.digest !== payload.digest) return fail(409, 'STALE', 'the plan changed since it was shown')
+    // The broker's job refuses a preview after the switch (the CLI: "a preview is for the time before the switch").
+    if (action === 'ols.preview' && state.status.cut_over === true) return fail(422, 'REFUSED', 'already switched: a preview is for the time before the switch')
   } else if (state.status.digest !== payload.digest) {
     return fail(409, 'STALE', 'the server state changed since it was shown')
   }

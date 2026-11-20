@@ -14,6 +14,7 @@ export const ACTIONS = Object.freeze({
   plan: 'ols.plan',
   planHybrid: 'ols.plan_hybrid',
   cutover: 'ols.cutover',
+  preview: 'ols.preview',
   apacheReturn: 'ols.apache_return',
   cachePurge: 'ols.cache_purge',
   phpRestart: 'ols.php_restart',
@@ -34,7 +35,7 @@ export const CPANEL_ACTIONS = Object.freeze({
 })
 
 // Settings changes and small operations of the WHM gateway: synchronous, no job, no digest (the limits of the automatic page cache
-// cleanup, the notification settings and test, maintenance windows, the object cache's automatic mode).
+// cleanup, the notification settings and test, maintenance windows, the object cache's automatic mode, the login guard switch, HTTP/3 per domain).
 export const WHM_SETTINGS = Object.freeze({
   cacheLimits: 'cache_limits',
   requestStatus: 'request_status',
@@ -43,6 +44,8 @@ export const WHM_SETTINGS = Object.freeze({
   scheduleAdd: 'schedule_add',
   scheduleCancel: 'schedule_cancel',
   objcacheAutomatic: 'objcache_automatic',
+  loginGuard: 'login_guard',
+  http3Domain: 'http3_domain',
 })
 
 export const REQUEST_HEADER = 'X-OLS-cPanel-Request'

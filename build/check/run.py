@@ -79,6 +79,9 @@ subprocess.run([PHP, "-n", str(ROOT / "tests/compile_replay.php")], check=True)
 subprocess.run([PHP, "-n", str(ROOT / "tests/deployment.php")], check=True)
 subprocess.run([sys.executable, str(ROOT / "tests/deployment_texts.py"), PHP], check=True)
 
+# CMP-03, the preview before the switch: loopback-only listeners, port selection, the comparison, storage, cleanup.
+subprocess.run([PHP, "-n", str(ROOT / "tests/preview.php")], check=True)
+
 subprocess.run([sys.executable, str(ROOT / "tests/compile_replay_hybrid.py")], check=True)
 
 # HTTP/3 (FV-04): operator input, csf/nftables decisions and the protocol share parser in Python and PHP, the compiled QUIC
@@ -133,6 +136,11 @@ print("PHP demand checks passed.")
 # broker; the update check; the support bundle's redaction with planted secrets; the root-only commands.
 subprocess.run([PHP, "-n", str(ROOT / "tests/operations.php")], check=True, stdout=subprocess.DEVNULL)
 print("Operations checks passed.")
+
+# WordPress login guard (RV-64, CMP-04): flood detection per site and address, the never-blocked addresses, expiry and repeats,
+# the map the compiled vhost rule reads, the log scanner, the switch, unblock across processes and the CLI.
+subprocess.run([PHP, "-n", str(ROOT / "tests/login_guard.php")], check=True, stdout=subprocess.DEVNULL)
+print("Login guard checks passed.")
 
 # PHP environment (FV-10): the applier (lsphp, OPcache, redis per EA4 PHP version, state, back-off, units), the reconciler's
 # lsphp guard and the recommended EA4 profile against temporary trees and a scripted host.

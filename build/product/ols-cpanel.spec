@@ -78,6 +78,8 @@ cp -a payload/. %{buildroot}/
 %attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-notify.timer
 %attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-schedule.service
 %attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-schedule.timer
+%attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-login-guard.service
+%attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-htaccess-watch.service
 %attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-php.path
 %attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-php.service
 %attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-php.timer
@@ -86,4 +88,3 @@ cp -a payload/. %{buildroot}/
 %attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-hybrid-trust.timer
 %attr(0644,root,root) /usr/lib/systemd/system/ols-cpanel-upgrade.service
 %attr(0644,root,root) /usr/lib/sysusers.d/ols-cpanel.conf
-%config(noreplace) %attr(0644,root,root) /etc/logrotate.d/ols-cpanel

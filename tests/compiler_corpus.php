@@ -19,6 +19,7 @@ foreach ($corpus['htaccess'] as $case) {
     $result = $translator->translate($case['files'], $case['docroot'], $case['modules'] ?? null, $case['root_headers'] ?? []);
     $out['htaccess'][] = $result;
     $out['root_headers'][] = $translator->rootHeaderNames($result[1]);
+    $out['prepend_files'][] = $translator->prependFiles($result[1]);
 }
 $fpm = new FpmPoolTranslator();
 foreach ($corpus['fpm'] as $case) {
@@ -47,7 +48,15 @@ foreach ($corpus['surface'] as $i => $domain) {
 }
 $out['proxy'] = [$surface->proxyHosts(), $surface->proxyServerBlock(), $surface->proxyVhost(),
     $surface->proxyVhost(CpanelSurface::SERVICE_CERTS[0]), $surface->defaultServerBlock(),
-    $surface->defaultVhost(), $surface->defaultVhost(CpanelSurface::SERVICE_CERTS[0], ['/mailman/', '/pipermail/'])];
+    $surface->defaultVhost(), $surface->defaultVhost(CpanelSurface::SERVICE_CERTS[0], ['/mailman/', '/pipermail/']),
+    $surface->guardMap(), $surface->rewriteRules([], true, false, 'olscp-a.test'),
+    $surface->rewriteRules(['olscp-a.test'], false, false, 'xn--bcher-kva.example'),
+    $surface->apacheVhost('/home/u/public_html', 'olscp-a.test', '192.0.2.10', '/c/olscp-a.test', '/var/log/ols-cpanel'),
+    $surface->apacheVhost('/home/u/public_html', 'olscp-a.test', '192.0.2.10', '/c/olscp-a.test', '/var/log/ols-cpanel',
+        CpanelSurface::HYBRID_PORTS, true),
+    // CMP-07: the hybrid TLS vhost with and without the per-domain HTTP/3 switch.
+    $surface->apacheVhost('/home/u/public_html', 'h.example', '192.0.2.5', '/c/h', '/var/log/ols-cpanel', [81, 444], true),
+    $surface->apacheVhost('/home/u/public_html', 'h.example', '192.0.2.5', '/c/h', '/var/log/ols-cpanel', [81, 444], true, false)];
 $model = new AccountVhosts();
 foreach ($corpus['vhosts'] as $case) {
     try {
@@ -78,7 +87,7 @@ $server = new ServerCompiler();
 $out['servers'] = array_map(static fn(array $c): string => $server->serverConfig($corpus['template'], $c['plan'], $c['ipv6'],
     $c['defaults'], $c['proxy'], null, $c['http3'] ?? true), $corpus['servers']);
 $out['vhconf'] = array_map(static fn(array $c): string => $server->vhostConfig($c['v'], $c['pool'], $c['constants'], $c['access'],
-    $c['tls'], '/var/log/ols-cpanel', $c['missing'], $c['unset'], $c['suspended'], $c['limits'] ?? null), $corpus['vhconf']);
+    $c['tls'], '/var/log/ols-cpanel', $c['missing'], $c['unset'], $c['suspended'], $c['limits'] ?? null, $c['http3'] ?? true), $corpus['vhconf']);
 $cache = new CachePolicy();
 $out['cache'] = array_map(static fn(array $c): array => [$cache->vhostBlock($c['v'], $c['suspended']),
     $cache->vhostRules($c['v'], $c['suspended']), $cache->enabled($c['v'], $c['suspended'])], $corpus['cache']);

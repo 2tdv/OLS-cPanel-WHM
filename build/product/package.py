@@ -26,7 +26,6 @@ Payload layout:
                                                  ols-cpanel-hybrid-firewall.service (boot-time hybrid firewall),
                                                  ols-cpanel-hybrid-trust.{service,timer} (hybrid Apache trust of local addresses),
                                                  /usr/lib/sysusers.d/ols-cpanel.conf
-  /etc/logrotate.d/ols-cpanel                    rotation of the ModSecurity audit log (OLS does not rotate it)
 """
 import hashlib
 import json
@@ -57,17 +56,19 @@ RELEASE_INPUTS = ["src", "bin/ols-cpanel", "plugins/whm", "plugins/cpanel", *BRO
                   "build/product/ols-cpanel-objcache.timer", "build/product/ols-cpanel-cache-clean.service",
                   "build/product/ols-cpanel-cache-clean.timer", "build/product/ols-cpanel-notify.service",
                   "build/product/ols-cpanel-notify.timer", "build/product/ols-cpanel-schedule.service",
-                  "build/product/ols-cpanel-schedule.timer", "build/product/ols-cpanel-php.path",
+                  "build/product/ols-cpanel-schedule.timer", "build/product/ols-cpanel-login-guard.service",
+                  "build/product/ols-cpanel-htaccess-watch.service", "build/product/ols-cpanel-php.path",
                   "build/product/ols-cpanel-php.service",
                   "build/product/ols-cpanel-php.timer",
                   "build/product/ols-cpanel-hybrid-firewall.service", "build/product/ols-cpanel-hybrid-trust.service", "build/product/ols-cpanel-hybrid-trust.timer",
                   "build/product/ols-cpanel-upgrade.service",
-                  "build/product/ols-cpanel.sysusers", "build/product/ols-cpanel.logrotate",
+                  "build/product/ols-cpanel.sysusers",
                   "build/release/ols-cpanel-release-key.asc", "build/release/ols-cpanel-release-key.fingerprint"]
 UNITS = ["ols-cpanel-broker.service", "ols-cpanel-reconciler.service", "ols-cpanel-objcache@.service",
          "ols-cpanel-objcache.service", "ols-cpanel-objcache.timer", "ols-cpanel-cache-clean.service",
          "ols-cpanel-cache-clean.timer", "ols-cpanel-notify.service", "ols-cpanel-notify.timer",
-         "ols-cpanel-schedule.service", "ols-cpanel-schedule.timer", "ols-cpanel-php.path", "ols-cpanel-php.service", "ols-cpanel-php.timer",
+         "ols-cpanel-schedule.service", "ols-cpanel-schedule.timer", "ols-cpanel-login-guard.service", "ols-cpanel-htaccess-watch.service",
+         "ols-cpanel-php.path", "ols-cpanel-php.service", "ols-cpanel-php.timer",
          "ols-cpanel-hybrid-firewall.service", "ols-cpanel-hybrid-trust.service", "ols-cpanel-hybrid-trust.timer",
          "ols-cpanel-upgrade.service"]
 # The packaged CLI lives in libexec/ and finds the engine in lib/ instead of the checkout's src/.
@@ -243,7 +244,6 @@ def assemble(payload, root=ROOT):
     for unit in UNITS:
         place(root / "build/product" / unit, payload / "usr/lib/systemd/system" / unit, 0o644)
     place(root / "build/product/ols-cpanel.sysusers", payload / "usr/lib/sysusers.d/ols-cpanel.conf", 0o644)
-    place(root / "build/product/ols-cpanel.logrotate", payload / "etc/logrotate.d/ols-cpanel", 0o644)
     for path in [payload, *payload.rglob("*")]:
         if path.is_dir():
             os.chmod(path, 0o755)

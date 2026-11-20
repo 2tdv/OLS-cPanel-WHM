@@ -284,6 +284,11 @@ with tempfile.TemporaryDirectory() as temp:
         assert calls[0]["socket"].endswith("/admin.sock") and calls[0]["timeout"] == 40.0
     status, _, body, calls = post("ols.cutover", {"scope": PLAN, "digest": DIGEST})
     assert status == 202 and calls[1]["args"]["scope"] == PLAN, (status, body, calls)
+    # CMP-03: the preview is bound to a plan id and the plan's digest like the cutover.
+    status, _, body, calls = post("ols.preview", {"scope": PLAN, "digest": DIGEST})
+    assert status == 202 and calls[0]["args"] == {"principal": "root", "action": "ols.preview", "scope": PLAN, "digest": DIGEST}, (status, body, calls)
+    for bad in [{"scope": "-x", "digest": DIGEST}, {"scope": "../p", "digest": DIGEST}, {"scope": PLAN}, {"scope": PLAN, "digest": "ab"}]:
+        assert post("ols.preview", bad)[0] == 400, bad
     for scope in ["server", "account:olscpa", "domain:shop.a.test"]:
         status, _, body, calls = post("ols.cache_purge", {"scope": scope, "digest": DIGEST})
         assert status == 202 and body["result"] == {"job": JOB}, (scope, status, body)
@@ -332,6 +337,30 @@ with tempfile.TemporaryDirectory() as temp:
     for bad in [{}, [], [True], {"automatic": "off"}, {"automatic": 0}, {"automatic": None}, {"automatic": True, "x": 1}, {"enabled": True},
                 {"scope": "server", "digest": DIGEST}, "text"]:
         refused(post("objcache_automatic", bad), 400, "BAD_BODY")
+    # The WordPress login guard (RV-64): read with GET (no argument); switched with exactly {enabled: bool}.
+    _, _, _, calls = whm.request(query="api=login_guard")
+    assert [(c["op"], c["args"]) for c in calls] == [("admin.login_guard", None)], calls
+    refused(whm.request(query="api=login_guard&domain=example.com"), 400, "BAD_QUERY")
+    for value in [True, False]:
+        status, _, body, calls = post("login_guard", {"enabled": value})
+        assert status == 200 and [(c["op"], c["args"]) for c in calls] == [("admin.login_guard", {"enabled": value})], (status, body, calls)
+    refused(whm.request(method="POST", query="action=login_guard", body={"enabled": False}), 403, "REQUEST_HEADER")
+    for bad in [{}, [], [True], {"enabled": "no"}, {"enabled": 0}, {"enabled": None}, {"enabled": True, "x": 1}, {"automatic": True},
+                {"unblock": "1.2.3.4"}, {"scope": "server", "digest": DIGEST}, "text"]:
+        refused(post("login_guard", bad), 400, "BAD_BODY")
+    # HTTP/3 per domain (CMP-07): read with GET (no argument); one domain switched with exactly {domain, enabled: bool}.
+    _, _, _, calls = whm.request(query="api=http3")
+    assert [(c["op"], c["args"]) for c in calls] == [("admin.http3", None)], calls
+    refused(whm.request(query="api=http3&domain=olscp-a.test"), 400, "BAD_QUERY")
+    for value in [True, False]:
+        status, _, body, calls = post("http3_domain", {"domain": "olscp-a.test", "enabled": value})
+        assert status == 200 and [(c["op"], c["args"]) for c in calls] == [("admin.http3", {"domain": "olscp-a.test", "enabled": value})], (status, body, calls)
+    refused(whm.request(method="POST", query="action=http3_domain", body={"domain": "olscp-a.test", "enabled": False}), 403, "REQUEST_HEADER")
+    for bad in [{}, [], {"domain": "olscp-a.test"}, {"enabled": False}, {"domain": "Olscp-A.test", "enabled": False},
+                {"domain": "localhost", "enabled": False}, {"domain": "a.test;x", "enabled": False}, {"domain": "../x.test", "enabled": False},
+                {"domain": "olscp-a.test", "enabled": "off"}, {"domain": "olscp-a.test", "enabled": 0}, {"domain": "olscp-a.test", "enabled": None},
+                {"domain": 5, "enabled": True}, {"domain": "olscp-a.test", "enabled": True, "x": 1}, {"scope": "server", "digest": DIGEST}, "text"]:
+        refused(post("http3_domain", bad), 400, "BAD_BODY")
     # Requests to the administrator: listed without arguments; a status change takes exactly {id, status}.
     _, _, _, calls = whm.request(query="api=requests")
     assert [(c["op"], c["args"], c["socket"].endswith("/admin.sock")) for c in calls] == [("admin.requests", None, True)], calls

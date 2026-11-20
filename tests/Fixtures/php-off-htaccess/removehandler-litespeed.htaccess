@@ -1,0 +1,3 @@
+<IfModule LiteSpeed>
+RemoveHandler .php
+</IfModule>

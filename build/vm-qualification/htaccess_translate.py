@@ -32,6 +32,10 @@ Supported:
   blocks containing only "Require all granted" becomes ONE regex context whose negative lookahead exempts the
   allowed basenames (everything else below the directory, the directory itself included, is denied). Granted
   blocks in any other combination are blockers.
+- A denied <Files>/<FilesMatch> name also denies the same name followed by path info (CMP-09); a <FilesMatch> regex with
+  an inner "^" or a top-level "|" is searched in the basename (or refused without a module list).
+- Wordfence's firewall prepend inside <IfModule LiteSpeed> of the document root -> the root context's phpIniOverride
+  (CMP-08); prepend_files() lists it for the compile, which checks the file as the account.
 OLS-specific limits (e.g. 403 vs Apache's own response bodies) are verified by experiments."""
 import hashlib
 import json
@@ -263,6 +267,62 @@ def _basename_search(pattern):
     return "".join(out) if depth == 0 else None
 
 
+# CMP-09: OLS matches a regex context against the whole URI, path info included (httpreq.cpp processContext ->
+# processMatchList), and splits the path info off only afterwards (processPath). Apache matches <Files>/<FilesMatch> against
+# the file the request resolves to. "/uploads/x.php/y" runs x.php for both, but Apache refuses it when x.php is denied, while
+# a context ending in "\.php$" never matches that URI. Every denied basename therefore gets a second context: the same
+# segment followed by "/" (path info). Path info only reaches a script, and a script has a suffix, so the segment must end
+# in a dot and letters or digits: a directory such as ".well-known" is not caught by "^\." this way.
+PATH_INFO_SEGMENT = r"(?=[^/]*\.[A-Za-z0-9]+/)"
+
+
+def _segment_end(regex):
+    """The regex with every end anchor ("$" outside a class and not escaped) replaced by "the segment ends here and a "/"
+    follows", and that condition appended when the regex does not end with one."""
+    out, i, n = [], 0, len(regex)
+    while i < n:
+        c = regex[i]
+        if c == "\\":
+            out.append(regex[i:i + 2])
+            i += 2
+        elif c == "[":
+            j = regex.index("]", i + 2 if regex[i + 1:i + 2] == "^" else i + 1)
+            out.append(regex[i:j + 1])
+            i = j + 1
+        else:
+            out.append("(?=/)" if c == "$" else c)
+            i += 1
+    text = "".join(out)
+    return text if text.endswith("(?=/)") else text + "(?=/)"
+
+
+def _inner_anchor_or_branch(pattern):
+    """Whether a <FilesMatch> regex has a "^" after its first character or a "|" outside every group. Placed after the
+    directory prefix of a path regex, such a "^" never matches (the alternative it starts is lost: less denied than under
+    Apache) and such a "|" escapes the prefix (CMP-09). The basename search handles both."""
+    depth, i, n = 0, 0, len(pattern)
+    while i < n:
+        c = pattern[i]
+        if c == "\\":
+            i += 2
+            continue
+        if c == "[":
+            i = pattern.index("]", i + 2 if pattern[i + 1:i + 2] == "^" else i + 1) + 1
+            continue
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+        elif (c == "|" and depth == 0) or (c == "^" and i > 0):
+            return True
+        i += 1
+    return False
+
+
+def _deny_context(regex):
+    return f"context {regex} {{\n  allowBrowse             0\n}}\n"
+
+
 def _static_header_context(docroot, extension, headers, root):
     """Headers for one static file type of the document root: a regex context serving the file itself. It carries
     the "/" context's access denial, authentication, expiry and headers (its own headers after them): the lab showed
@@ -339,6 +399,24 @@ NO_SCRIPTS_MIME = "application/octet-stream php php3 php4 php5 php7 php8 phtml p
 # LiteSpeed applies it to the directory's PHP, Apache never reads the section; OLS takes it as the context's
 # phpIniOverride (httpcontext.cpp). Outside that section a php_value stays a blocker (Apache with PHP-FPM refuses it).
 LITESPEED_PHP_VALUE = re.compile(r'^php_(value|flag)[ \t]+([A-Za-z0-9_.]+)[ \t]+([A-Za-z0-9_.,:/+-]+|"[A-Za-z0-9_.,:/ +-]*")$')
+# Settings the rule above never takes (CMP-08, CMP-09): "engine" is mod_php's switch, which lsphp does not know (LiteSpeed
+# Enterprise turns PHP off for the directory, OLS would silently keep running it); a prepended or appended file must exist,
+# or every script of the site fails (only Wordfence's firewall file is accepted, below).
+LITESPEED_PHP_REFUSED = {"engine", "auto_prepend_file", "auto_append_file"}
+# CMP-08: Wordfence's firewall ("extended protection") on LiteSpeed. Wordfence writes, in the .htaccess of the site root,
+#   <IfModule LiteSpeed>
+#   php_value auto_prepend_file '<ABSPATH>wordfence-waf.php'
+#   </IfModule>
+# and the same line in <IfModule lsapi_module> (decided by Apache's module list: dropped unless mod_lsapi is loaded, then a
+# blocker like any php_value Apache reads). Accepted only in the document root's own context, for that file name, as an
+# absolute path inside the account's home whose components are plain names (no ".", "..", empty or hidden component),
+# single-, double- or unquoted; the translator cannot stat files, so the compile checks, as the tenant, that the file is a
+# readable regular file owned by the account (ServerConfigurationBuilder::htaccessAccess) and refuses the site otherwise.
+# The mod_php form (<IfModule mod_php*.c>) follows Apache's module list; the PHP-FPM form is .user.ini, which lsphp reads
+# itself (LSPHP_ENABLE_USER_INI).
+WORDFENCE_PREPEND = re.compile(r"""^php_value[ \t]+auto_prepend_file[ \t]+(['"]?)(/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*/)+wordfence-waf\.php)\1$""")
+HOME_DIRECTORY = re.compile(r"/home[A-Za-z0-9_-]*/[a-z0-9][a-z0-9_-]{0,31}")
+PREPEND_LINE = re.compile(r"^php_value auto_prepend_file (/\S+)$", re.M)
 SCRIPT_EXTENSIONS = {"php", "php3", "php4", "php5", "php7", "php8", "phtml", "phar", "cgi", "pl", "py", "sh", "shtml", "asp", "aspx", "jsp"}
 # Directive names and arguments are separated by any run of blanks; OLS accepts tabs as well as spaces.
 REWRITE_SPACE = re.compile(r"[ \t]+")
@@ -516,6 +594,12 @@ def _rewrite(uri, lines, blockers):
 def _is_deny_all(lines):
     return any([l.lower() for l in lines] == [d.lower() for d in variant] for variant in DENY_ALL)
 
+def _in_home(path, docroot):
+    """Whether an absolute path lies below the account's home (/<home mount>/<user>: the first two components of the
+    document root)."""
+    home = "/".join(docroot.rstrip("/").split("/")[:3])
+    return HOME_DIRECTORY.fullmatch(home) is not None and path.startswith(home + "/")
+
 def _render_context(uri, location, props):
     lines = [f"context {uri} {{"]
     if location:
@@ -616,14 +700,15 @@ def translate(files, docroot, modules=None, root_headers=None):
             # The structure is checked too (soak test 2026-10-30): a back-reference or a stray quantifier ("*a") made
             # an invalid OLS regex, and one tenant's file would have failed the whole server's configuration test.
             if not re.fullmatch(r"[A-Za-z0-9._@\\^$|()?*+\[\]-]+", pattern) or "/" in pattern or (
-                    kind.lower() == "filesmatch" and not _regex_supported(pattern)):
+                    kind.lower() == "filesmatch" and (not _regex_supported(pattern) or _inner_anchor_or_branch(pattern))):
                 search = _basename_search(pattern) if loaded is not None and kind.lower() == "filesmatch" else None
                 if search is None:
                     blockers.append(f"{uri}: unsupported <{kind}> pattern {pattern!r}")
                     continue
-                # The path reaches the start of the last segment, then the basename is searched (Drupal's pattern).
-                regex_contexts.append(f"context exp:^{re.escape(uri)}(?:.*/)?(?=[^/]*$)[^/]*?(?:{search}) {{\n"
-                                      f"  allowBrowse             0\n}}\n")
+                # The path reaches the start of the last segment, then the basename is searched (Drupal's pattern); the
+                # second context is the same segment followed by path info.
+                regex_contexts.append(_deny_context(f"exp:^{re.escape(uri)}(?:.*/)?(?=[^/]*$)[^/]*?(?:{search})"))
+                regex_contexts.append(_deny_context(f"exp:^{re.escape(uri)}(?:.*/)?{PATH_INFO_SEGMENT}[^/]*?(?:{_segment_end(search)})"))
                 file_denies += 1
                 continue
             if kind.lower() == "files":
@@ -636,6 +721,8 @@ def translate(files, docroot, modules=None, root_headers=None):
             # <Files> matches the basename in this directory and below.
             regex_contexts.append(f"context exp:^{re.escape(uri)}(.*/)?{regex.lstrip('^')}{'' if regex.endswith('$') else '$'} {{\n"
                                   f"  allowBrowse             0\n}}\n")
+            # The same basename followed by path info (CMP-09).
+            regex_contexts.append(_deny_context(f"exp:^{re.escape(uri)}(.*/)?{PATH_INFO_SEGMENT}{_segment_end(regex.lstrip('^'))}"))
             file_denies += 1
         remaining = FILES.sub("", remaining)
         remaining = REWRITE_BLOCK.sub(lambda m: m.group(1), remaining)
@@ -645,8 +732,9 @@ def translate(files, docroot, modules=None, root_headers=None):
             rewrite = _rewrite(uri, rewrite_lines, blockers)
             if rewrite is not None:
                 props["rewrite"] = rewrite
-        lines = [l for l, ls in tagged if not _is_rewrite(l, ls)]
-        litespeed_lines = {l for l, ls in tagged if ls}
+        # (line, inside <IfModule LiteSpeed>): the same text outside the section is not LiteSpeed's.
+        entries = [(l, ls) for l, ls in tagged if not _is_rewrite(l, ls)]
+        lines = [l for l, _ in entries]
         deny_lines = [l for l in lines if l.lower() in {"require all denied", "deny from all", "order deny,allow", "order allow,deny"}]
         allow_list = False
         if grants:
@@ -675,7 +763,7 @@ def translate(files, docroot, modules=None, root_headers=None):
                 blockers.append(f"{uri}: unsupported access rule combination {deny_lines!r}")
         expires_types = {}
         index_ignore = False
-        for line in lines:
+        for line, litespeed in entries:
             if line in deny_lines:
                 continue
             header = HEADER.match(line)
@@ -723,7 +811,16 @@ def translate(files, docroot, modules=None, root_headers=None):
                     blockers.append(f"{uri}: unsupported directive {line!r}")
                 else:
                     static_headers.extend((e, ["Header set Content-Encoding gzip"]) for e in extensions)
-            elif loaded is not None and line in litespeed_lines and LITESPEED_PHP_VALUE.match(line):
+            elif (loaded is not None and litespeed and uri == "/" and WORDFENCE_PREPEND.match(line)
+                  and _in_home(WORDFENCE_PREPEND.match(line).group(2), docroot)):
+                override = "php_value auto_prepend_file " + WORDFENCE_PREPEND.match(line).group(2)
+                current = [o for o in props.get("phpIniOverride", []) if o.startswith("php_value auto_prepend_file ")]
+                if current and current != [override]:
+                    blockers.append(f"{uri}: conflicting auto_prepend_file {line!r}")
+                elif not current:
+                    props.setdefault("phpIniOverride", []).append(override)
+            elif (loaded is not None and litespeed and LITESPEED_PHP_VALUE.match(line)
+                  and LITESPEED_PHP_VALUE.match(line).group(2).lower() not in LITESPEED_PHP_REFUSED):
                 setting = LITESPEED_PHP_VALUE.match(line)
                 props.setdefault("phpIniOverride", []).append(f"php_{setting.group(1)} {setting.group(2)} {setting.group(3)}")
             elif loaded is not None and DRUPAL_NO_SCRIPTS.match(line):
@@ -758,6 +855,10 @@ if __name__ == "__main__":
     if blockers:
         print(json.dumps({"blockers": blockers}), file=sys.stderr)
         sys.exit(1)
+
+def prepend_files(blocks):
+    """The files the translated "/" context prepends to every script (CMP-08); the compile checks each as the tenant."""
+    return [path for block in blocks if block.startswith("context / {\n") for path in PREPEND_LINE.findall(block)]
 
 def root_header_names(blocks):
     """Header names the translated "/" context sets (set/append/merge/add), first spelling kept."""

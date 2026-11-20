@@ -20,7 +20,7 @@ final class BuilderCompilation implements Compilation
     /** Per-vhost OLS error logs. */
     public const ERROR_LOG_DIR = '/usr/local/lsws/logs/vhosts';
 
-    /** @var \Closure(CommandRunner, array<string,string>, string, string, ?array, array, PhpLimits, bool):ServerConfigurationBuilder */
+    /** @var \Closure(CommandRunner, array<string,string>, string, string, ?array, array, PhpLimits, bool, list<string>):ServerConfigurationBuilder */
     private \Closure $builder;
 
     public function __construct(private CommandRunner $runner, private string $templatePath = self::TEMPLATE,
@@ -29,9 +29,9 @@ final class BuilderCompilation implements Compilation
                                 private string $http3Path = Http3Input::PATH, private ?string $demandPath = null)
     {
         $this->builder = $builder ?? static fn(CommandRunner $r, array $tenants, string $template, string $logs, ?array $ports, array $security,
-                                               PhpLimits $limits, bool $http3 = true)
+                                               PhpLimits $limits, bool $http3 = true, array $http3Off = [])
             => new ServerConfigurationBuilder($r, $tenants, $template, $logs, hybridPorts: $ports, security: $security, phpLimits: $limits,
-                http3: $http3, previousVhost: (new \OlsCpanel\Php\LsphpGuard())->previous(...));
+                http3: $http3, previousVhost: (new \OlsCpanel\Php\LsphpGuard())->previous(...), http3Off: $http3Off);
     }
 
     public function compile(?array $hybridPorts): array
@@ -52,8 +52,10 @@ final class BuilderCompilation implements Compilation
         // unreadable is the built-in value); an operator's own value always wins (PhpLimits).
         $limits = $limits->withDemand(PhpDemand::load($this->demandPath ?? dirname($this->limitsPath) . '/php-demand.json'));
         // The operator's HTTP/3 input (FV-04): absent is enabled; a malformed file refuses the compile (fail closed).
-        $http3 = Http3Input::load($this->http3Path);
-        return ($this->builder)($this->runner, $this->tenants(), $template, $this->errorLogDir, $hybridPorts, $security, $limits, $http3)
+        // CMP-07: the same file's per-domain off list.
+        $input = Http3Input::settings($this->http3Path);
+        return ($this->builder)($this->runner, $this->tenants(), $template, $this->errorLogDir, $hybridPorts, $security, $limits,
+            $input['enabled'], $input['off'])
             ->compile();
     }
 

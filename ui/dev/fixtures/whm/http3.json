@@ -1,0 +1,22 @@
+{
+  "observed_at": 1792630000,
+  "source": "ols-cpanel http3 status --format=json",
+  "exit_code": 0,
+  "output": {
+    "result": "status",
+    "active_generation": "g20261022101500-a1b2c3",
+    "enabled": true,
+    "input": { "path": "/var/lib/ols-cpanel/http3.json", "present": true, "off": ["cdn.fixture-domain.test"], "off_unknown": [] },
+    "firewall": { "type": "csf", "action": "none", "detail": "UDP 443 is already open in csf", "warnings": [] },
+    "log_dir": "/etc/apache2/logs/domlogs",
+    "lines": 2000,
+    "protocol_share": [
+      { "vhost": "shop.fixture-domain.test", "http3_off": false, "lines": 2000, "h1": 120, "h2": 1180, "h3": 700, "other": 0, "unparsed": 0,
+        "sources": ["/etc/apache2/logs/domlogs/shop.fixture-domain.test-ssl_log"], "share_bp": { "h1": 600, "h2": 5900, "h3": 3500 } },
+      { "vhost": "blog.fixture-domain.test", "http3_off": false, "lines": 400, "h1": 40, "h2": 360, "h3": 0, "other": 0, "unparsed": 0,
+        "sources": ["/etc/apache2/logs/domlogs/blog.fixture-domain.test-ssl_log"], "share_bp": { "h1": 1000, "h2": 9000, "h3": 0 } },
+      { "vhost": "cdn.fixture-domain.test", "http3_off": true, "lines": 0, "h1": 0, "h2": 0, "h3": 0, "other": 0, "unparsed": 0,
+        "sources": [], "share_bp": { "h1": 0, "h2": 0, "h3": 0 } }
+    ]
+  }
+}

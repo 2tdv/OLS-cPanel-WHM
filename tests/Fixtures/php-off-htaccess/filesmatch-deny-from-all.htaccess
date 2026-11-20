@@ -1,0 +1,4 @@
+<FilesMatch "\.ph(p[0-9]?|tml|ar)$">
+Order allow,deny
+Deny from all
+</FilesMatch>

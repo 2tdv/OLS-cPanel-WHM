@@ -1,0 +1,3 @@
+<IfModule LiteSpeed>
+php_value engine 0
+</IfModule>

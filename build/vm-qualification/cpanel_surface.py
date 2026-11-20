@@ -54,10 +54,27 @@ PROBE_RULES = ['RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} !-f',
                'RewriteRule (?:^|/)(?:\\.env(?:\\.[a-z0-9._-]+)?|\\.git/.*|[^/]+\\.(?:sql|sql\\.gz|sql\\.zip|bak|old|orig|save|swp)|debug\\.log|appsettings(?:\\.[a-z0-9_-]+)?\\.json|(?:backup|backups|db|database|dump|site|www|wordpress)\\.(?:zip|tar|tar\\.gz|tgz|gz|rar|7z))$ - [F,NC,L]']
 
 
-def rewrite_rules(domains, activesync=True):
+# WordPress login guard (RV-64, CMP-04): the product's log watcher lists "<domain>/<address> 1" in this txt map, which
+# OLS re-reads within a second of a change (no reload); listed clients get 403 for wp-login.php and xmlrpc.php only.
+GUARD_MAP = "ols_login_guard"
+GUARD_FILE = "/run/ols-cpanel/guard/login.map"
+GUARD_PATHS = r"(?:^|/)(?:wp-login|xmlrpc)\.php(?:/|$)"
+
+def guard_map():
+    """The rewrite map declaration inside a vhost's rewrite block."""
+    return f"    map                  {GUARD_MAP} {{\n        location         txt:{GUARD_FILE}\n    }}\n"
+
+def guard_rules(domain):
+    return [f"RewriteCond ${{{GUARD_MAP}:{domain}/%{{REMOTE_ADDR}}}} =1", f"RewriteRule {GUARD_PATHS} - [F,NC,L]"]
+
+
+def rewrite_rules(domains, activesync=True, guard=None):
     """Vhost-level rules evaluated before the tenant's .htaccess rules. `domains` are the vhost's
-    service domains (its main or addon domains; none for a plain subdomain)."""
+    service domains (its main or addon domains; none for a plain subdomain). `guard` is the site whose
+    login guard rule is added (tenant vhosts, which declare guard_map())."""
     lines = [f"RewriteCond %{{REQUEST_URI}} {DCV}", "RewriteRule ^ - [L]"]
+    if guard is not None:
+        lines += guard_rules(guard)
     # Like Apache: upgrades go to cpsrvd's WebSocket endpoint; other service rules skip upgrades.
     for domain in domains:
         escaped = domain.replace(".", r"\.")
@@ -236,7 +253,7 @@ def apache_backends(vhosts, ports):
                     f"    initTimeout          60\n    retryTimeout         0\n    respBuffer           0\n}}\n")
     return out
 
-def apache_vhost(docroot, name, ip, tls_file, error_log_dir, ports=(81, 444), secure=False):
+def apache_vhost(docroot, name, ip, tls_file, error_log_dir, ports=(81, 444), secure=False, http3=True):
     """A hybrid vhost for one scheme (`secure`: the HTTPS listeners' vhost, hybrid_tls_name). OLS terminates TLS
     with the domain's certificate and passes everything to Apache on the backend port of the same scheme, which
     applies the account's own configuration (including cPanel's suspension). WebSocket upgrades are tunnelled
@@ -244,17 +261,17 @@ def apache_vhost(docroot, name, ip, tls_file, error_log_dir, ports=(81, 444), se
     patch 0010); ACME challenges, which OLS never rewrites, reach Apache through a proxy context. Requests are
     logged by Apache only (client address from X-OLS-Client-IP, OLS patch 0010)."""
     vhost, backend = (hybrid_tls_name(name) if secure else name), apache_backend_name(name, secure)
-    rules = ("RewriteCond %{HTTP:Upgrade} websocket [NC]\nRewriteCond %{ORG_REQ_URI} ^(/.*)$\n"
+    rules = ("\n".join(guard_rules(name)) + "\nRewriteCond %{HTTP:Upgrade} websocket [NC]\nRewriteCond %{ORG_REQ_URI} ^(/.*)$\n"
              f"RewriteRule ^ {'wss' if secure else 'ws'}://{_ipv4(ip)}:{ports[1] if secure else ports[0]}%1 [P,L]\n"
              f"RewriteRule ^/?(.*)$ http://{backend}/$1 [P,L]\n")
     return (f"docRoot                  {docroot.rstrip('/')}/\nvhDomain                 {name}\n"
             f"errorlog {error_log_dir}/{vhost}-error.log {{\n    useServer            0\n    logLevel             NOTICE\n}}\n"
-            f"rewrite {{\n    enable               1\n    autoLoadHtaccess     0\n    rules                <<<END_rules\n"
+            f"rewrite {{\n    enable               1\n    autoLoadHtaccess     0\n{guard_map()}    rules                <<<END_rules\n"
             f"{rules}END_rules\n}}\n"
             f"context exp:^/\\.well-known/acme-challenge/ {{\n  type                    proxy\n"
             f"  handler                 {backend}\n  addDefaultCharset       off\n}}\n"
-            + (f"vhssl {{\n    keyFile              {tls_file}\n    certFile             {tls_file}\n    certChain            1\n}}\n"
-               if secure and tls_file else ""))
+            + (f"vhssl {{\n    keyFile              {tls_file}\n    certFile             {tls_file}\n    certChain            1\n"
+               f"{'' if http3 else '    enableQuic           0' + chr(10)}}}\n" if secure and tls_file else ""))
 
 # Apache's server default vhost (<VirtualHost *>, the hostname, DocumentRoot /var/www/html) answers every
 # name no other vhost claims on an address, e.g. all names over IPv6 when no account has an IPv6 address:

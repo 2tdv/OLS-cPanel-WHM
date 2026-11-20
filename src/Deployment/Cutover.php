@@ -246,8 +246,7 @@ final class Cutover
         $different = [];
         $healthy = $host->waitFor(function () use ($compiled, $baseline, &$different): bool {
             $now = $this->answers($compiled['plan'], 'ols');
-            $different = array_filter($now, static fn(string $code, string $key): bool => $code !== $baseline[$key],
-                ARRAY_FILTER_USE_BOTH);
+            $different = self::differences($baseline, $now);
             return $different === [];
         }, 20, 3);
         if (!$healthy) {
@@ -333,6 +332,19 @@ final class Cutover
                 . '): HTTP/3 is advertised but may be unreachable; open UDP 443 yourself or set {"enabled": false} in '
                 . $this->env->http3Path() . ' and reconcile';
         }
+    }
+
+    /**
+     * The comparison of the cutover and of the preview (CMP-03): the requests whose status code now is not the one
+     * Apache gave. A request missing from $baseline counts as different.
+     * @param array<string,string> $baseline Apache's status per request
+     * @param array<string,string> $now the status per request of the server under test
+     * @return array<string,string> request => status now, for every request that differs
+     */
+    public static function differences(array $baseline, array $now): array
+    {
+        return array_filter($now, static fn(string $code, string $key): bool => $code !== ($baseline[$key] ?? null),
+            ARRAY_FILTER_USE_BOTH);
     }
 
     /**

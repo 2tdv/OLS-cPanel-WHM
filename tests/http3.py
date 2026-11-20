@@ -20,7 +20,15 @@ PHP = sys.argv[1] if len(sys.argv) > 1 else "/usr/local/cpanel/3rdparty/php/84/b
 
 INPUTS = ["", "{}", '{"enabled": true}', '{"enabled": false}', '{"enabled": 0}', '{"enabled": "false"}', '{"enabled": null}',
           '{"enabled": false, "other": 1}', '{"other": 1}', "[]", "[false]", "true", "null", '"off"', "{bad", '{"enabled": false,}',
-          ' \n{"enabled":false}\n', '{"enabled": false, "enabled": true}', '{"0": 1}']
+          ' \n{"enabled":false}\n', '{"enabled": false, "enabled": true}', '{"0": 1}',
+          # CMP-07: the per-domain off list
+          '{"off": []}', '{"off": ["example.com"]}', '{"off": ["b.example.com", "a.example.com"]}', '{"enabled": false, "off": ["a.example.com"]}',
+          '{"off": "a.example.com"}', '{"off": {"a": "a.example.com"}}', '{"off": [1]}', '{"off": [null]}', '{"off": [["a.example.com"]]}',
+          '{"off": ["A.example.com"]}', '{"off": ["localhost"]}', '{"off": ["a.example.com", "a.example.com"]}', '{"off": ["a b.example.com"]}',
+          '{"off": ["a.example.com\\n"]}', '{"off": ["-a.example.com"]}', '{"off": ["a..example.com"]}', '{"off": ["a.example.com."]}',
+          '{"off": ["xn--bcher-kva.example"]}', '{"off": ["a.b.c.d.e.example.com"]}', '{"off": ["a_b.example.com"]}',
+          '{"off": ["' + "a" * 250 + '.com"]}', '{"off": null}', '{"off": [], "extra": 1}',
+          json.dumps({"off": [f"d{i}.example.com" for i in range(256)]}), json.dumps({"off": [f"d{i}.example.com" for i in range(257)]})]
 EXPECTED_INPUT = {"{}": True, '{"enabled": true}': True, '{"enabled": false}': False, ' \n{"enabled":false}\n': False,
                   '{"enabled": false, "enabled": true}': True}
 
@@ -72,12 +80,28 @@ EXPECTED_CLASS = {LINES[0]: "h1", LINES[1]: "h1", LINES[2]: "h2", LINES[3]: "h3"
                   LINES[17]: "other", "garbage": "unparsed", "": "unparsed"}
 BASIS = [(0, 0), (0, 5), (1, 3), (2, 3), (1, 2), (1, 8), (7, 8), (5, 5), (1, 1000000), (333, 1000), (1, 20000), (1, 40000)]
 
+# --- CMP-07 invariants of the reference ---
+assert http3.parse_settings('{"off": ["b.example.com", "a.example.com"]}') == {"enabled": True, "off": ["a.example.com", "b.example.com"]}
+assert http3.parse_settings("{}") == {"enabled": True, "off": []}
+assert http3.parse_settings('{"enabled": false, "off": ["a.example.com"]}') == {"enabled": False, "off": ["a.example.com"]}
+assert len(http3.parse_settings(json.dumps({"off": [f"d{i}.example.com" for i in range(256)]}))["off"]) == 256
+assert len(json.dumps({"off": [f"d{i}.example.com" for i in range(256)]})) < http3.MAX_INPUT_BYTES
+for bad in ('{"off": ["a.example.com", "a.example.com"]}', '{"off": ["A.example.com"]}', '{"off": ["localhost"]}', '{"off": "a.example.com"}',
+            '{"off": ["a.example.com\\n"]}'):
+    try:
+        http3.parse_settings(bad)
+    except ValueError:
+        continue
+    raise AssertionError(bad)
+
 # --- reference invariants (Python only) ---
 for text in INPUTS:
     try:
         got = http3.parse_input(text)
     except ValueError:
         got = "error"
+    if text.startswith('{"off"') or text.startswith('{"enabled": false, "off"'):
+        continue  # covered by the CMP-07 invariants above and the PHP comparison
     if text in EXPECTED_INPUT:
         assert got is EXPECTED_INPUT[text], (text, got)
     else:
@@ -145,10 +169,10 @@ with tempfile.TemporaryDirectory() as tmp:
               (["example.test"], ["mixed.test", "example.test", "mixed.test"], ["only-ssl.test", "empty.test", "link.test", "dir.test", "missing.test"],
                ["big.test"], ["bad_domain"], ["../x.test"], ["Example.test"], ["a.test", "-b.test"])
               for c, m in ((2000, 4 << 20), (7, 4 << 20), (50, 400))]
-    corpus = {"input": INPUTS, "csf": CSF, "ports": PORTS, "nft": NFT, "lines": LINES, "tail": tails, "share": shares, "basis": BASIS}
+    corpus = {"input": INPUTS, "settings": INPUTS, "csf": CSF, "ports": PORTS, "nft": NFT, "lines": LINES, "tail": tails, "share": shares, "basis": BASIS}
 
     def reference():
-        out = {"input": [], "csf": [http3.csf_plan(t) for t in CSF], "ports": [http3.port_list_covers(v) for v in PORTS],
+        out = {"input": [], "settings": [], "csf": [http3.csf_plan(t) for t in CSF], "ports": [http3.port_list_covers(v) for v in PORTS],
                "nft": [http3.nft_input_drop(t) for t in NFT], "classify": [http3.classify(l) for l in LINES],
                "tail": [http3.tail_lines(c["path"], c["count"], c["max_bytes"]) for c in tails], "share": [],
                "basis": [http3.basis_points(p, t) for p, t in BASIS]}
@@ -157,6 +181,10 @@ with tempfile.TemporaryDirectory() as tmp:
                 out["input"].append(http3.parse_input(text))
             except ValueError:
                 out["input"].append("error")
+            try:
+                out["settings"].append(http3.parse_settings(text))
+            except ValueError:
+                out["settings"].append("error")
         for case in shares:
             try:
                 out["share"].append(http3.shares(case["dir"], case["domains"], case["count"], case["max_bytes"]))

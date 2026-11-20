@@ -16,6 +16,8 @@ export const routes = [
   { name: 'cache', path: 'cache', view: lazyView(() => import('./views/CacheView.vue')) },
   { name: 'php', path: 'php', view: lazyView(() => import('./views/PhpView.vue')) },
   { name: 'objcache', path: 'objcache', view: lazyView(() => import('./views/ObjectCacheView.vue')) },
+  { name: 'guard', path: 'login-guard', view: lazyView(() => import('./views/LoginGuardView.vue')) },
+  { name: 'http3', path: 'http3', view: lazyView(() => import('./views/Http3View.vue')) },
   { name: 'requests', path: 'requests', view: lazyView(() => import('./views/RequestsView.vue')) },
   { name: 'diagnostics', path: 'diagnostics', view: lazyView(() => import('./views/DiagnosticsView.vue')) },
   // FV-07 operations.

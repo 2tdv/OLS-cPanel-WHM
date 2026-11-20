@@ -16,12 +16,12 @@ assert not re.search(r"HTTP_(?!X_OLS_CPANEL_REQUEST)|\$_COOKIE|\$_POST|\$_REQUES
 assert "($_SERVER['HTTP_X_OLS_CPANEL_REQUEST'] ?? null) !== '1'" in gateway and "BODY_LIMIT = 4096" in gateway
 contract = (ROOT / "docs/product-interfaces.md").read_text()
 names = re.search(r"GET \?api=<name>` for the read operations \(names: ([^)]*)\)", contract.replace("\n", " ")).group(1)
-api = dict(re.findall(r"'(\w+)' => \['([a-z_.]+)', \[", gateway.split("const API = [", 1)[1].split("];", 1)[0]))
+api = dict(re.findall(r"'(\w+)' => \['([a-z0-9_.]+)', \[", gateway.split("const API = [", 1)[1].split("];", 1)[0]))
 assert sorted(api) == sorted(re.findall(r"`(\w+)`", names)), (api, names)
 actions = re.findall(r"'(ols\.[a-z_]+)' => '(server|plan|cache|php_restart|opcache)'", gateway)
 jobs = (ROOT / "broker/src/panel/jobs.rs").read_text()
 assert sorted(a for a, _ in actions) == sorted(re.findall(r'Action \{ name: "(ols\.[a-z_]+)"', jobs)), actions
-assert [a for a, s in actions if s == "plan"] == ["ols.cutover"]
+assert [a for a, s in actions if s == "plan"] == ["ols.cutover", "ols.preview"]
 assert "'cap.issue'" in gateway and "'cap.execute'" in gateway and "$principal" in gateway.split("'cap.issue'", 1)[0]
 assert "catch (Throwable)" in gateway and "Cache-Control: no-store" in gateway and "X-Content-Type-Options: nosniff" in gateway
 page = (ROOT / "plugins/cpanel/index.live.php").read_text()

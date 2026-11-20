@@ -12,9 +12,10 @@ use OlsCpanel\Deployment\CutoverPlan;
 use OlsCpanel\Deployment\DeploymentError;
 use OlsCpanel\PhpExtensions\ExtensionInstaller;
 use OlsCpanel\Deployment\Environment;
+use OlsCpanel\Deployment\Preview;
 use OlsCpanel\Php\OpcacheManager;
 
-/** `install --prepare [--native] [--no-opcache]` and `install --cutover --plan=<id> [--yes]`. */
+/** `install --prepare [--native] [--no-opcache]`, `install --preview --plan=<id>` and `install --cutover --plan=<id> [--yes]`. */
 final class InstallCommand extends DeploymentCommand
 {
     /**
@@ -36,18 +37,25 @@ final class InstallCommand extends DeploymentCommand
 
     public function summary(): string
     {
-        return 'Prepare (--prepare [--native] [--no-opcache]; hybrid is the default) or cut over to OLS (--cutover --plan=ID [--yes])';
+        return 'Prepare (--prepare [--native] [--no-opcache]; hybrid is the default), preview a plan beside Apache (--preview --plan=ID) or cut over to OLS (--cutover --plan=ID [--yes])';
     }
 
     public function run(array $argv, Output $out): int
     {
-        $args = new Arguments($argv, ['prepare', 'cutover', 'hybrid', 'native', 'yes', 'no-opcache'], ['plan']);
+        $args = new Arguments($argv, ['prepare', 'cutover', 'preview', 'hybrid', 'native', 'yes', 'no-opcache'], ['plan']);
         $prepare = $args->flag('prepare');
         $cutover = $args->flag('cutover');
+        if ($args->flag('preview')) {
+            if ($prepare || $cutover || $args->value('plan') === null || $args->flag('yes') || $args->flag('hybrid') || $args->flag('native')
+                || $args->flag('no-opcache')) {
+                throw new UsageError('install --preview --plan=ID');
+            }
+            return $this->preview((string) $args->value('plan'), $out);
+        }
         if ($prepare === $cutover || ($prepare && ($args->value('plan') !== null || $args->flag('yes')))
             || ($cutover && ($args->value('plan') === null || $args->flag('hybrid') || $args->flag('native') || $args->flag('no-opcache')))
             || ($args->flag('hybrid') && $args->flag('native'))) {
-            throw new UsageError('install --prepare [--native] [--no-opcache] | install --cutover --plan=ID [--yes]');
+            throw new UsageError('install --prepare [--native] [--no-opcache] | install --preview --plan=ID | install --cutover --plan=ID [--yes]');
         }
         return $prepare ? $this->prepare($args->flag('native'), $args->flag('no-opcache'), $out) : $this->cutover((string) $args->value('plan'), $args->flag('yes'), $out);
     }
@@ -103,6 +111,18 @@ final class InstallCommand extends DeploymentCommand
         } catch (\Throwable $error) {
             return ['result' => 'unknown', 'error' => substr(preg_replace('/[^\x20-\x7e]/', '?', $error->getMessage()) ?? '', 0, 200)];
         }
+    }
+
+    /** CMP-03: how OpenLiteSpeed would answer every site of the plan compared with Apache; Apache keeps serving, nothing is switched. */
+    private function preview(string $planId, Output $out): int
+    {
+        try {
+            $result = (new Preview($this->environment()))->run($planId);
+        } catch (DeploymentError $error) {
+            return $this->refused($out, $error, 'install --preview');
+        }
+        $out->result(['command' => 'install --preview'] + $result);
+        return ($result['state'] ?? null) === 'complete' ? Application::EXIT_OK : Application::EXIT_REFUSED;
     }
 
     private function cutover(string $planId, bool $yes, Output $out): int

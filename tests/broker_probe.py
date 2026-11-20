@@ -29,11 +29,11 @@ assert ".mode(0o600)" in panel["mod.rs"] and "O_NOFOLLOW" in panel["mod.rs"]
 # own socket only; tenants never reach an admin operation.
 contract = (ROOT / "docs/product-interfaces.md").read_text()
 plugin = contract.split("## Plugin data and actions (release 1)", 1)[1]
-admin_ops = re.findall(r"^\| `((?:server|inventory|compat|plan|generation|doctor|job|cache|php|admin)\.[a-z_]+)`", plugin, re.M)
+admin_ops = re.findall(r"^\| `((?:server|inventory|compat|plan|generation|doctor|job|cache|php|admin)\.[a-z0-9_]+)`", plugin, re.M)
 tenant_ops = re.findall(r"^\| `(tenant\.[a-z_]+)`", plugin, re.M)
 assert sorted(admin_ops) == sorted(["server.status", "server.metrics", "inventory.accounts", "compat.findings", "plan.latest",
                                     "generation.list", "doctor.report", "job.list", "job.status", "cache.stats", "admin.cache_limits",
-                                    "admin.objcache", "php.status", "admin.metrics", "admin.requests", "admin.request_status",
+                                    "admin.objcache", "admin.login_guard", "admin.http3", "php.status", "admin.metrics", "admin.requests", "admin.request_status",
                                     "admin.audit", "admin.notify", "admin.notify_set", "admin.notify_test",
                                     "admin.schedule", "admin.schedule_add", "admin.schedule_cancel", "admin.update", "admin.bundle"]), admin_ops
 assert sorted(tenant_ops) == ["tenant.cache_purge", "tenant.cache_stats", "tenant.domains", "tenant.logs", "tenant.metrics", "tenant.objcache", "tenant.perf",

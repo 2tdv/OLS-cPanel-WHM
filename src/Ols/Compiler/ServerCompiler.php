@@ -171,10 +171,12 @@ final class ServerCompiler
      * @param list<string> $unsetHeaders
      * @param array{children:int, max_conns:int, mem_soft:int, mem_hard:int, proc_soft:int, proc_hard:int}|null $limits
      *        the account's PHP limits (PhpLimits::forAccount, memory in bytes); null is PhpLimits::BUILTIN
+     * @param bool $http3 false is the per-domain HTTP/3 switch (CMP-07): `enableQuic 0` in the vhost's vhssl block, so OLS never
+     *        sets the vhost's QUIC flag and sends no Alt-Svc for it (only with a certificate: without vhssl there is no HTTPS)
      */
     public function vhostConfig(array $v, string $pool, ?array $constants, string $access, ?string $tls,
                                 string $errorLogDir, array $missing = [], array $unsetHeaders = [],
-                                bool $suspended = false, ?array $limits = null): string
+                                bool $suspended = false, ?array $limits = null, bool $http3 = true): string
     {
         $limits ??= PhpLimits::BUILTIN;
         $user = $v['user'];
@@ -207,12 +209,13 @@ final class ServerCompiler
             . "    instances            1\n    memSoftLimit         {$limits['mem_soft']}\n    memHardLimit         {$limits['mem_hard']}\n"
             . "    procSoftLimit        {$limits['proc_soft']}\n    procHardLimit        {$limits['proc_hard']}\n}\n"
             . "scripthandler {\n$handlers\n}\n"
-            . "rewrite {\n    enable               1\n    autoLoadHtaccess     0\n    rules                <<<END_rules\n"
+            . "rewrite {\n    enable               1\n    autoLoadHtaccess     0\n" . $this->surface->guardMap() . "    rules                <<<END_rules\n"
             . ($suspended ? $this->surface->suspensionRules($missing) : '') . $this->cache->vhostRules($v, $suspended)
-            . $this->surface->rewriteRules([], true, (bool) ($v['ssl_redirect'] ?? false)) . "END_rules\n}\n"
+            . $this->surface->rewriteRules([], true, (bool) ($v['ssl_redirect'] ?? false), $name) . "END_rules\n}\n"
             . $this->surface->contexts($missing, $unsetHeaders) . $this->surface->accessLogs($name) . "\n"
             . $this->fpm->overrideBlock($this->fpm->translate($pool, $constants)) . $access
-            . ($tls !== null ? "vhssl {\n    keyFile              $tls\n    certFile             $tls\n    certChain            1\n}\n" : '')
+            . ($tls !== null ? "vhssl {\n    keyFile              $tls\n    certFile             $tls\n    certChain            1\n"
+                . ($http3 ? '' : "    enableQuic           0\n") . "}\n" : '')
             . $this->cache->vhostBlock($v, $suspended);
     }
 

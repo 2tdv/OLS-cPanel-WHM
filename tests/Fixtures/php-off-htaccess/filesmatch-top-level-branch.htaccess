@@ -1,0 +1,3 @@
+<FilesMatch "\.txt$|^shell\.php$">
+Require all denied
+</FilesMatch>

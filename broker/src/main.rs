@@ -425,6 +425,8 @@ fn dispatch(state: &State, socket: Socket, peer: &Peer, req: Request) -> Value {
         (Socket::Admin, "admin.cache_limits") => state.panel.cache_limits(req.args),
         (Socket::Admin, "php.status") if empty_args => state.panel.php_status(),
         (Socket::Admin, "admin.objcache") => state.panel.objcache(req.args),
+        (Socket::Admin, "admin.login_guard") => state.panel.login_guard(req.args),
+        (Socket::Admin, "admin.http3") => state.panel.http3(req.args),
         (Socket::Admin, "admin.audit") => state.panel.audit(req.args),
         (Socket::Admin, "admin.notify") if empty_args => state.panel.notify(),
         (Socket::Admin, "admin.notify_set") => state.panel.notify_set(req.args),
@@ -710,8 +712,30 @@ fn arguments(args: &[String]) -> Result<(String, Option<PathBuf>), String> {
     Ok((dir.unwrap_or_else(|| "/run/ols-cpanel-broker".into()), rtreport))
 }
 
+/// `--htaccess-watch=DIR`: the binary runs the tenant .htaccess watch (CMP-02, `ols_cpanel_broker::watch`) instead of the broker;
+/// no socket is served in that mode.
+fn watch_mode(args: &[String]) -> Option<Result<PathBuf, String>> {
+    let path = args.first()?.strip_prefix("--htaccess-watch=")?;
+    Some(if args.len() != 1 || !path.starts_with('/') || path.split('/').any(|c| c == "..") {
+        Err("usage: ols-cpanel-broker --htaccess-watch=/ABSOLUTE/DIR".into())
+    } else {
+        Ok(PathBuf::from(path))
+    })
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if let Some(dir) = watch_mode(&args) {
+        let dir = dir.unwrap_or_else(|message| {
+            eprintln!("{message}");
+            std::process::exit(64);
+        });
+        if unsafe { libc::geteuid() } != 0 {
+            eprintln!("the .htaccess watch must run as root (fanotify filesystem marks)");
+            std::process::exit(2);
+        }
+        std::process::exit(ols_cpanel_broker::watch::run(&dir));
+    }
     let (dir, rtreport) = arguments(&args).unwrap_or_else(|message| {
         eprintln!("{message}");
         std::process::exit(64);
@@ -851,9 +875,9 @@ mod tests {
         reply["error"]["code"].as_str().unwrap_or("")
     }
 
-    const ADMIN_OPS: [&str; 27] = ["server.status", "server.metrics", "admin.metrics", "inventory.accounts", "compat.findings", "plan.latest",
+    const ADMIN_OPS: [&str; 29] = ["server.status", "server.metrics", "admin.metrics", "inventory.accounts", "compat.findings", "plan.latest",
                                    "generation.list", "doctor.report", "job.list", "job.status", "cap.issue", "cap.execute", "cache.stats",
-                                   "admin.cache_limits", "admin.objcache", "php.status", "admin.requests", "admin.request_status", "admin.audit", "admin.notify", "admin.notify_set", "admin.notify_test",
+                                   "admin.cache_limits", "admin.objcache", "admin.login_guard", "admin.http3", "php.status", "admin.requests", "admin.request_status", "admin.audit", "admin.notify", "admin.notify_set", "admin.notify_test",
                                    "admin.schedule", "admin.schedule_add", "admin.schedule_cancel", "admin.update", "admin.bundle"];
 
     #[test]
@@ -1232,6 +1256,13 @@ esac"#;
     fn command_line() {
         let args = |items: &[&str]| items.iter().map(|s| s.to_string()).collect::<Vec<String>>();
         assert_eq!(arguments(&args(&[])).unwrap(), ("/run/ols-cpanel-broker".to_string(), None));
+        assert!(watch_mode(&args(&[])).is_none() && watch_mode(&args(&["/run/x"])).is_none());
+        assert_eq!(watch_mode(&args(&["--htaccess-watch=/run/ols-cpanel-watch"])).unwrap().unwrap(), PathBuf::from("/run/ols-cpanel-watch"));
+        for bad in [&["--htaccess-watch=run/x"][..], &["--htaccess-watch=/run/../x"], &["--htaccess-watch=/run/x", "/run/y"]] {
+            assert!(watch_mode(&args(bad)).unwrap().is_err(), "{bad:?}");
+        }
+        // The broker's own parser never accepts the watch option (it is only valid alone, first).
+        assert!(arguments(&args(&["--htaccess-watch=/run/x"])).is_err());
         assert_eq!(arguments(&args(&["/run/x", "--rtreport-dir=/run/ols/st"])).unwrap(),
                    ("/run/x".to_string(), Some(PathBuf::from("/run/ols/st"))));
         for bad in [&["--rtreport-dir=relative"][..], &["--rtreport-dir=/a/../b"], &["/a", "/b"], &["--other"]] {

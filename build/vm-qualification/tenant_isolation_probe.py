@@ -333,7 +333,8 @@ def php_environment(v):
     return f"    env                  PHP_INI_SCAN_DIR={etc}:{etc}/php.d:{v['docroot']}\n"
 
 def vhost_config(v, pool="", constants=None, access="", tls=None, lab_rules="", missing=(), unset_headers=(),
-                 error_log_dir="/var/lib/ols-cpanel-lab/logs", suspended=False, limits=None):
+                 error_log_dir="/var/lib/ols-cpanel-lab/logs", suspended=False, limits=None, http3=True):
+    # http3=False: the per-domain HTTP/3 switch (CMP-07), `enableQuic 0` in the vhssl block (no Alt-Svc for the vhost).
     # limits: the account's PHP limits (children, max_conns, mem_soft and mem_hard in bytes, proc_soft, proc_hard);
     # None is the built-in set the lab always used.
     limits = limits or {"children": 5, "max_conns": 5, "mem_soft": 0, "mem_hard": 0, "proc_soft": 400, "proc_hard": 500}
@@ -385,12 +386,13 @@ scripthandler {{
 rewrite {{
     enable               1
     autoLoadHtaccess     0
-    rules                <<<END_rules
-{cpanel_surface.suspension_rules(missing) if suspended else ""}{lscache.vhost_rules(v, suspended)}{lab_rules}{cpanel_surface.rewrite_rules([])}END_rules
+{cpanel_surface.guard_map()}    rules                <<<END_rules
+{cpanel_surface.suspension_rules(missing) if suspended else ""}{lscache.vhost_rules(v, suspended)}{lab_rules}{cpanel_surface.rewrite_rules([], guard=name)}END_rules
 }}
 {cpanel_surface.contexts(missing, unset_headers)}{cpanel_surface.access_logs(name)}
 """ + fpm_translate.override_block(fpm_translate.translate(pool, constants)) + access + (
-        f"vhssl {{\n    keyFile              {tls}\n    certFile             {tls}\n    certChain            1\n}}\n" if tls else "") + (
+        f"vhssl {{\n    keyFile              {tls}\n    certFile             {tls}\n    certChain            1\n"
+        f"{'' if http3 else '    enableQuic           0' + chr(10)}}}\n" if tls else "") + (
         lscache.vhost_block(v, suspended))
 
 def htaccess_listing(user, docroot):
@@ -400,12 +402,13 @@ def htaccess_listing(user, docroot):
     return ["/usr/sbin/runuser", "-u", user, "--", "/usr/bin/find", "-H", docroot, "-name", ".htaccess",
             "(", "-type", "f", "-o", "-type", "l", ")", "-printf", "%y%p\\0"]
 
-def compile_lab(step, summary, production=False, hybrid_ports=None, security=None, http3=True):
+def compile_lab(step, summary, production=False, hybrid_ports=None, security=None, http3=True, http3_off=()):
     """Discover every cPanel vhost of the lab tenants and compile the OLS configuration (shared
     by the test-listener probe and the production-port probe). Raises on any refusal or lint error.
     `security`: the product security input (FV-02, modsec_translate.policy); None compiles without the WAF
     and security part and reads none of its inputs. `http3`: QUIC on the HTTPS listeners (FV-04, the operator
-    input /var/lib/ols-cpanel/http3.json; absent means enabled)."""
+    input /var/lib/ols-cpanel/http3.json; absent means enabled). `http3_off`: domains whose vhost gets no HTTP/3
+    advertisement (CMP-07, the input's "off" list)."""
     # Every cPanel vhost of each account (main, subdomains, addon vhosts; parked domains are
     # aliases) from /etc/userdatadomains and the per-vhost userdata (OLS-19).
     rows = cpanel_vhosts.parse_userdatadomains(step("userdatadomains", ["/usr/bin/cat", "/etc/userdatadomains"])["stdout"])
@@ -525,6 +528,14 @@ def compile_lab(step, summary, production=False, hybrid_ports=None, security=Non
         technical = all(re.fullmatch(r"(?:(?:.*\.)?cpanel\.site)", n, re.I) for n in names)
         realms, contexts, blockers = htaccess_translate.translate(files, docroot, modules,
                                                                   ['Header set X-Robots-Tag "noindex, nofollow"'] if technical else None)
+        # CMP-08: a translated Wordfence firewall line prepends its file to every script; a missing or unreadable file
+        # would fail them all. Checked as the tenant, the link itself (never followed): a readable regular file the
+        # account owns, or the site stays on Apache.
+        for prepend in htaccess_translate.prepend_files(contexts):
+            found = step("htaccess-prepend-" + name, ["/usr/sbin/runuser", "-u", user, "--", "/usr/bin/find", "-P", prepend,
+                                                      "-maxdepth", "0", "-type", "f", "-readable", "-printf", "%u\\0"])
+            if found["exit_code"] != 0 or found["stdout"] != user + "\0":
+                blockers.append(f"/: auto_prepend_file {prepend} is not a readable regular file of the account")
         access[name] = "".join(realms + contexts)
         root_headers[name] = htaccess_translate.root_header_names(contexts)
         summary["htaccess_blockers"][name] = read_blockers + blockers
@@ -581,11 +592,12 @@ def compile_lab(step, summary, production=False, hybrid_ports=None, security=Non
                                               hybrid_ports or (81, 444))
                   if v.get("mode") == "apache" else
                   vhost_config(v, pools[n], constants[v["php"]], access[n], tls[n], "" if production else LAB_RULES.get(n, ""),
-                               missing[n], root_headers[n], suspended=v["suspended"])) for n, v in plan.items()}
+                               missing[n], root_headers[n], suspended=v["suspended"], http3=n not in http3_off)) for n, v in plan.items()}
     for n, v in plan.items():
         if v.get("mode") == "apache":
             vhconf[cpanel_surface.hybrid_tls_name(n)] = cpanel_surface.apache_vhost(
-                v["docroot"], n, v["ip"], tls[n], "/var/lib/ols-cpanel-lab/logs", hybrid_ports or (81, 444), secure=True)
+                v["docroot"], n, v["ip"], tls[n], "/var/lib/ols-cpanel-lab/logs", hybrid_ports or (81, 444), secure=True,
+                http3=n not in http3_off)
             # LSCache (FV-01): both pass-through vhosts of a hybrid domain never use the cache.
             for name in (n, cpanel_surface.hybrid_tls_name(n)):
                 vhconf[name] += lscache.disabled_block()

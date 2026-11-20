@@ -85,6 +85,17 @@ pub const RULES: &[Rule] = &[
             Is("("), Is("-type"), Is("f"), Is("-o"), Is("-type"), Is("l"), Is(")"), Is("-printf"), Is("%y%p\\0"),
         ],
     },
+    // CMP-08: the file a translated Wordfence firewall line prepends to every script must exist, or every script of the
+    // site fails. Checked as the tenant, without following a symbolic link: prints the owner's name when the path is a
+    // regular file the tenant can read. Only Wordfence's fixed file name, inside the tenant's own home.
+    Rule {
+        name: "runuser-find-prepend",
+        argv: &[
+            RUNUSER[0], RUNUSER[1], RUNUSER[2], RUNUSER[3],
+            Is("/usr/bin/find"), Is("-P"), InHome(Some("wordfence-waf.php")), Is("-maxdepth"), Is("0"), Is("-type"), Is("f"),
+            Is("-readable"), Is("-printf"), Is("%u\\0"),
+        ],
+    },
     Rule { name: "php-constants", argv: &[Template("/opt/cpanel/{version}/root/usr/bin/php"), Is("-n"), Is("-r"), Is(CONSTANTS_CODE)] },
     Rule { name: "hostname", argv: &[Is("/usr/bin/hostname"), Is("-f")] },
     // The modules Apache has loaded: they decide every <IfModule> of a tenant's .htaccess (RV-46). Fixed and read-only.
@@ -428,6 +439,12 @@ mod tests {
             ("runuser-cat-htaccess", &["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/cat", "/home/olscpa/public_html/a b/.htaccess"]),
             ("runuser-find-htaccess", &["/usr/sbin/runuser", "-u", "olscpb", "--", "/usr/bin/find", "-H", "/home/olscpb/public_html",
                                         "-name", ".htaccess", "(", "-type", "f", "-o", "-type", "l", ")", "-printf", "%y%p\\0"]),
+            ("runuser-find-prepend", &["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/find", "-P",
+                                       "/home/olscpa/public_html/wordfence-waf.php", "-maxdepth", "0", "-type", "f", "-readable",
+                                       "-printf", "%u\\0"]),
+            ("runuser-find-prepend", &["/usr/sbin/runuser", "-u", "olscpb", "--", "/usr/bin/find", "-P",
+                                       "/home2/olscpb/wordfence-waf.php", "-maxdepth", "0", "-type", "f", "-readable",
+                                       "-printf", "%u\\0"]),
             ("php-constants", &["/opt/cpanel/alt-php74/root/usr/bin/php", "-n", "-r", CONSTANTS_CODE]),
             ("hostname", &["/usr/bin/hostname", "-f"]),
             ("httpd-modules", &["/usr/sbin/httpd", "-M"]),
@@ -588,6 +605,25 @@ mod tests {
               "-printf", "%y %i %s %T@ %C@ %p\\0"],
             &["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/find", "-L", "/home/olscpa", "-maxdepth", "2", "-name", ".htaccess",
               "-printf", "%y %i %s %T@ %C@ %p\\0"],
+            // CMP-08 prepend check: only Wordfence's file in the user's own home, only this exact shape
+            &["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/find", "-P", "/home/olscpb/public_html/wordfence-waf.php", "-maxdepth",
+              "0", "-type", "f", "-readable", "-printf", "%u\\0"],
+            &["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/find", "-P", "/home/olscpa/public_html/evil.php", "-maxdepth", "0",
+              "-type", "f", "-readable", "-printf", "%u\\0"],
+            &["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/find", "-P", "/etc/wordfence-waf.php", "-maxdepth", "0", "-type", "f",
+              "-readable", "-printf", "%u\\0"],
+            &["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/find", "-P", "/home/olscpa/../olscpb/wordfence-waf.php", "-maxdepth",
+              "0", "-type", "f", "-readable", "-printf", "%u\\0"],
+            &["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/find", "-P", "/home/olscpa/public_html/wordfence-waf.php", "-maxdepth",
+              "1", "-type", "f", "-readable", "-printf", "%u\\0"],
+            &["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/find", "-L", "/home/olscpa/public_html/wordfence-waf.php", "-maxdepth",
+              "0", "-type", "f", "-readable", "-printf", "%u\\0"],
+            &["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/find", "-P", "/home/olscpa/public_html/wordfence-waf.php", "-maxdepth",
+              "0", "-type", "f", "-readable", "-delete"],
+            &["/usr/sbin/runuser", "-u", "olscpa", "--", "/usr/bin/find", "-P", "/home/olscpa/public_html/wordfence-waf.php", "-maxdepth",
+              "0", "-type", "f", "-readable", "-printf", "%u\\0", "-delete"],
+            &["/usr/sbin/runuser", "-u", "root", "--", "/usr/bin/find", "-P", "/root/wordfence-waf.php", "-maxdepth", "0", "-type", "f",
+              "-readable", "-printf", "%u\\0"],
             // lab-only
             &["/usr/bin/curl", "-s", "http://a.test/"],
         ];

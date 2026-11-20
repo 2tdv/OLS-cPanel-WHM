@@ -100,14 +100,89 @@ HTACCESS += [
 # expected outcome (translated, or a blocker with the reason) is recorded in expected.json.
 PLUGIN_DIR = ROOT / "tests/Fixtures/wp-plugins-htaccess"
 PLUGIN_EXPECTED = json.loads((PLUGIN_DIR / "expected.json").read_text())
+# The lab Apache's module list (`httpd -M`); a fixture marked "modules": "lab" is translated with it, as production does.
+LAB_MODULES = (ROOT / "tests/Fixtures/cms-htaccess/apache-modules.txt").read_text().split()
 PLUGIN_CASES = []
 for fixture in sorted(PLUGIN_DIR.rglob("*.htaccess")):
     parts = fixture.relative_to(PLUGIN_DIR).parts
     PLUGIN_CASES.append(("/".join(parts), {"files": {"/".join(parts[1:-1]) if parts[-1] == ".htaccess" else "": fixture.read_text()},
                                            "docroot": "/home/u/public_html"}))
+    if PLUGIN_EXPECTED.get("/".join(parts), {}).get("modules") == "lab":
+        PLUGIN_CASES[-1][1]["modules"] = LAB_MODULES
 assert sorted(n for n, _ in PLUGIN_CASES) == sorted(PLUGIN_EXPECTED), "every fixture needs an expected outcome"
 PLUGIN_BASE = len(HTACCESS)
 HTACCESS += [case for _, case in PLUGIN_CASES]
+# CMP-09: every idiom that turns PHP off (or on) in an upload folder (tests/Fixtures/php-off-htaccess), in
+# wp-content/uploads, with the lab Apache's module list (production) and without one (the command failed).
+PHP_OFF_DIR = ROOT / "tests/Fixtures/php-off-htaccess"
+PHP_OFF_EXPECTED = json.loads((PHP_OFF_DIR / "expected.json").read_text())
+assert sorted(p.name for p in PHP_OFF_DIR.glob("*.htaccess")) == sorted(PHP_OFF_EXPECTED), "every idiom needs an expected verdict"
+PHP_OFF_REL = "wp-content/uploads"
+PHP_OFF_BASE = len(HTACCESS)
+for name in sorted(PHP_OFF_EXPECTED):
+    text = (PHP_OFF_DIR / name).read_text()
+    HTACCESS += [{"files": {PHP_OFF_REL: text}, "docroot": "/home/u/public_html",
+                  "modules": LAB_MODULES + PHP_OFF_EXPECTED[name].get("extra_modules", [])},
+                 {"files": {PHP_OFF_REL: text}, "docroot": "/home/u/public_html"}]
+# CMP-08: Wordfence's firewall. The stock root file (both LiteSpeed forms) without a module list and with mod_lsapi loaded
+# (Apache then reads the php_value itself: refused), the mod_php and PHP-FPM forms, and every refusal kind of the prepend.
+WORDFENCE = (PLUGIN_DIR / "wordfence/root-waf.htaccess").read_text()
+WF_LINE = "php_value auto_prepend_file '/home/u/public_html/wordfence-waf.php'"
+def litespeed_prepend(line):
+    return f"<IfModule LiteSpeed>\n{line}\n</IfModule>\n"
+WORDFENCE_BASE = len(HTACCESS)
+WORDFENCE_CASES = [
+    ({"": WORDFENCE}, None, "blocker"),
+    ({"": WORDFENCE}, LAB_MODULES + ["lsapi_module"], "blocker"),
+    ({"": WORDFENCE}, LAB_MODULES, "translated"),
+    # The same block twice (the home's .htaccess leads the docroot's own): one override.
+    ({"": WORDFENCE + WORDFENCE}, LAB_MODULES, "translated"),
+    ({"": litespeed_prepend('php_value auto_prepend_file "/home/u/public_html/wp/wordfence-waf.php"')}, LAB_MODULES, "translated"),
+    ({"": litespeed_prepend("php_value\tauto_prepend_file /home/u/wordfence-waf.php")}, LAB_MODULES, "translated"),
+    ({"blog": WORDFENCE}, LAB_MODULES, "blocker"),
+    ({"": litespeed_prepend(WF_LINE) + litespeed_prepend(WF_LINE.replace("public_html/", "public_html/x/"))}, LAB_MODULES, "blocker"),
+    ({"": WF_LINE + "\n"}, LAB_MODULES, "blocker"),
+    # LiteSpeed's line and the same text outside the section: only the first is LiteSpeed's.
+    ({"": litespeed_prepend("php_value output_buffering Off") + "php_value output_buffering Off\n"}, LAB_MODULES, "blocker"),
+] + [({"": litespeed_prepend(line)}, LAB_MODULES, "blocker") for line in [
+    "php_value auto_prepend_file '/home/other/public_html/wordfence-waf.php'",
+    "php_value auto_prepend_file '/home/u/public_html/../../other/public_html/wordfence-waf.php'",
+    "php_value auto_prepend_file '/home/u/public_html/./wordfence-waf.php'",
+    "php_value auto_prepend_file '/home/u//public_html/wordfence-waf.php'",
+    "php_value auto_prepend_file '/home/u/.hidden/wordfence-waf.php'",
+    "php_value auto_prepend_file '/home/u/public_html/wordfence-waf.php\"",
+    "php_value auto_prepend_file 'home/u/public_html/wordfence-waf.php'",
+    "php_value auto_prepend_file '/home/u/public_html/evil.php'",
+    "php_value auto_prepend_file /home/u/public_html/evil.php",
+    "php_value auto_prepend_file '/home/u/public_html/wordfence-waf.php' x",
+    "php_value auto_prepend_file '/home/u/public_html/a b/wordfence-waf.php'",
+    "php_value auto_prepend_file '/home/u/public_html/wordfence-waf.php\\'",
+    "php_value auto_prepend_file '/etc/wordfence-waf.php'",
+    "php_value auto_prepend_file /home/u/public_html/wordfence-waf.php}",
+    "php_admin_value auto_prepend_file '/home/u/public_html/wordfence-waf.php'",
+    "php_value auto_append_file /home/u/public_html/wordfence-waf.php",
+    "php_value Auto_Prepend_File /home/u/public_html/wordfence-waf.php",
+]]
+HTACCESS += [{"files": files, "docroot": "/home/u/public_html", **({"modules": modules} if modules is not None else {})}
+             for files, modules, _ in WORDFENCE_CASES]
+# A document root outside a home: never a prepend. An addon domain below public_html inherits the main site's block from
+# public_html/.htaccess (the compile leads with it): the file is in the home, outside this document root.
+WORDFENCE_CASES.append(({"": WORDFENCE}, LAB_MODULES, "blocker"))
+HTACCESS.append({"files": {"": WORDFENCE.replace("/home/u/public_html/", "/var/www/html/")}, "docroot": "/var/www/html",
+                 "modules": LAB_MODULES})
+WORDFENCE_CASES.append(({"": WORDFENCE}, LAB_MODULES, "translated"))
+HTACCESS.append({"files": {"": WORDFENCE}, "docroot": "/home/u/public_html/addon.example", "modules": LAB_MODULES})
+# The path info contexts of CMP-09 on anchors inside classes, escaped anchors, groups and the wildcard form.
+PATH_INFO_EDGES = ['<FilesMatch "[^$]\\.php$">\nDeny from all\n</FilesMatch>\n', '<FilesMatch "a\\$b">\nDeny from all\n</FilesMatch>\n',
+                   '<FilesMatch "(\\.php$|\\.inc$)">\nDeny from all\n</FilesMatch>\n', '<Files "a$b?.php">\nDeny from all\n</Files>\n',
+                   '<FilesMatch "^(\\.|x)">\nDeny from all\n</FilesMatch>\n', '<FilesMatch "^\\.ht|#$">\nDeny from all\n</FilesMatch>\n']
+for form in ("root-waf-mod-php.htaccess", "root-waf-fpm.htaccess"):
+    WORDFENCE_CASES.append(({"": (PLUGIN_DIR / "wordfence" / form).read_text()}, LAB_MODULES + ["php7_module"], "blocker"
+                            if form == "root-waf-mod-php.htaccess" else "translated"))
+    HTACCESS.append({"files": WORDFENCE_CASES[-1][0], "docroot": "/home/u/public_html", "modules": WORDFENCE_CASES[-1][1]})
+for text in PATH_INFO_EDGES:
+    HTACCESS += [{"files": {"up": text}, "docroot": "/home/u/public_html", "modules": LAB_MODULES},
+                 {"files": {"up": text}, "docroot": "/home/u/public_html"}]
 # Module sections, expiry directives and the "deny the directory, allow listed files" pattern: accepted and refused forms.
 AKISMET = (PLUGIN_DIR / "akismet/wp-content/plugins/akismet/.htaccess").read_text()
 GRANT = '<FilesMatch "^(a|b)\\.js$">\nRequire all granted\n</FilesMatch>\n'
@@ -257,6 +332,7 @@ python["surface"] = [[cs.processors(), cs.host_aliases(d), cs.rewrite_rules(s), 
                       cs.suspension_rules(m)]
                      for d, m, s, u in zip(SURFACE, SURFACE_MISSING, SURFACE_SERVICE, SURFACE_UNSET)]
 python["root_headers"] = [ht.root_header_names(r[1]) for r in python["htaccess"]]
+python["prepend_files"] = [ht.prepend_files(r[1]) for r in python["htaccess"]]
 import cpanel_vhosts as cv
 SAMPLE = json.loads((ROOT / "tests/Fixtures/cpanel_vhosts.json").read_text())
 VHOSTS = [{"user": "olscpa", "rows": SAMPLE["rows"], "userdata": SAMPLE["userdata"]},
@@ -299,7 +375,20 @@ for text in IP_OUTPUT:
     except (ValueError, IndexError):
         python["ipv6"].append("error")
 python["proxy"] = [cs.proxy_hosts(), cs.proxy_server_block(), cs.proxy_vhost(), cs.proxy_vhost(cs.SERVICE_CERTS[0]),
-                   cs.default_server_block(), cs.default_vhost(), cs.default_vhost(cs.SERVICE_CERTS[0], ["/mailman/", "/pipermail/"])]
+                   cs.default_server_block(), cs.default_vhost(), cs.default_vhost(cs.SERVICE_CERTS[0], ["/mailman/", "/pipermail/"]),
+                   # Login guard (RV-64): map block, rules with and without service domains, and the hybrid pass-through vhost.
+                   cs.guard_map(), cs.rewrite_rules([], guard="olscp-a.test"), cs.rewrite_rules(["olscp-a.test"], False, "xn--bcher-kva.example"),
+                   cs.apache_vhost("/home/u/public_html", "olscp-a.test", "192.0.2.10", "/c/olscp-a.test", "/var/log/ols-cpanel"),
+                   cs.apache_vhost("/home/u/public_html", "olscp-a.test", "192.0.2.10", "/c/olscp-a.test", "/var/log/ols-cpanel", secure=True),
+                   cs.apache_vhost("/home/u/public_html", "h.example", "192.0.2.5", "/c/h", "/var/log/ols-cpanel", (81, 444), True),
+                   cs.apache_vhost("/home/u/public_html", "h.example", "192.0.2.5", "/c/h", "/var/log/ols-cpanel", (81, 444), True, False)]
+guard = python["proxy"][-7:-2]
+assert guard[0] == "    map                  ols_login_guard {\n        location         txt:/run/ols-cpanel/guard/login.map\n    }\n"
+assert ("RewriteRule ^ - [L]\nRewriteCond ${ols_login_guard:olscp-a.test/%{REMOTE_ADDR}} =1\n"
+        "RewriteRule (?:^|/)(?:wp-login|xmlrpc)\\.php(?:/|$) - [F,NC,L]\n") in guard[1]
+assert all(t.count("ols_login_guard") == 2 and t.index("map                  ols_login_guard") < t.index("<<<END_rules")
+           and t.index("ols_login_guard:olscp-a.test/") < t.index("http://") for t in guard[3:])
+assert all("ols_login_guard" not in t for t in python["proxy"][:-7])
 # Server and tenant vhost configuration for production ports (ServerCompiler).
 import tenant_isolation_probe as iso
 base_plan = {v["name"]: dict(v, user="olscpa") for v in cv.account_vhosts(
@@ -346,10 +435,20 @@ VHCONF.append(dict(VHCONF[0], limits={"children": 12, "max_conns": 16, "mem_soft
                                       "proc_soft": 600, "proc_hard": 800}))
 VHCONF.append(dict(VHCONF[1], limits={"children": 5, "max_conns": 5, "mem_soft": 0, "mem_hard": 2146435072,
                                       "proc_soft": 400, "proc_hard": 500}))
+# The per-domain HTTP/3 switch (CMP-07): enableQuic 0 inside vhssl; without a certificate there is no vhssl to put it in.
+LIMITS_END = len(VHCONF)
+VHCONF.append(dict(VHCONF[0], http3=False))
+VHCONF.append(dict(VHCONF[2], http3=False))
 python["vhconf"] = [iso.vhost_config(c["v"], c["pool"], c["constants"], c["access"], c["tls"], "", c["missing"], c["unset"],
-                                     "/var/log/ols-cpanel", c["suspended"], c.get("limits")) for c in VHCONF]
-assert python["vhconf"][-2] != python["vhconf"][0] and "maxConns             16\n    env                  PHP_LSAPI_CHILDREN=12\n" in python["vhconf"][-2]
-assert "memHardLimit         2146435072\n" in python["vhconf"][-1] and "procSoftLimit        400\n" in python["vhconf"][-1]
+                                     "/var/log/ols-cpanel", c["suspended"], c.get("limits"), c.get("http3", True)) for c in VHCONF]
+assert python["vhconf"][-2] == python["vhconf"][0].replace("    certChain            1\n}", "    certChain            1\n    enableQuic           0\n}")
+assert python["vhconf"][-2] != python["vhconf"][0] and python["vhconf"][-1] == python["vhconf"][2] and "enableQuic" not in python["vhconf"][0]
+assert python["proxy"][-1] == python["proxy"][-2].replace("    certChain            1\n}", "    certChain            1\n    enableQuic           0\n}")
+assert python["vhconf"][LIMITS_END - 2] != python["vhconf"][0] and "maxConns             16\n    env                  PHP_LSAPI_CHILDREN=12\n" in python["vhconf"][LIMITS_END - 2]
+assert "memHardLimit         2146435072\n" in python["vhconf"][LIMITS_END - 1] and "procSoftLimit        400\n" in python["vhconf"][LIMITS_END - 1]
+# Every tenant vhost declares the login guard map and checks its own domain's entries (RV-64).
+assert all(t.count("    map                  ols_login_guard {\n") == 1
+           and f"RewriteCond ${{ols_login_guard:{c['v']['name']}/%{{REMOTE_ADDR}}}} =1\n" in t for t, c in zip(python["vhconf"], VHCONF))
 # Absent limits are the built-in numbers, byte for byte.
 assert "maxConns             5\n    env                  PHP_LSAPI_CHILDREN=5\n" in python["vhconf"][0] and "memSoftLimit         0\n" in python["vhconf"][0]
 # LSCache policy (FV-01): blocks, rules and summary for every switch state, store names and their refusals.
@@ -383,7 +482,7 @@ with tempfile.NamedTemporaryFile("w", suffix=".json") as corpus:
     result = subprocess.run([PHP, "-n", str(ROOT / "tests/compiler_corpus.php"), corpus.name],
                             capture_output=True, text=True, check=True)
 php = json.loads(result.stdout)
-for section in ("htaccess", "fpm", "lint", "address", "surface", "proxy", "root_headers", "vhosts", "servers", "vhconf", "apache", "ipv6", "cache", "stores"):
+for section in ("htaccess", "fpm", "lint", "address", "surface", "proxy", "root_headers", "prepend_files", "vhosts", "servers", "vhconf", "apache", "ipv6", "cache", "stores"):
     for index, (left, right) in enumerate(zip(python[section], php[section])):
         assert left == right, (section, index, left, right)
     assert len(python[section]) == len(php[section])
@@ -397,6 +496,50 @@ for offset, (name, case) in enumerate(PLUGIN_CASES):
     else:
         assert any(expected["blocker"] in b for b in blockers_), (name, expected["blocker"], blockers_)
         assert not re.search(r"RemoveHandler|auto_prepend", "".join(blocks_)), name
+# CMP-09: the "PHP off" corpus. A translated idiom must refuse what Apache refuses, path info included, and map the scripts
+# to a static type where Drupal's idiom applies; a blocker names its directive. OLS searches a regex context (PCRE without
+# an anchor of its own), so the checks search too.
+def refused(blocks, uri):
+    for block in blocks:
+        target = block.split("\n", 1)[0].split()[1]
+        if "  allowBrowse             0\n" in block and (re.search(target[4:], uri) if target.startswith("exp:") else uri.startswith(target)):
+            return True
+    return False
+for offset, name in enumerate(sorted(PHP_OFF_EXPECTED)):
+    expected = PHP_OFF_EXPECTED[name]
+    _, lab_blocks, lab_blockers = python["htaccess"][PHP_OFF_BASE + 2 * offset]
+    _, bare_blocks, bare_blockers = python["htaccess"][PHP_OFF_BASE + 2 * offset + 1]
+    assert not re.search(r"(?i)engine|RemoveHandler|RemoveType|SetHandler|ForceType|AddHandler", "".join(lab_blocks + bare_blocks)), name
+    if expected["outcome"] == "blocker":
+        assert any(expected["blocker"] in b for b in lab_blockers), (name, lab_blockers)
+    else:
+        assert lab_blockers == [], (name, lab_blockers)
+    assert (bare_blockers == []) == (expected["without_modules"] == "translated"), (name, bare_blockers)
+    if expected["without_modules"] == "translated":
+        assert bare_blocks == lab_blocks, name
+    base = f"/{PHP_OFF_REL}/"
+    for path in expected.get("denied", []):
+        assert refused(lab_blocks, base + path), (name, path)
+    for path in expected.get("allowed", []):
+        assert not refused(lab_blocks, base + path), (name, path)
+    if expected.get("static_scripts"):
+        assert f"context {base} {{\n" in lab_blocks[0] and "  addMIMEType             application/octet-stream php " in lab_blocks[0], name
+assert len(PHP_OFF_EXPECTED) >= 30
+# CMP-08: Wordfence's firewall: the prepend reaches the document root's context only in the accepted forms; the compile then
+# checks each file as the tenant (prepend_files).
+for offset, (_, _, outcome) in enumerate(WORDFENCE_CASES):
+    _, wf_blocks, wf_blockers = python["htaccess"][WORDFENCE_BASE + offset]
+    assert (wf_blockers == []) == (outcome == "translated"), (offset, wf_blockers)
+    if outcome == "translated":
+        assert "".join(wf_blocks).count("auto_prepend_file") == len(python["prepend_files"][WORDFENCE_BASE + offset]) <= 1, offset
+WF_PREPENDS = [python["prepend_files"][WORDFENCE_BASE + i] for i in range(len(WORDFENCE_CASES))]
+assert WF_PREPENDS[2] == WF_PREPENDS[3] == WF_PREPENDS[-3] == ["/home/u/public_html/wordfence-waf.php"], WF_PREPENDS
+assert WF_PREPENDS[4] == ["/home/u/public_html/wp/wordfence-waf.php"] and WF_PREPENDS[5] == ["/home/u/wordfence-waf.php"]
+assert WF_PREPENDS[-1] == [], "the PHP-FPM form prepends through .user.ini, which lsphp reads itself"
+_, wf_blocks, _ = python["htaccess"][WORDFENCE_BASE + 2]
+assert wf_blocks[0] == ("context / {\n  location                /home/u/public_html/\n  phpIniOverride  {\n"
+                        "php_value auto_prepend_file /home/u/public_html/wordfence-waf.php\n  }\n}\n"), wf_blocks
+assert "context exp:^/(.*/)?\\.user\\.ini$ {" in wf_blocks[1]
 # Current Akismet (live): "@" in a granted file name is a literal; its images and scripts are served, its PHP stays denied.
 _live = PLUGIN_BASE + [n for n, _ in PLUGIN_CASES].index("akismet-live/wp-content/plugins/akismet/.htaccess")
 _, live_blocks, live_blockers = python["htaccess"][_live]

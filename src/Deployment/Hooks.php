@@ -6,9 +6,10 @@ namespace OlsCpanel\Deployment;
 /**
  * The product's cPanel hook registrations (plan section 15, G0-F): the hook entry for the restricting events
  * of ols_events.RESTRICTING and for the account, domain, PHP, certificate and .htaccess changes the lab
- * observed (docs/g0f-hooks.md; ols_reconcile_probe.HOOKS). All on stage "post", as the lab pipeline ran them;
- * API events of the Cpanel category run with escalated privileges (the cPanel user's own calls), WHM events
- * run as root already. Registration goes through cPanel's manage_hooks and is verified against its listing:
+ * observed (docs/g0f-hooks.md; ols_reconcile_probe.HOOKS), plus cPanel's password change (Passwd::ChangePasswd) and shell change
+ * (Whostmgr Accounts::set_shell), RV-65.
+ * All on stage "post", as the lab pipeline ran them; events of the Cpanel and Passwd categories run with escalated
+ * privileges (the cPanel user's own calls), WHM events run as root already. Registration goes through cPanel's manage_hooks and is verified against its listing:
  * a misspelled event silently never fires, so only the listing proves a registration.
  */
 final class Hooks
@@ -38,6 +39,9 @@ final class Hooks
         ['Whostmgr', 'SSL::installssl'],
         ['Whostmgr', 'SSL::delssl'],
         ['Whostmgr', 'AutoSSL::installssl'],
+        // RV-65: a shell change (WHM "Manage Shell Access" and the shell steps of a package change or a restore) rewrites /etc/passwd;
+        // the hook only refreshes cPanel's password caches (HookEntry::SHELL_EVENT).
+        ['Whostmgr', 'Accounts::set_shell'],
         ['Cpanel', 'UAPI::SubDomain::addsubdomain'],
         ['Cpanel', 'UAPI::SubDomain::delete_subdomain'],
         ['Cpanel', 'Api2::SubDomain::addsubdomain'],
@@ -54,7 +58,11 @@ final class Hooks
         ['Cpanel', 'UAPI::SSL::delete_ssl'],
         ['Cpanel', 'UAPI::Mime::add_redirect'],
         ['Cpanel', 'UAPI::Fileman::save_file_content'],
+        // RV-65: a password change rewrites /etc/shadow; the hook only refreshes cPanel's password caches (HookEntry::PASSWORD_EVENT).
+        ['Passwd', 'ChangePasswd'],
     ];
+    /** Categories whose events also fire in a cPanel user's process: registered with escalated privileges (the entry runs as root). */
+    public const ESCALATED = ['Cpanel', 'Passwd'];
 
     public function __construct(private Host $host, private string $entry = self::ENTRY)
     {
@@ -64,7 +72,7 @@ final class Hooks
     public function expected(): array
     {
         return array_map(static fn(array $e): array => ['category' => $e[0], 'event' => $e[1], 'stage' => self::STAGE,
-            'escalateprivs' => $e[0] === 'Cpanel' ? '1' : '0'], self::EVENTS);
+            'escalateprivs' => in_array($e[0], self::ESCALATED, true) ? '1' : '0'], self::EVENTS);
     }
 
     /** @return list<array{category:string, event:string, stage:string, escalateprivs:string}> this entry's registrations */
