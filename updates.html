@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Signed updates from WHM - OLS-cPanel-WHM</title>
-<meta name="description" content="How updates work in OLS-cPanel-WHM: Check now and Update now in WHM, signed releases and the release key fingerprint.">
+<title>Update OpenLiteSpeed on cPanel: Signed Releases</title>
+<meta name="description" content="Update OLS-cPanel-WHM (OpenLiteSpeed for cPanel) from WHM or with ols-cpanel update install, and check the release key fingerprint.">
 <meta name="color-scheme" content="light dark">
 <link rel="canonical" href="https://2tdv.github.io/OLS-cPanel-WHM/updates.html">
-<meta property="og:type" content="website">
+<meta property="og:type" content="article">
 <meta property="og:site_name" content="OLS-cPanel-WHM">
-<meta property="og:title" content="Signed updates from WHM - OLS-cPanel-WHM">
-<meta property="og:description" content="How updates work in OLS-cPanel-WHM: Check now and Update now in WHM, signed releases and the release key fingerprint.">
+<meta property="og:title" content="Update OpenLiteSpeed on cPanel: Signed Releases">
+<meta property="og:description" content="Update OLS-cPanel-WHM (OpenLiteSpeed for cPanel) from WHM or with ols-cpanel update install, and check the release key fingerprint.">
 <meta property="og:url" content="https://2tdv.github.io/OLS-cPanel-WHM/updates.html">
 <meta property="og:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
 <meta property="og:image:width" content="1280">
@@ -18,12 +18,12 @@
 <meta property="og:image:alt" content="The OLS-cPanel-WHM plugin in WHM: the web server at a glance">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Signed updates from WHM - OLS-cPanel-WHM">
-<meta name="twitter:description" content="How updates work in OLS-cPanel-WHM: Check now and Update now in WHM, signed releases and the release key fingerprint.">
+<meta name="twitter:title" content="Update OpenLiteSpeed on cPanel: Signed Releases">
+<meta name="twitter:description" content="Update OLS-cPanel-WHM (OpenLiteSpeed for cPanel) from WHM or with ols-cpanel update install, and check the release key fingerprint.">
 <meta name="twitter:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
 <meta name="robots" content="index, follow">
 <meta name="theme-color" content="#0b5394">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "OLS-cPanel-WHM", "item": "https://2tdv.github.io/OLS-cPanel-WHM/"}, {"@type": "ListItem", "position": 2, "name": "Signed updates from WHM", "item": "https://2tdv.github.io/OLS-cPanel-WHM/updates.html"}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "@id": "https://2tdv.github.io/OLS-cPanel-WHM/updates.html#article", "headline": "Update OpenLiteSpeed on cPanel: Signed Releases", "description": "Update OLS-cPanel-WHM (OpenLiteSpeed for cPanel) from WHM or with ols-cpanel update install, and check the release key fingerprint.", "inLanguage": "en", "mainEntityOfPage": "https://2tdv.github.io/OLS-cPanel-WHM/updates.html", "dateModified": "2026-11-22", "author": {"@type": "Organization", "name": "2T Development", "url": "https://github.com/2tdv"}, "publisher": {"@type": "Organization", "name": "2T Development", "url": "https://github.com/2tdv"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "OLS-cPanel-WHM", "item": "https://2tdv.github.io/OLS-cPanel-WHM/"}, {"@type": "ListItem", "position": 2, "name": "Update OpenLiteSpeed on cPanel", "item": "https://2tdv.github.io/OLS-cPanel-WHM/updates.html"}]}]}</script>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/style.css">
 </head>
@@ -36,22 +36,22 @@
 </div></header>
 <main id="content"><div class="narrow">
 
-<h1>Updates</h1>
-<p class="lead">Update from WHM in two clicks. Every update is checked against the project's signing key before it changes anything, and your sites keep being served.</p>
+<h1>Update OpenLiteSpeed on cPanel from WHM or the command line</h1>
+<p class="lead">In WHM open <strong>Plugins &rarr; OLS-cPanel &rarr; Updates</strong>, click <strong>Update now</strong> and confirm. Or run <code>/usr/local/ols-cpanel/bin/ols-cpanel update install --latest</code> as root. The update started from WHM checks the installer's signature against the project's release key before it changes anything, and your sites keep being served.</p>
 
-<h2>Check now and Update now</h2>
-<p>Open <strong>WHM &rarr; Plugins &rarr; OLS-cPanel &rarr; Updates</strong>. The page checks the project's GitHub releases (at most every 15 minutes) and shows <strong>Version X is available</strong> when a newer release exists. <strong>Check now</strong> asks again at once. <strong>Update now</strong> installs the new release after you confirm.</p>
+<h2>Check now and Update now in WHM</h2>
+<p>Open <strong>WHM &rarr; Plugins &rarr; OLS-cPanel &rarr; Updates</strong> (see the <a href="whm.html">WHM plugin</a> page for the other views). The page checks the project's GitHub releases (at most every 15 minutes) and shows <strong>Version X is available</strong> when a newer release exists. <strong>Check now</strong> asks again at once. <strong>Update now</strong> installs the new release after you confirm.</p>
 <figure class="shot"><a href="assets/screenshots/whm-updates.png"><img src="assets/screenshots/whm-updates.png" width="1280" height="800" loading="lazy" alt="The WHM Updates view with the Check now button, an available version notice, the Update now button and the integrity of each installed package."></a><figcaption>The Updates view (example data).</figcaption></figure>
 <p>The update runs as a job you can follow on the page and in Jobs. A failure is shown with the installer's last lines, and nothing is changed when a check fails.</p>
 
-<h2>What an update checks</h2>
+<h2>What an update from WHM checks</h2>
 <ol class="steps">
 <li>The installer and its signature of exactly that release are downloaded over HTTPS into a private temporary directory.</li>
 <li>The signature is checked against the release key shipped inside the installed product, in a separate temporary keyring. A release that is not newer, a signature by any other key or a changed installer is refused.</li>
 <li>The verified installer checks the release manifest and every package exactly as for an installation, and upgrades the packages. It never downgrades anything.</li>
 </ol>
 <p>The product then applies the upgrade by itself within a minute: it restarts its own services, refreshes the WHM and cPanel plugins, reloads OpenLiteSpeed gracefully when its binary changed, and restarts only the PHP processes whose settings changed. Your sites keep being served.</p>
-<p>For each installed package the page shows <strong>Signed</strong> (it carries the project's rpm signature) or <strong>Verified release</strong> (the installer checked exactly this build against the signed release).</p>
+<p>For each installed package the page shows <strong>Signed</strong> (it carries the project's rpm signature) or <strong>Verified release</strong> (the installer checked exactly this build against the signed release). A build installed by hand is shown as not from a verified release. The <a href="safety.html">Safety</a> page explains how the product protects a server in general.</p>
 
 <h2>Signed releases</h2>
 <p>Releases are signed with the project's release key.</p>
@@ -61,10 +61,18 @@
 <tr><th scope="row">Key server</th><td><a href="https://keyserver.ubuntu.com/pks/lookup?op=get&amp;search=0x118DFA42F66A585D176C0B5148E26833CB82EAD1">keyserver.ubuntu.com</a>, fetched by the fingerprint above</td></tr>
 <tr><th scope="row">In the repository</th><td><a href="https://github.com/2tdv/OLS-cPanel-WHM/blob/main/build/release/ols-cpanel-release-key.asc"><code>build/release/ols-cpanel-release-key.asc</code></a></td></tr>
 </tbody></table></div>
-<p>The installer carries this key and trusts nothing else; a release signed by any other key is refused. The packages are rpm-signed with the same key.</p>
+<p>An update from WHM checks the installer against the copy of this key shipped inside the installed product (<code>/usr/local/ols-cpanel/share/release-key.asc</code>); a release signed by any other key is refused. The packages are rpm-signed with the same key. To check a signature by hand before installing, see <a href="install.html">Install</a> (the stricter variant) and the <a href="faq.html#genuine-release">FAQ</a>.</p>
 
 <h2>From the command line</h2>
-<p>Run the one command of the newer release from its release notes, exactly as for the installation. On an installed server it upgrades the packages, changes nothing else and does not ask for a switch again. Running the command for the release that is already installed says so and changes nothing.</p>
+<p>As root on the server, run the update command of the product, which does what <strong>Update now</strong> does:</p>
+<div class="codeblock"><pre><code>/usr/local/ols-cpanel/bin/ols-cpanel update install --latest</code></pre></div>
+<p>Use <code>--version=&lt;v&gt;</code> instead of <code>--latest</code> for a specific release. You can also run the one command of the newer release from its release notes, exactly as for the <a href="install.html">installation</a>. On an installed server it upgrades the packages, never downgrades a newer one, changes nothing else and does not ask for a switch again. Running the command for the release that is already installed says so and changes nothing.</p>
+
+<h2>Why keep it current</h2>
+<p>Only the latest release receives security fixes, according to the project's <a href="https://github.com/2tdv/OLS-cPanel-WHM/security/policy">security policy</a>. What each release changed is listed in the <a href="changelog.html">changelog</a>; <a href="faq.html#updates">the FAQ</a> answers common update questions.</p>
+
+<h2>If an update fails</h2>
+<p>If you ran the installer command, it exits with 65 when a signature, release, platform or package digest check fails; in that case nothing was changed. A verification failure is never a reason to bypass the checks: report it and do not install packages from that location. Exit 70 means a download, package installation, preparation or cutover step failed. The Updates view shows the installer's last lines. If you want to return to Apache, see <a href="uninstall.html">going back</a>. Report an ordinary problem in the <a href="https://github.com/2tdv/OLS-cPanel-WHM/issues">issues</a>; for a security problem use the private <a href="https://github.com/2tdv/OLS-cPanel-WHM/security/advisories/new">vulnerability report</a> form instead of a public issue.</p>
 
 <nav class="pager" aria-label="Previous and next page"><a href="object-cache.html">&larr; Object cache</a><a href="safety.html">Safety &rarr;</a></nav>
 </div></main>
