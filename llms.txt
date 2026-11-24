@@ -22,6 +22,7 @@ Key facts:
 - [Going back to Apache and uninstalling](https://2tdv.github.io/OLS-cPanel-WHM/uninstall.html): what uninstall removes and keeps
 - [FAQ](https://2tdv.github.io/OLS-cPanel-WHM/faq.html): free LiteSpeed for cPanel, LSCache without Enterprise, HTTP/3, supported systems, updates, licence
 - [HTTP/3 on cPanel with OpenLiteSpeed](https://2tdv.github.io/OLS-cPanel-WHM/http3-cpanel.html): UDP 443, firewall changes, checking, turning it off
+- [LSCache on cPanel without LiteSpeed Enterprise](https://2tdv.github.io/OLS-cPanel-WHM/lscache-cpanel.html): how the LiteSpeed page cache works on cPanel with OpenLiteSpeed, clearing it, limits
 
 ## Plugins and features
 

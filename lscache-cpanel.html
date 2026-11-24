@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LSCache on cPanel Without LiteSpeed Enterprise</title>
+<meta name="description" content="Use LSCache page caching on cPanel &amp; WHM without a LiteSpeed Enterprise license: free OpenLiteSpeed via OLS-cPanel-WHM, supported CMSs and cache clearing.">
+<meta name="color-scheme" content="light dark">
+<link rel="canonical" href="https://2tdv.github.io/OLS-cPanel-WHM/lscache-cpanel.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OLS-cPanel-WHM">
+<meta property="og:title" content="LSCache on cPanel Without LiteSpeed Enterprise">
+<meta property="og:description" content="Use LSCache page caching on cPanel &amp; WHM without a LiteSpeed Enterprise license: free OpenLiteSpeed via OLS-cPanel-WHM, supported CMSs and cache clearing.">
+<meta property="og:url" content="https://2tdv.github.io/OLS-cPanel-WHM/lscache-cpanel.html">
+<meta property="og:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="800">
+<meta property="og:image:alt" content="The OLS-cPanel-WHM plugin in WHM: the web server at a glance">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="LSCache on cPanel Without LiteSpeed Enterprise">
+<meta name="twitter:description" content="Use LSCache page caching on cPanel &amp; WHM without a LiteSpeed Enterprise license: free OpenLiteSpeed via OLS-cPanel-WHM, supported CMSs and cache clearing.">
+<meta name="twitter:image" content="https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0b5394">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "@id": "https://2tdv.github.io/OLS-cPanel-WHM/lscache-cpanel.html#article", "headline": "LSCache on cPanel Without LiteSpeed Enterprise", "description": "Use LSCache page caching on cPanel & WHM without a LiteSpeed Enterprise license: free OpenLiteSpeed via OLS-cPanel-WHM, supported CMSs and cache clearing.", "inLanguage": "en", "mainEntityOfPage": "https://2tdv.github.io/OLS-cPanel-WHM/lscache-cpanel.html", "datePublished": "2026-11-24", "dateModified": "2026-11-24", "image": "https://2tdv.github.io/OLS-cPanel-WHM/assets/screenshots/whm-overview.png", "author": {"@type": "Organization", "name": "2T Development", "url": "https://github.com/2tdv"}, "publisher": {"@type": "Organization", "name": "2T Development", "url": "https://github.com/2tdv"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "OLS-cPanel-WHM", "item": "https://2tdv.github.io/OLS-cPanel-WHM/"}, {"@type": "ListItem", "position": 2, "name": "LSCache on cPanel", "item": "https://2tdv.github.io/OLS-cPanel-WHM/lscache-cpanel.html"}]}]}</script>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to the content</a>
+<header class="site-header"><div class="wrap">
+<a class="brand" href="index.html"><img class="logo" src="favicon.svg" width="32" height="32" alt=""><span class="wordmark">OLS-cPanel-WHM</span></a>
+<nav class="main" aria-label="Main"><ul><li><a href="index.html">Home</a></li><li><a href="install.html">Install</a></li><li><a href="whm.html">WHM plugin</a></li><li><a href="cpanel.html">cPanel plugin</a></li><li><a href="object-cache.html">Object cache</a></li><li><a href="updates.html">Updates</a></li><li><a href="safety.html">Safety</a></li><li><a href="results.html">Test results</a></li><li><a href="uninstall.html">Going back</a></li><li><a href="faq.html">FAQ</a></li><li><a href="changelog.html">Changelog</a></li></ul></nav>
+<a class="gh" href="https://github.com/2tdv/OLS-cPanel-WHM">GitHub</a>
+</div></header>
+<main id="content"><div class="narrow">
+
+<h1>LSCache on cPanel without a LiteSpeed Enterprise license</h1>
+<p class="lead" id="summary">You can run LSCache page caching on cPanel &amp; WHM without buying LiteSpeed Enterprise by using OpenLiteSpeed, LiteSpeed's free edition, through the free GPLv3 project OLS-cPanel-WHM. Site owners clear the cache from cPanel, administrators from WHM or the command line, and an hourly cleanup keeps the cache within size limits. This page covers which applications get the cache, how clearing and cleanup work, and where the limits are.</p>
+
+<h2>Why does LSCache normally mean LiteSpeed Enterprise on cPanel?</h2>
+<p>LSCache is the page cache built into LiteSpeed web servers. The cache features of LiteSpeed Cache for WordPress need a LiteSpeed server: according to <a href="https://docs.litespeedtech.com/lscache/lscwp/faq/">LiteSpeed's LSCache for WordPress FAQ</a>, the plugin's caching needs one of its LiteSpeed products, namely LiteSpeed Web Server, OpenLiteSpeed (v1.4.17 or later), LiteSpeed Web ADC or QUIC.cloud CDN. Apache is not one of them, so adding LSCache to a cPanel server running Apache has meant moving to a LiteSpeed server, and LiteSpeed Web Server (Enterprise) is the commercial one.</p>
+<p>OpenLiteSpeed is the free, open-source edition, and OLS-cPanel-WHM is what connects it to cPanel &amp; WHM. It is an independent project, not made by or affiliated with LiteSpeed Technologies or cPanel, L.L.C.; see <a href="faq.html#made-by-litespeed-or-cpanel">Is OLS-cPanel-WHM made by LiteSpeed or cPanel?</a></p>
+
+<h2>How does OLS-cPanel-WHM provide LSCache on cPanel?</h2>
+<p>OLS-cPanel-WHM replaces Apache with OpenLiteSpeed as the web server for the cPanel sites, while cPanel &amp; WHM stay in place. Because the server is OpenLiteSpeed, the LiteSpeed Cache plugin of your application can store and serve pages. In the project's nine-day test on 25 sites, OpenLiteSpeed served cached pages of WordPress, Joomla, Drupal and Laravel without running PHP; see <a href="results.html">the test results</a>.</p>
+<ul>
+<li><strong>WordPress, Joomla, Drupal, Laravel.</strong> Joomla, Drupal and Laravel sites are served by OpenLiteSpeed because the installer translates their stock <code>.htaccess</code> files (release 0.2.11; before that they stayed on Apache without the page cache). Drupal sites with LiteSpeed Cache stay on OpenLiteSpeed because the PHP setting the module writes for LiteSpeed is applied to that directory's PHP (release 0.2.12). See the <a href="changelog.html">changelog</a>.</li>
+<li><strong>Turning it on for a site.</strong> OLS-cPanel-WHM does not install the LiteSpeed Cache plugin and never changes a site's code or plugins. The site owner installs the free plugin, for example <a href="https://wordpress.org/plugins/litespeed-cache/">LiteSpeed Cache for WordPress</a>, and the settings are the plugin's own. If WordPress LiteSpeed Cache is active, the product connects it to the account's private object cache automatically; see <a href="object-cache.html">the object cache page</a>.</li>
+<li><strong>Sites that stay on Apache.</strong> A site whose <code>.htaccess</code> rules OpenLiteSpeed cannot run stays on Apache behind OpenLiteSpeed, and that site has no page cache store of its own. See <a href="safety.html">Safety</a> and <a href="faq.html#unusual-htaccess">the FAQ</a>.</li>
+</ul>
+
+<h2>How do I clear the page cache?</h2>
+<ul>
+<li><strong>Site owners</strong> use the cPanel plugin <em>Website performance (OpenLiteSpeed)</em>. Its <em>Page cache</em> view shows how much is stored and has a button to clear the cache for one site or all of them (<a href="cpanel.html#cp-v-cache">Page cache</a>), and the one-click Clear cache icon on the cPanel home clears all of an account's sites at once (<a href="cpanel.html#cp-v-purge">Clear cache</a>).</li>
+<li><strong>Administrators</strong> have a page cache view in WHM, and as root they can run <code>ols-cpanel cache stats</code> for the entries and bytes per site, and <code>ols-cpanel cache purge</code> with <code>--all</code>, <code>--account=USER</code> or <code>--domain=DOMAIN</code> to empty the cache of the server, one account or one domain.</li>
+<li><strong>Automatically:</strong> an hourly cleanup removes old entries and keeps each site's cache and the whole server's cache under size limits. The defaults are 512 MB per site and 10% of the cache filesystem (at most 20 GB) for the server, and the administrator can change them in the WHM page cache view or with <code>ols-cpanel cache limits</code>.</li>
+<li>The cache is emptied at every switch between Apache and OpenLiteSpeed, so pages from before a return to Apache are never shown (release 0.2.13).</li>
+</ul>
+
+<h2>What does LSCache on OpenLiteSpeed not do?</h2>
+<ul>
+<li><strong>Logged-in visitors.</strong> In the project's test, pages for logged-in visitors were not served from the page cache, so a large shop with many logged-in customers sees a smaller gain; see the limits on <a href="results.html">the test results page</a>.</li>
+<li><strong>Some LSCache features may be missing.</strong> LiteSpeed's FAQ says LiteSpeed Cache for WordPress can work well with OpenLiteSpeed, although some features, such as ESI, may not be supported.</li>
+</ul>
+
+<h2>What did it change on the test server?</h2>
+<p>The project compared a full day of cPanel's Apache with a full day of OpenLiteSpeed on the same 25 sites, within a test with nine days of traffic. The object cache ran on both days, so the differences come from the web server, PHP and the page cache. The numbers are on <a href="results.html">the test results page</a>; they are not repeated here, because they describe that test server only.</p>
+
+<h2>Where to go next</h2>
+<ul>
+<li><a href="install.html">Install OpenLiteSpeed on cPanel &amp; WHM</a>, with the switch plan shown before anything changes.</li>
+<li><a href="cpanel.html">The cPanel plugin</a>, where site owners clear the page cache.</li>
+<li><a href="object-cache.html">Redis/Valkey object cache for WordPress on cPanel</a>.</li>
+<li><a href="uninstall.html">Going back to Apache</a>, at any time.</li>
+<li><a href="faq.html#lscache-without-litespeed-enterprise">FAQ: Can I use LSCache on cPanel without LiteSpeed Enterprise?</a></li>
+<li><a href="index.html">OpenLiteSpeed for cPanel &amp; WHM</a>: the project home page.</li>
+</ul>
+<p>Sources: <a href="https://docs.litespeedtech.com/lscache/lscwp/faq/">LiteSpeed's LSCache for WordPress FAQ</a>, the project's <a href="https://github.com/2tdv/OLS-cPanel-WHM/blob/main/docs/product-interfaces.md">product interface documentation</a> (section LSCache management) and <a href="https://github.com/2tdv/OLS-cPanel-WHM/blob/main/CHANGELOG.md">changelog</a>. Maintained by 2T Development. Last updated 24 November 2026.</p>
+</div></main>
+<footer class="site-footer"><div class="wrap">
+<ul>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM">Source code</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/releases">Releases</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/issues">Issues</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/security/policy">Security policy</a></li>
+<li><a href="https://github.com/2tdv/OLS-cPanel-WHM/blob/main/LICENSE">GPLv3 license</a></li>
+</ul>
+<p>OLS-cPanel-WHM is free software under the GNU General Public License v3, maintained by 2T Development. OpenLiteSpeed is GPLv3 as well. Screenshots show the interface with example data.</p>
+<p class="notice">cPanel and WHM are registered trademarks of cPanel, L.L.C. OpenLiteSpeed and LiteSpeed are trademarks of LiteSpeed Technologies Inc. This project is independent and not affiliated with or endorsed by them.</p>
+</div></footer>
+<script src="assets/app.js" defer></script>
+</body>
+</html>
